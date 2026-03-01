@@ -1,0 +1,24 @@
+{
+  "doc_id": "doc_295d99fcb2a7",
+  "doc_name": "_tmp_test.pptx",
+  "doc_path": "D:\\Desktop\\FuWuWaiBao\\ai_engine\\_tmp_test.pptx",
+  "doc_type": "pptx",
+  "total_pages": 2,
+  "parsed_pages": [
+    {
+      "page": 1,
+      "content": "AI Parser PPT Test Slide one content",
+      "content_length": 36
+    },
+    {
+      "page": 2,
+      "content": "Second Slide Slide two content",
+      "content_length": 30
+    }
+  ],
+  "stats": {
+    "non_empty_pages": 2,
+    "empty_pages": 0,
+    "elapsed_ms": 16
+  }
+}
