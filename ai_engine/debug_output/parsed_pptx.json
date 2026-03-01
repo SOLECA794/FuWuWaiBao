@@ -1,0 +1,24 @@
+{
+  "doc_id": "doc_bd2ef376069f",
+  "doc_name": "sample.pptx",
+  "doc_path": "D:\\Desktop\\FuWuWaiBao\\ai_engine\\debug_output\\sample.pptx",
+  "doc_type": "pptx",
+  "total_pages": 2,
+  "parsed_pages": [
+    {
+      "page": 1,
+      "content": "机器学习基础 监督学习与非监督学习",
+      "content_length": 17
+    },
+    {
+      "page": 2,
+      "content": "模型评估 准确率、召回率、F1",
+      "content_length": 15
+    }
+  ],
+  "stats": {
+    "non_empty_pages": 2,
+    "empty_pages": 0,
+    "elapsed_ms": 15
+  }
+}
