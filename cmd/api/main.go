@@ -1,23 +1,26 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"path/filepath"
 	"runtime"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger" // 重命名为 gormlogger
+	gormlogger "gorm.io/gorm/logger"
 
 	"smart-teaching-backend/internal/handler"
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/repository"
 	"smart-teaching-backend/internal/service"
 	"smart-teaching-backend/pkg/config"
-	applogger "smart-teaching-backend/pkg/logger" // 重命名为 applogger
+	applogger "smart-teaching-backend/pkg/logger"
 	"smart-teaching-backend/pkg/oss"
 )
 
@@ -29,7 +32,6 @@ func main() {
 	// 加载配置
 	cfg, err := config.LoadConfig(filepath.Join(projectRoot, "config"))
 	if err != nil {
-		// 这里还不能用logger，直接用fmt
 		fmt.Printf("加载配置失败: %v\n", err)
 		return
 	}
@@ -80,7 +82,7 @@ func main() {
 	if err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
-	_ = redisClient // 暂时不使用
+	_ = redisClient
 	applogger.Info("Redis连接成功")
 
 	// 初始化MinIO客户端
@@ -95,14 +97,39 @@ func main() {
 
 	// 初始化处理器
 	courseHandler := handler.NewCourseHandler(courseService)
+	teacherHandler := handler.NewTeacherHandler(db)
 
 	// 设置Gin
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	// 创建 gin 引擎
 	r := gin.New()
+
+	// 最重要的中间件：设置 UTF-8 响应头（放在最前面）
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		c.Next()
+	})
+
+	// 恢复中间件
 	r.Use(gin.Recovery())
+
+	// 请求体 UTF-8 检查中间件
+	r.Use(func(c *gin.Context) {
+		// 读取请求体
+		bodyBytes, readErr := io.ReadAll(c.Request.Body)
+		if readErr == nil && len(bodyBytes) > 0 {
+			// 确保请求体是 UTF-8
+			if !utf8.Valid(bodyBytes) {
+				applogger.Warn("请求体包含非 UTF-8 字符")
+			}
+			// 重新设置请求体，因为已经被读取
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+		c.Next()
+	})
 
 	// 日志中间件
 	r.Use(func(c *gin.Context) {
@@ -128,14 +155,36 @@ func main() {
 	})
 
 	// API路由
-	api := r.Group("/api/v1")
+	api := r.Group("/api")
 	{
-		// 课件相关
-		api.POST("/courses/upload", courseHandler.UploadCourse)
-		api.GET("/courses/:id", courseHandler.GetCourse)
-		api.GET("/courses/:id/pages", courseHandler.GetCoursePages)
-		api.PUT("/pages/:id/script", courseHandler.UpdatePageScript)
-		api.DELETE("/courses/:id", courseHandler.DeleteCourse)
+		// 课件预览（公开）
+		api.GET("/courseware/:courseId/page/:pageNum", teacherHandler.GetPagePreview)
+
+		// 教师端接口
+		teacher := api.Group("/teacher")
+		{
+			// 1. 课件管理
+			teacher.GET("/courseware-list", teacherHandler.GetCoursewareList)
+			teacher.POST("/upload-courseware", courseHandler.UploadCourse)
+			teacher.DELETE("/courseware/:courseId", courseHandler.DeleteCourse)
+			teacher.POST("/publish-courseware", teacherHandler.PublishCourseware)
+
+			// 2. 讲稿编辑
+			teacher.GET("/script/:courseId/:page", teacherHandler.GetScript)
+			teacher.POST("/script/save", teacherHandler.SaveScript)
+			teacher.POST("/ai-generate-script", teacherHandler.AIGenerateScript)
+
+			// 3. 学情分析
+			teacher.GET("/student-stats/:courseId", teacherHandler.GetStudentStats)
+
+			// 4. 提问记录
+			teacher.GET("/question-records/:courseId", teacherHandler.GetQuestionRecords)
+		}
+
+		// 公开接口
+		api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {
+			c.JSON(200, gin.H{"message": "待实现"})
+		})
 	}
 
 	// 启动服务
