@@ -1,94 +1,84 @@
 <template>
   <div class="app-container">
-    <!-- 顶部导航 -->
+    <!-- 顶部导航栏 -->
     <header class="header">
       <div class="header-left">
-        <img src="https://picsum.photos/40/40" alt="logo" class="logo">
-        <span class="system-name">智能互动教学平台 · 学生端</span>
+        <img src="https://picsum.photos/40/40?random=1" alt="logo" class="logo" />
+        <div class="system-name">智能学习课堂系统</div>
       </div>
       <div class="header-right">
-        <el-badge :value="3" type="danger">
-          <el-avatar :size="36" src="https://picsum.photos/100/100"></el-avatar>
-        </el-badge>
-        <span class="user-name">学生 2025001</span>
+        <span>用户名：学生001</span>
+        <span>当前课程：Python数据处理</span>
       </div>
     </header>
 
-    <!-- 主体 -->
+    <!-- 主体内容 -->
     <main class="main">
-      <!-- 左侧：课件区 -->
+      <!-- 左侧课件区域 -->
       <section class="left-section">
         <div class="course-card">
           <div class="course-header">
-            <h3>Python 数据分析 · 第 3 课：缺失值处理</h3>
+            <h3>Python数据处理 - 第{{ currentPage }}页</h3>
             <div class="course-tag">
-              <el-tag type="success" size="small">学习中</el-tag>
-              <span class="page-count">第 {{ currentPage }} / {{ totalPage }} 页</span>
+              <el-tag size="small">数据清洗</el-tag>
+              <span class="page-count">{{ currentPage }}/{{ totalPage }}</span>
             </div>
           </div>
 
-          <!-- 新增：断点续播弹窗 -->
-          <el-dialog
-            title="学习进度提醒"
-            v-model="showBreakpointDialog"
-            width="30%"
-            center
-            :close-on-click-modal="false"
-          >
-            <p>你上次学习停留到 <span style="color: #1989fa; font-weight: bold;">第 {{ breakpointPage }} 页</span>，是否继续从该页学习？</p>
-            <template v-slot:footer>
-              <el-button @click="restartStudy">重新开始</el-button>
-              <el-button type="primary" @click="continueStudy">继续学习</el-button>
-            </template>
-          </el-dialog>
-
-          <!-- 课件内容 -->
           <div class="course-content">
-            <img :src="courseImg" alt="课件" class="course-img">
-            <div v-if="tracePoint" class="trace-highlight"
-                 :style="{top: traceTop+'px', left: traceLeft+'px'}">
-            </div>
+            <img :src="courseImg" alt="课件内容" class="course-img" />
+            <!-- 溯源定位高亮框 -->
+            <div
+              v-if="tracePoint"
+              class="trace-highlight"
+              :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
+            ></div>
           </div>
 
-          <!-- 翻页控制 -->
           <div class="course-control">
-            <el-button icon="el-icon-arrow-left" @click="prevPage">上一页</el-button>
-            <el-button :icon="isPlay?'el-icon-video-pause':'el-icon-video-play'" @click="togglePlay">
-              {{ isPlay ? '暂停' : '自动播放' }}
+            <el-button @click="prevPage" icon="el-icon-arrow-left" size="small">上一页</el-button>
+            <el-button @click="togglePlay" :icon="isPlay ? 'el-icon-pause' : 'el-icon-play'" size="small">
+              {{ isPlay ? '暂停' : '播放' }}
             </el-button>
-            <el-button icon="el-icon-arrow-right" @click="nextPage">下一页</el-button>
+            <el-button @click="nextPage" icon="el-icon-arrow-right" size="small">下一页</el-button>
           </div>
         </div>
       </section>
 
-      <!-- 右侧：智能互动区 -->
+      <!-- 右侧智能交互区域 -->
       <section class="right-section">
         <el-tabs v-model="activeTab" class="smart-tab">
+          <!-- 多模态提问 Tab -->
           <el-tab-pane label="多模态提问" name="ask">
             <div class="panel-box">
-              <div class="question-header">
-                <span>当前溯源定位：</span>
-                <el-tag type="primary" size="small">第 {{ currentPage }} 页</el-tag>
-                <el-tag type="warning" size="small" v-if="tracePoint">已圈选知识点</el-tag>
-              </div>
+              <div class="question-header">基于课件内容精准提问</div>
               <div class="multi-modal-input">
-                <el-input v-model="question" type="textarea" :rows="2" placeholder="输入问题..."></el-input>
+                <el-input
+                  v-model="question"
+                  type="textarea"
+                  placeholder="请输入你的问题..."
+                  :rows="4"
+                ></el-input>
                 <div class="modal-tools">
-                  <el-button size="mini" icon="el-icon-picture" @click="openUpload">截图/圈图提问</el-button>
-                  <el-button size="mini" icon="el-icon-microphone" type="info">语音提问</el-button>
-                  <el-button size="mini" type="success" @click="sendMultiModalQuestion" :disabled="!question">
-                    发送 AI 问答
+                  <el-button size="small" @click="openUpload" icon="el-icon-upload">上传截图</el-button>
+                  <el-button size="small" icon="el-icon-crop">圈图提问</el-button>
+                  <el-button type="primary" size="small" @click="sendMultiModalQuestion" icon="el-icon-send">
+                    发送提问
                   </el-button>
                 </div>
               </div>
+
+              <!-- AI 回答区域 -->
               <div class="ai-chat" v-if="aiReply">
                 <div class="chat-item teacher">
-                  <div class="title">AI 智能答疑</div>
-                  <div class="content">{{ aiReply }}</div>
+                  <div class="title">AI 助教回答</div>
+                  <div>{{ aiReply }}</div>
                 </div>
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- 学习数据 Tab -->
           <el-tab-pane label="学习数据" name="data">
             <div class="panel-box">
               <div class="data-grid">
@@ -109,26 +99,76 @@
                   <div class="label">掌握率</div>
                 </div>
               </div>
+
               <div class="weak-point">
-                <div class="title">AI 诊断薄弱点</div>
-                <el-tag type="danger" size="small">缺失值填充</el-tag>
-                <el-tag type="danger" size="small">异常值识别</el-tag>
-                <el-tag type="danger" size="small">重复值处理</el-tag>
+                <div class="title">AI 诊断薄弱点（点击可学习）</div>
+                <el-tag
+                  type="danger"
+                  size="small"
+                  style="cursor: pointer; margin: 3px"
+                  @click="startWeakPointLearn('缺失值填充')"
+                >
+                  缺失值填充
+                </el-tag>
+                <el-tag
+                  type="danger"
+                  size="small"
+                  style="cursor: pointer; margin: 3px"
+                  @click="startWeakPointLearn('异常值识别')"
+                >
+                  异常值识别
+                </el-tag>
+                <el-tag
+                  type="danger"
+                  size="small"
+                  style="cursor: pointer; margin: 3px"
+                  @click="startWeakPointLearn('重复值处理')"
+                >
+                  重复值处理
+                </el-tag>
+              </div>
+
+              <!-- 薄弱点讲解 -->
+              <div v-if="currentExplain" class="explain-card">
+                <h4>📘 {{ currentWeakPoint }} · 知识点讲解</h4>
+                <p>{{ currentExplain }}</p>
+                <el-button type="primary" @click="generateTest" style="margin-top: 10px">
+                  已学会，开始习题检测
+                </el-button>
+              </div>
+
+              <!-- 习题检测 -->
+              <div v-if="currentTest" class="test-card">
+                <h4>📝 练习题：{{ currentWeakPoint }}</h4>
+                <p>{{ currentTest.question }}</p>
+                <el-button
+                  v-for="(opt, idx) in currentTest.options"
+                  :key="idx"
+                  style="margin: 5px"
+                  @click="checkAnswer(opt)"
+                >
+                  {{ opt }}
+                </el-button>
+                <div v-if="testResult" :style="{ color: testResult.correct ? 'green' : 'red', marginTop: '10px' }">
+                  {{ testResult.msg }}
+                </div>
+                <div v-if="testResult && testResult.analysis">
+                  <small style="display: block; margin-top: 5px">解析：{{ testResult.analysis }}</small>
+                </div>
               </div>
             </div>
           </el-tab-pane>
+
+          <!-- 溯源定位 Tab -->
           <el-tab-pane label="溯源定位" name="trace">
             <div class="panel-box">
               <p>点击课件任意位置 → 圈选知识点 → 精准提问</p>
-              <el-button type="primary" plain size="small" @click="openTraceMode">
-                开启溯源定位
-              </el-button>
-              <div v-if="traceLog" class="trace-log">
-                {{ traceLog }}
-              </div>
+              <el-button type="primary" plain size="small" @click="openTraceMode">开启溯源定位</el-button>
+              <div v-if="traceLog" class="trace-log">{{ traceLog }}</div>
             </div>
           </el-tab-pane>
-          <!-- 新增：知识点拆解 Tab -->
+
+          <!-- 知识点拆解 Tab -->
           <el-tab-pane label="知识点拆解" name="parse">
             <div class="panel-box">
               <!-- 文件上传区域 -->
@@ -144,18 +184,18 @@
                 >
                   <i class="el-icon-upload"></i>
                   <div class="el-upload__text">
-                    拖拽文件到此处，或<em>点击上传</em><br>
-                    <span style="font-size: 12px; color: #999;">支持 PDF / PPTX 格式</span>
+                    拖拽文件到此处，或<em>点击上传</em><br />
+                    <span style="font-size: 12px; color: #999">支持 PDF / PPTX 格式</span>
                   </div>
                 </el-upload>
-                <el-button type="primary" @click="parseKnowledge" :disabled="!uploadedFile" style="margin-top: 10px;">
+                <el-button type="primary" @click="parseKnowledge" :disabled="!uploadedFile" style="margin-top: 10px">
                   开始拆解知识点
                 </el-button>
               </div>
 
               <!-- 知识点树形展示 -->
               <div class="knowledge-tree" v-if="knowledgeList.length > 0">
-                <h4 style="margin: 10px 0;">知识点结构（点击可定位）</h4>
+                <h4 style="margin: 10px 0">知识点结构（点击可定位）</h4>
                 <el-tree
                   :data="knowledgeList"
                   :props="treeProps"
@@ -171,7 +211,7 @@
                 title="正在拆解知识点，请稍候..."
                 type="info"
                 show-icon
-                style="margin-top: 20px;"
+                style="margin-top: 20px"
               ></el-alert>
               <el-alert
                 v-if="parseResult"
@@ -179,7 +219,7 @@
                 type="success"
                 show-icon
                 closable
-                style="margin-top: 20px;"
+                style="margin-top: 20px"
               ></el-alert>
             </div>
           </el-tab-pane>
@@ -187,10 +227,23 @@
       </section>
     </main>
 
-    <!-- 底部 -->
-    <footer class="footer">
-      2026 服务外包创新创业大赛 · 智能教学系统 · 前端企业级设计
-    </footer>
+    <!-- 底部版权 -->
+    <footer class="footer">© 2025 智能学习课堂系统 - 版权所有</footer>
+
+    <!-- 断点续播弹窗 -->
+    <el-dialog
+      v-model="showBreakpointDialog"
+      title="断点续播"
+      width="30%"
+      :close-on-click-modal="false"
+      :show-close="false"
+    >
+      <p>检测到你上次学习到第 {{ breakpointPage }} 页，是否继续学习？</p>
+      <template #footer>
+        <el-button @click="restartStudy">重新开始</el-button>
+        <el-button type="primary" @click="continueStudy">继续学习</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -199,56 +252,73 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 
-// 2. 原有变量（完全保留）
+// 2. 基础课件变量
 const currentPage = ref(3)
 const totalPage = ref(10)
 const isPlay = ref(false)
 const courseImg = ref('https://picsum.photos/900/500?random=3')
 const activeTab = ref('ask')
+
+// 3. 多模态提问变量
 const question = ref('')
 const aiReply = ref('')
+
+// 4. 溯源定位变量
 const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
 const traceLog = ref('')
 
-// 3. 断点续播变量（新增）
+// 5. 断点续播变量
 const showBreakpointDialog = ref(false)
-const breakpointPage = ref(3) // 模拟断点页码
+const breakpointPage = ref(3)
 
-// 新增：知识点拆解核心变量
-const uploadedFile = ref(null) // 上传的文件对象
-const isParsing = ref(false) // 拆解中状态
-const parseResult = ref('') // 拆解结果提示
-const knowledgeList = ref([]) // 知识点树形数据
-const treeProps = ref({ // 树形组件配置
+// 6. 知识点拆解变量
+const uploadedFile = ref(null)
+const isParsing = ref(false)
+const parseResult = ref('')
+const knowledgeList = ref([])
+const treeProps = ref({
   label: 'name',
   children: 'children'
 })
 
-// 4. 原有方法（完全保留）
+// 7. 薄弱点学习 + 习题检测变量
+const currentWeakPoint = ref('')
+const currentExplain = ref('')
+const currentTest = ref(null)
+const testResult = ref(null)
+
+// 8. 基础课件方法
 const prevPage = () => {
   if (currentPage.value <= 1) return
   currentPage.value--
   courseImg.value = `https://picsum.photos/900/500?random=${currentPage.value}`
 }
+
 const nextPage = () => {
   if (currentPage.value >= totalPage.value) return
   currentPage.value++
   courseImg.value = `https://picsum.photos/900/500?random=${currentPage.value}`
 }
+
 const togglePlay = () => {
   isPlay.value = !isPlay.value
 }
+
+// 9. 多模态提问方法
 const openUpload = () => {
   ElMessage.info('已打开截图/圈图提问')
 }
+
 const sendMultiModalQuestion = () => {
   aiReply.value = `【AI 答疑】你在第 ${currentPage.value} 页提问：${question.value}\n
 → 溯源定位：缺失值填充方法\n
 → 回答：fillna() 适合连续数据，dropna() 适合少量缺失，interpolate() 用于时序数据。`
   ElMessage.success('AI 答疑完成')
 }
+
+// 10. 溯源定位方法
 const openTraceMode = () => {
   tracePoint.value = true
   traceTop.value = 150
@@ -256,16 +326,18 @@ const openTraceMode = () => {
   traceLog.value = `已定位：第 ${currentPage.value} 页 → 缺失值处理区域`
 }
 
-// 5. 断点续播方法（新增）
+// 11. 断点续播方法
 onMounted(() => {
   showBreakpointDialog.value = true
 })
+
 const continueStudy = () => {
   currentPage.value = breakpointPage.value
   courseImg.value = `https://picsum.photos/900/500?random=${breakpointPage.value}`
   showBreakpointDialog.value = false
   ElMessage.success(`已为你跳转到第 ${breakpointPage.value} 页`)
 }
+
 const restartStudy = () => {
   currentPage.value = 1
   courseImg.value = `https://picsum.photos/900/500?random=1`
@@ -273,15 +345,13 @@ const restartStudy = () => {
   ElMessage.info('已回到第1页重新开始学习')
 }
 
-// 新增：知识点拆解核心方法
-// 1. 监听文件上传
+// 12. 知识点拆解方法
 const handleFileChange = (file) => {
   uploadedFile.value = file.raw
   parseResult.value = ''
   knowledgeList.value = []
 }
 
-// 2. 知识点拆解（模拟数据版）
 const parseKnowledge = async () => {
   if (!uploadedFile.value) {
     ElMessage.warning('请先上传 PDF/PPTX 文件！')
@@ -292,17 +362,23 @@ const parseKnowledge = async () => {
   try {
     // 模拟AI拆解的知识点数据
     const mockKnowledge = [
-      { name: 'Python 缺失值处理', children: [
-        { name: '缺失值检测', children: [{ name: 'isnull() 方法' }, { name: 'info() 方法' }] },
-        { name: '缺失值填充', children: [{ name: 'fillna() 均值填充' }, { name: 'interpolate() 插值填充' }] }
-      ]},
-      { name: 'Python 异常值处理', children: [
-        { name: '异常值识别', children: [{ name: '箱线图法' }, { name: 'Z分数法' }] },
-        { name: '异常值处理', children: [{ name: '删除法' }, { name: '替换法' }] }
-      ]}
+      {
+        name: 'Python 缺失值处理',
+        children: [
+          { name: '缺失值检测', children: [{ name: 'isnull() 方法' }, { name: 'info() 方法' }] },
+          { name: '缺失值填充', children: [{ name: 'fillna() 均值填充' }, { name: 'interpolate() 插值填充' }] }
+        ]
+      },
+      {
+        name: 'Python 异常值处理',
+        children: [
+          { name: '异常值识别', children: [{ name: '箱线图法' }, { name: 'Z分数法' }] },
+          { name: '异常值处理', children: [{ name: '删除法' }, { name: '替换法' }] }
+        ]
+      }
     ]
 
-    // 格式化数据
+    // 格式化数据适配树形组件
     knowledgeList.value = mockKnowledge.map((item, index) => ({
       id: index + 1,
       name: item.name,
@@ -320,10 +396,10 @@ const parseKnowledge = async () => {
   }
 }
 
-// 3. 辅助：统计知识点节点数量
+// 辅助：统计知识点节点数量
 const countNodes = (tree) => {
   let count = 0
-  tree.forEach(node => {
+  tree.forEach((node) => {
     count++
     if (node.children && node.children.length) {
       count += countNodes(node.children)
@@ -332,7 +408,7 @@ const countNodes = (tree) => {
   return count
 }
 
-// 4. 点击知识点：联动溯源定位
+// 点击知识点联动溯源定位
 const handleNodeClick = (data) => {
   ElMessage.info(`已定位到知识点：${data.name}`)
   tracePoint.value = true
@@ -340,9 +416,73 @@ const handleNodeClick = (data) => {
   traceLeft.value = 300
   traceLog.value = `已定位知识点：${data.name}`
 }
+
+// 13. 薄弱点学习 + 习题检测核心逻辑
+// 知识点讲解库
+const weakPointExplain = {
+  '缺失值填充': `缺失值是数据中为空的部分，常用方法：
+1. fillna() 填充常数、均值、中位数
+2. interpolate() 线性插值（适合时序）
+3. dropna() 直接删除行/列`,
+
+  '异常值识别': `异常值是明显偏离正常范围的数据，常用方法：
+1. 箱线图法：超过 Q3+1.5IQR 或低于 Q1-1.5IQR 判为异常
+2. Z分数法：绝对值大于3视为异常
+3. 直方图/散点图观察偏离点`,
+
+  '重复值处理': `重复值是完全相同的行，处理步骤：
+1. duplicated() 查找重复
+2. drop_duplicates() 删除重复
+3. 按关键字段去重（如 id、时间）`
+}
+
+// 题库
+const testBank = {
+  '缺失值填充': {
+    question: '以下哪种方法适合时序数据的缺失值填充？',
+    options: ['fillna(均值)', 'dropna()', 'interpolate()', '直接填0'],
+    answer: 'interpolate()',
+    analysis: 'interpolate 是线性插值，最适合时间顺序数据'
+  },
+  '异常值识别': {
+    question: '箱线图中，超过哪个范围被认为是异常值？',
+    options: ['±2σ', 'Q1-1.5IQR ～ Q3+1.5IQR', '平均值±标准差', '95%置信区间'],
+    answer: 'Q1-1.5IQR ～ Q3+1.5IQR',
+    analysis: '箱线图异常判定标准就是 1.5 倍四分位距'
+  },
+  '重复值处理': {
+    question: 'pandas中删除重复值用哪个方法？',
+    options: ['unique()', 'drop_duplicates()', 'delete()', 'remove()'],
+    answer: 'drop_duplicates()',
+    analysis: 'drop_duplicates() 是官方去重方法'
+  }
+}
+
+// 开始学习薄弱点
+const startWeakPointLearn = (point) => {
+  currentWeakPoint.value = point
+  currentExplain.value = weakPointExplain[point]
+  currentTest.value = null
+  testResult.value = null
+}
+
+// 生成测试题
+const generateTest = () => {
+  currentTest.value = testBank[currentWeakPoint.value]
+  testResult.value = null
+}
+
+// 检查答案
+const checkAnswer = (option) => {
+  const isCorrect = option === currentTest.value.answer
+  testResult.value = {
+    correct: isCorrect,
+    msg: isCorrect ? '✅ 回答正确！' : '❌ 回答错误',
+    analysis: currentTest.value.analysis
+  }
+}
 </script>
 
-<!-- ========== 这里就是你要找的 <style scoped> 部分 ========== -->
 <style scoped>
 * {
   margin: 0;
@@ -359,13 +499,13 @@ const handleNodeClick = (data) => {
 }
 .header {
   height: 60px;
-  background: #1989fa;
+  background: #c4d5e6;
   color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 24px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 .header-left {
   display: flex;
@@ -403,7 +543,7 @@ const handleNodeClick = (data) => {
   border-radius: 12px;
   padding: 20px;
   height: 100%;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
 }
@@ -446,15 +586,21 @@ const handleNodeClick = (data) => {
   width: 180px;
   height: 100px;
   border: 3px solid #ff6633;
-  background: rgba(255,102,51,0.1);
+  background: rgba(255, 102, 51, 0.1);
   pointer-events: none;
   border-radius: 6px;
   animation: flash 1.2s infinite;
 }
 @keyframes flash {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.4; }
+  0% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0.4;
+  }
 }
 .course-control {
   margin-top: 16px;
@@ -475,7 +621,7 @@ const handleNodeClick = (data) => {
   background: white;
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 .question-header {
   margin-bottom: 10px;
@@ -502,7 +648,7 @@ const handleNodeClick = (data) => {
 }
 .teacher {
   background: #e6f7ff;
-  border-left: 4px solid #1989fa;
+  border-left: 4px solid #97c2ed;
 }
 .chat-item .title {
   font-weight: bold;
@@ -557,7 +703,7 @@ const handleNodeClick = (data) => {
   border-top: 1px solid #eee;
 }
 
-/* ========== 新增：知识点拆解样式 ========== */
+/* 知识点拆解样式 */
 .upload-area {
   padding: 20px;
   border: 1px dashed #dcdfe6;
@@ -575,5 +721,21 @@ const handleNodeClick = (data) => {
 }
 :deep(.el-tree) {
   --el-tree-node-content-hover-bg-color: #e6f7ff;
+}
+
+/* 薄弱点学习 + 习题检测样式 */
+.explain-card {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  border-left: 4px solid #1989fa;
+}
+.test-card {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fff7e6;
+  border-radius: 8px;
+  border-left: 4px solid #faad14;
 }
 </style>
