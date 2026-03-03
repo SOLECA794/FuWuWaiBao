@@ -60,7 +60,7 @@
         </div>
       </div>
 
-      <!-- 右侧：讲稿编辑与学情分析区 -->
+      <!-- 右侧：讲稿编辑与分析区 -->
       <div class="editor-section">
         <div class="tabs">
           <button
@@ -83,6 +83,13 @@
             @click="activeTab = 'questions'"
           >
             提问统计
+          </button>
+          <button
+            class="tab-btn"
+            :class="{ active: activeTab === '卡点分析' }"
+            @click="activeTab = '卡点分析'; renderChart()"
+          >
+            学习卡点可视化
           </button>
         </div>
 
@@ -166,6 +173,43 @@
           </div>
           <div v-else class="empty-tip">请先选择一个课件查看提问统计</div>
         </div>
+
+        <!-- 学习卡点可视化 -->
+        <div class="tab-content" v-if="activeTab === '卡点分析'">
+          <div class="chart-header" v-if="currentCourseId">
+            <h4>学习卡点分析 - {{ currentCourseName }}</h4>
+            <div class="chart-type">
+              <span>图表类型：</span>
+              <button 
+                class="chart-btn" 
+                :class="{ active: chartType === 'bar' }"
+                @click="chartType = 'bar'; renderChart()"
+              >柱状图</button>
+              <button 
+                class="chart-btn" 
+                :class="{ active: chartType === 'line' }"
+                @click="chartType = 'line'; renderChart()"
+              >折线图</button>
+              <button 
+                class="chart-btn" 
+                :class="{ active: chartType === 'pie' }"
+                @click="chartType = 'pie'; renderChart()"
+              >饼图</button>
+            </div>
+          </div>
+          <div v-if="currentCourseId" class="chart-container">
+            <div id="卡点图表" class="chart" style="width:100%;height:400px;"></div>
+            <div class="chart-tip">
+              <p>数据说明：</p>
+              <ul>
+                <li>提问量：该页面学生发起的提问总数</li>
+                <li>停留时长：学生平均停留时长（秒）</li>
+                <li>卡点指数：综合提问量+停留时长计算的卡点程度（0-10）</li>
+              </ul>
+            </div>
+          </div>
+          <div v-else class="empty-tip">请先选择一个课件查看卡点分析</div>
+        </div>
       </div>
     </div>
 
@@ -223,11 +267,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, onUnmounted } from 'vue';
+import * as echarts from 'echarts';
 
 // ========== 核心变量 ==========
 const coursewareList = ref([
-  // 模拟数据
   { id: '1', name: 'Python数据分析·第3课：缺失值处理', totalPages: 10, published: true },
   { id: '2', name: 'Python数据分析·第2课：数据清洗', totalPages: 8, published: false }
 ]);
@@ -252,7 +296,7 @@ const studentStats = ref({
   keyDifficulties: '缺失值填充、异常值识别'
 });
 
-// 提问统计模拟数据
+// 提问统计
 const questionRecords = ref([
   { id: 1, studentId: '2025001', page: 4, content: '这一页的缺失值填充方法有哪些？', answer: '常用方法有均值填充、中位数填充、KNN填充等。', time: '2026-03-01 20:15' },
   { id: 2, studentId: '2025002', page: 4, content: '为什么要处理缺失值？不处理会有什么影响？', answer: '缺失值会导致统计偏差，影响模型训练效果。', time: '2026-03-01 20:20' },
@@ -264,10 +308,34 @@ const filteredQuestions = computed(() => {
   return questionRecords.value.filter(q => q.page === Number(filterPage.value));
 });
 
+// 学习卡点可视化
+const chartType = ref('bar');
+let chartInstance = null;
+const cardData = ref([
+  { page: 1, 提问量: 1, 停留时长: 20, 卡点指数: 1.2 },
+  { page: 2, 提问量: 0, 停留时长: 15, 卡点指数: 0.8 },
+  { page: 3, 提问量: 2, 停留时长: 30, 卡点指数: 2.5 },
+  { page: 4, 提问量: 8, 停留时长: 90, 卡点指数: 8.5 },
+  { page: 5, 提问量: 3, 停留时长: 45, 卡点指数: 3.8 },
+  { page: 6, 提问量: 7, 停留时长: 80, 卡点指数: 7.2 },
+  { page: 7, 提问量: 2, 停留时长: 25, 卡点指数: 2.1 },
+  { page: 8, 提问量: 6, 停留时长: 75, 卡点指数: 6.8 },
+  { page: 9, 提问量: 1, 停留时长: 18, 卡点指数: 1.0 },
+  { page: 10, 提问量: 0, 停留时长: 12, 卡点指数: 0.5 }
+]);
+
 // ========== 初始化 ==========
 onMounted(async () => {
   await loadCoursewareList();
   await loadStudentStats(currentCourseId.value);
+  await loadCardData(currentCourseId.value);
+});
+
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.dispose();
+    chartInstance = null;
+  }
 });
 
 // ========== 课件管理 ==========
@@ -288,6 +356,7 @@ const selectCourse = async (course) => {
   currentEditPage.value = 1;
   await loadScript(course.id, 1);
   await loadStudentStats(course.id);
+  await loadCardData(course.id);
 };
 
 const deleteCourse = async (courseId) => {
@@ -406,7 +475,6 @@ const publishCourseware = async () => {
         scope: publishScope.value
       })
     });
-    // 更新本地状态
     const course = coursewareList.value.find(c => c.id === currentCourseId.value);
     if (course) course.published = true;
     alert('课件发布成功！学生端已可查看。');
@@ -433,6 +501,92 @@ const loadStudentStats = async (courseId) => {
       keyDifficulties: '加载失败'
     };
   }
+};
+
+// ========== 学习卡点可视化 ==========
+const loadCardData = async (courseId) => {
+  try {
+    const res = await fetch(`http://localhost:3000/api/teacher/card-data/${courseId}`);
+    const data = await res.json();
+    cardData.value = data.list || cardData.value;
+  } catch (err) {
+    console.error('加载卡点数据失败，使用模拟数据', err);
+  }
+};
+
+const renderChart = () => {
+  if (chartInstance) {
+    chartInstance.dispose();
+  }
+
+  chartInstance = echarts.init(document.getElementById('卡点图表'));
+
+  const pages = cardData.value.map(item => `第${item.page}页`);
+  const questionCounts = cardData.value.map(item => item.提问量);
+  const stayTimes = cardData.value.map(item => item.停留时长);
+  const cardScores = cardData.value.map(item => item.卡点指数);
+
+  let option = {};
+
+  switch (chartType.value) {
+    case 'bar':
+      option = {
+        title: { text: '各页面学习卡点数据' },
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+        xAxis: { type: 'category', data: pages },
+        yAxis: { type: 'value' },
+        series: [
+          { name: '提问量', type: 'bar', data: questionCounts },
+          { name: '停留时长(秒)', type: 'bar', data: stayTimes },
+          { name: '卡点指数', type: 'bar', data: cardScores, itemStyle: { color: '#ff4d4f' } }
+        ]
+      };
+      break;
+    case 'line':
+      option = {
+        title: { text: '各页面学习卡点趋势' },
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+        xAxis: { type: 'category', data: pages },
+        yAxis: { type: 'value' },
+        series: [
+          { name: '提问量', type: 'line', data: questionCounts },
+          { name: '停留时长(秒)', type: 'line', data: stayTimes },
+          { name: '卡点指数', type: 'line', data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
+        ]
+      };
+      break;
+    case 'pie':
+      const top5CardData = [...cardData.value].sort((a, b) => b.卡点指数 - a.卡点指数).slice(0, 5);
+      option = {
+        title: { text: 'TOP5 卡点页面占比' },
+        tooltip: { trigger: 'item' },
+        legend: { orient: 'vertical', left: 'left', data: top5CardData.map(item => `第${item.page}页`) },
+        series: [
+          {
+            name: '卡点指数',
+            type: 'pie',
+            radius: ['40%', '70%'],
+            data: top5CardData.map(item => ({
+              name: `第${item.page}页`,
+              value: item.卡点指数
+            })),
+            label: {
+              formatter: '{b}: {c} ({d}%)'
+            }
+          }
+        ]
+      };
+      break;
+  }
+
+  chartInstance.setOption(option);
+  window.addEventListener('resize', () => {
+    if (chartInstance) {
+      chartInstance.resize();
+    }
+  });
 };
 </script>
 
@@ -703,7 +857,7 @@ const loadStudentStats = async (courseId) => {
 }
 
 /* 学情分析 */
-.stats-header h4, .questions-header h4 {
+.stats-header h4, .questions-header h4, .chart-header h4 {
   font-size: 16px;
   font-weight: 500;
   color: #333;
@@ -783,7 +937,49 @@ const loadStudentStats = async (courseId) => {
   font-weight: 500;
 }
 
-/* 上传弹窗 */
+/* 学习卡点可视化 */
+.chart-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #666;
+}
+.chart-btn {
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  background: white;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chart-btn.active {
+  background: #1677ff;
+  color: white;
+  border-color: #1677ff;
+}
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.chart {
+  background: #fafafa;
+  padding: 16px;
+  border-radius: 8px;
+}
+.chart-tip {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+.chart-tip ul {
+  margin: 8px 0 0 20px;
+  padding: 0;
+}
+
+/* 上传/发布弹窗 */
 .modal-overlay {
   position: fixed;
   top: 0;
