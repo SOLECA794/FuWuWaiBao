@@ -128,6 +128,61 @@
               </div>
             </div>
           </el-tab-pane>
+          <!-- 新增：知识点拆解 Tab -->
+          <el-tab-pane label="知识点拆解" name="parse">
+            <div class="panel-box">
+              <!-- 文件上传区域 -->
+              <div class="upload-area">
+                <el-upload
+                  class="upload-demo"
+                  drag
+                  action="#"
+                  :auto-upload="false"
+                  :on-change="handleFileChange"
+                  accept=".pdf,.pptx"
+                  :limit="1"
+                >
+                  <i class="el-icon-upload"></i>
+                  <div class="el-upload__text">
+                    拖拽文件到此处，或<em>点击上传</em><br>
+                    <span style="font-size: 12px; color: #999;">支持 PDF / PPTX 格式</span>
+                  </div>
+                </el-upload>
+                <el-button type="primary" @click="parseKnowledge" :disabled="!uploadedFile" style="margin-top: 10px;">
+                  开始拆解知识点
+                </el-button>
+              </div>
+
+              <!-- 知识点树形展示 -->
+              <div class="knowledge-tree" v-if="knowledgeList.length > 0">
+                <h4 style="margin: 10px 0;">知识点结构（点击可定位）</h4>
+                <el-tree
+                  :data="knowledgeList"
+                  :props="treeProps"
+                  node-key="id"
+                  @node-click="handleNodeClick"
+                  default-expand-all
+                ></el-tree>
+              </div>
+
+              <!-- 状态提示 -->
+              <el-alert
+                v-if="isParsing"
+                title="正在拆解知识点，请稍候..."
+                type="info"
+                show-icon
+                style="margin-top: 20px;"
+              ></el-alert>
+              <el-alert
+                v-if="parseResult"
+                :title="parseResult"
+                type="success"
+                show-icon
+                closable
+                style="margin-top: 20px;"
+              ></el-alert>
+            </div>
+          </el-tab-pane>
         </el-tabs>
       </section>
     </main>
@@ -140,7 +195,7 @@
 </template>
 
 <script setup>
-// 1. 导入所有需要的依赖（解决onMounted未定义）
+// 1. 导入所有需要的依赖
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 
@@ -160,6 +215,16 @@ const traceLog = ref('')
 // 3. 断点续播变量（新增）
 const showBreakpointDialog = ref(false)
 const breakpointPage = ref(3) // 模拟断点页码
+
+// 新增：知识点拆解核心变量
+const uploadedFile = ref(null) // 上传的文件对象
+const isParsing = ref(false) // 拆解中状态
+const parseResult = ref('') // 拆解结果提示
+const knowledgeList = ref([]) // 知识点树形数据
+const treeProps = ref({ // 树形组件配置
+  label: 'name',
+  children: 'children'
+})
 
 // 4. 原有方法（完全保留）
 const prevPage = () => {
@@ -193,7 +258,6 @@ const openTraceMode = () => {
 
 // 5. 断点续播方法（新增）
 onMounted(() => {
-  // 页面加载时弹出弹窗（模拟后端接口返回）
   showBreakpointDialog.value = true
 })
 const continueStudy = () => {
@@ -208,8 +272,77 @@ const restartStudy = () => {
   showBreakpointDialog.value = false
   ElMessage.info('已回到第1页重新开始学习')
 }
+
+// 新增：知识点拆解核心方法
+// 1. 监听文件上传
+const handleFileChange = (file) => {
+  uploadedFile.value = file.raw
+  parseResult.value = ''
+  knowledgeList.value = []
+}
+
+// 2. 知识点拆解（模拟数据版）
+const parseKnowledge = async () => {
+  if (!uploadedFile.value) {
+    ElMessage.warning('请先上传 PDF/PPTX 文件！')
+    return
+  }
+
+  isParsing.value = true
+  try {
+    // 模拟AI拆解的知识点数据
+    const mockKnowledge = [
+      { name: 'Python 缺失值处理', children: [
+        { name: '缺失值检测', children: [{ name: 'isnull() 方法' }, { name: 'info() 方法' }] },
+        { name: '缺失值填充', children: [{ name: 'fillna() 均值填充' }, { name: 'interpolate() 插值填充' }] }
+      ]},
+      { name: 'Python 异常值处理', children: [
+        { name: '异常值识别', children: [{ name: '箱线图法' }, { name: 'Z分数法' }] },
+        { name: '异常值处理', children: [{ name: '删除法' }, { name: '替换法' }] }
+      ]}
+    ]
+
+    // 格式化数据
+    knowledgeList.value = mockKnowledge.map((item, index) => ({
+      id: index + 1,
+      name: item.name,
+      children: item.children || []
+    }))
+
+    // 统计知识点数量
+    parseResult.value = `拆解成功！共识别出 ${countNodes(knowledgeList.value)} 个知识点`
+    ElMessage.success('知识点结构拆解完成！')
+  } catch (error) {
+    parseResult.value = '拆解失败，请重试！'
+    ElMessage.error('知识点拆解失败')
+  } finally {
+    isParsing.value = false
+  }
+}
+
+// 3. 辅助：统计知识点节点数量
+const countNodes = (tree) => {
+  let count = 0
+  tree.forEach(node => {
+    count++
+    if (node.children && node.children.length) {
+      count += countNodes(node.children)
+    }
+  })
+  return count
+}
+
+// 4. 点击知识点：联动溯源定位
+const handleNodeClick = (data) => {
+  ElMessage.info(`已定位到知识点：${data.name}`)
+  tracePoint.value = true
+  traceTop.value = 200
+  traceLeft.value = 300
+  traceLog.value = `已定位知识点：${data.name}`
+}
 </script>
 
+<!-- ========== 这里就是你要找的 <style scoped> 部分 ========== -->
 <style scoped>
 * {
   margin: 0;
@@ -422,5 +555,25 @@ const restartStudy = () => {
   font-size: 12px;
   color: #999;
   border-top: 1px solid #eee;
+}
+
+/* ========== 新增：知识点拆解样式 ========== */
+.upload-area {
+  padding: 20px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+.knowledge-tree {
+  margin-top: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px;
+}
+:deep(.el-tree) {
+  --el-tree-node-content-hover-bg-color: #e6f7ff;
 }
 </style>
