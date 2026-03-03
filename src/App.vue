@@ -27,11 +27,24 @@
             </div>
           </div>
 
+          <!-- 新增：断点续播弹窗 -->
+          <el-dialog
+            title="学习进度提醒"
+            v-model="showBreakpointDialog"
+            width="30%"
+            center
+            :close-on-click-modal="false"
+          >
+            <p>你上次学习停留到 <span style="color: #1989fa; font-weight: bold;">第 {{ breakpointPage }} 页</span>，是否继续从该页学习？</p>
+            <template v-slot:footer>
+              <el-button @click="restartStudy">重新开始</el-button>
+              <el-button type="primary" @click="continueStudy">继续学习</el-button>
+            </template>
+          </el-dialog>
+
           <!-- 课件内容 -->
           <div class="course-content">
             <img :src="courseImg" alt="课件" class="course-img">
-
-            <!-- 溯源定位高亮（创新点1）-->
             <div v-if="tracePoint" class="trace-highlight"
                  :style="{top: traceTop+'px', left: traceLeft+'px'}">
             </div>
@@ -51,7 +64,6 @@
       <!-- 右侧：智能互动区 -->
       <section class="right-section">
         <el-tabs v-model="activeTab" class="smart-tab">
-          <!-- 1. 多模态提问面板（创新点2）-->
           <el-tab-pane label="多模态提问" name="ask">
             <div class="panel-box">
               <div class="question-header">
@@ -59,8 +71,6 @@
                 <el-tag type="primary" size="small">第 {{ currentPage }} 页</el-tag>
                 <el-tag type="warning" size="small" v-if="tracePoint">已圈选知识点</el-tag>
               </div>
-
-              <!-- 多模态输入：文本 + 图片 + 语音 -->
               <div class="multi-modal-input">
                 <el-input v-model="question" type="textarea" :rows="2" placeholder="输入问题..."></el-input>
                 <div class="modal-tools">
@@ -71,8 +81,6 @@
                   </el-button>
                 </div>
               </div>
-
-              <!-- AI 对话记录 -->
               <div class="ai-chat" v-if="aiReply">
                 <div class="chat-item teacher">
                   <div class="title">AI 智能答疑</div>
@@ -81,8 +89,6 @@
               </div>
             </div>
           </el-tab-pane>
-
-          <!-- 2. 学习数据统计面板（创新点3）-->
           <el-tab-pane label="学习数据" name="data">
             <div class="panel-box">
               <div class="data-grid">
@@ -103,7 +109,6 @@
                   <div class="label">掌握率</div>
                 </div>
               </div>
-
               <div class="weak-point">
                 <div class="title">AI 诊断薄弱点</div>
                 <el-tag type="danger" size="small">缺失值填充</el-tag>
@@ -112,8 +117,6 @@
               </div>
             </div>
           </el-tab-pane>
-
-          <!-- 3. 溯源定位过程（创新点4）-->
           <el-tab-pane label="溯源定位" name="trace">
             <div class="panel-box">
               <p>点击课件任意位置 → 圈选知识点 → 精准提问</p>
@@ -137,14 +140,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+// 1. 导入所有需要的依赖（解决onMounted未定义）
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 
+// 2. 原有变量（完全保留）
 const currentPage = ref(3)
 const totalPage = ref(10)
 const isPlay = ref(false)
 const courseImg = ref('https://picsum.photos/900/500?random=3')
-
 const activeTab = ref('ask')
 const question = ref('')
 const aiReply = ref('')
@@ -153,7 +157,11 @@ const traceTop = ref(0)
 const traceLeft = ref(0)
 const traceLog = ref('')
 
-// 翻页
+// 3. 断点续播变量（新增）
+const showBreakpointDialog = ref(false)
+const breakpointPage = ref(3) // 模拟断点页码
+
+// 4. 原有方法（完全保留）
 const prevPage = () => {
   if (currentPage.value <= 1) return
   currentPage.value--
@@ -167,8 +175,6 @@ const nextPage = () => {
 const togglePlay = () => {
   isPlay.value = !isPlay.value
 }
-
-// 多模态提问
 const openUpload = () => {
   ElMessage.info('已打开截图/圈图提问')
 }
@@ -178,13 +184,29 @@ const sendMultiModalQuestion = () => {
 → 回答：fillna() 适合连续数据，dropna() 适合少量缺失，interpolate() 用于时序数据。`
   ElMessage.success('AI 答疑完成')
 }
-
-// 溯源定位
 const openTraceMode = () => {
   tracePoint.value = true
   traceTop.value = 150
   traceLeft.value = 200
   traceLog.value = `已定位：第 ${currentPage.value} 页 → 缺失值处理区域`
+}
+
+// 5. 断点续播方法（新增）
+onMounted(() => {
+  // 页面加载时弹出弹窗（模拟后端接口返回）
+  showBreakpointDialog.value = true
+})
+const continueStudy = () => {
+  currentPage.value = breakpointPage.value
+  courseImg.value = `https://picsum.photos/900/500?random=${breakpointPage.value}`
+  showBreakpointDialog.value = false
+  ElMessage.success(`已为你跳转到第 ${breakpointPage.value} 页`)
+}
+const restartStudy = () => {
+  currentPage.value = 1
+  courseImg.value = `https://picsum.photos/900/500?random=1`
+  showBreakpointDialog.value = false
+  ElMessage.info('已回到第1页重新开始学习')
 }
 </script>
 
@@ -202,8 +224,6 @@ const openTraceMode = () => {
   flex-direction: column;
   font-family: "Microsoft YaHei", sans-serif;
 }
-
-/* 头部 */
 .header {
   height: 60px;
   background: #1989fa;
@@ -232,8 +252,6 @@ const openTraceMode = () => {
   gap: 10px;
   font-size: 14px;
 }
-
-/* 主体 */
 .main {
   flex: 1;
   display: flex;
@@ -247,8 +265,6 @@ const openTraceMode = () => {
 .right-section {
   flex: 3;
 }
-
-/* 课件卡片 */
 .course-card {
   background: white;
   border-radius: 12px;
@@ -277,8 +293,6 @@ const openTraceMode = () => {
   font-size: 13px;
   color: #666;
 }
-
-/* 课件内容 */
 .course-content {
   flex: 1;
   background: #f9f9f9;
@@ -294,8 +308,6 @@ const openTraceMode = () => {
   max-height: 100%;
   object-fit: contain;
 }
-
-/* 溯源高亮 */
 .trace-highlight {
   position: absolute;
   width: 180px;
@@ -311,15 +323,12 @@ const openTraceMode = () => {
   50% { opacity: 0.8; }
   100% { opacity: 0.4; }
 }
-
 .course-control {
   margin-top: 16px;
   display: flex;
   justify-content: center;
   gap: 12px;
 }
-
-/* 右侧面板 */
 .smart-tab {
   height: 100%;
   display: flex;
@@ -335,8 +344,6 @@ const openTraceMode = () => {
   padding: 16px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
-
-/* 多模态提问 */
 .question-header {
   margin-bottom: 10px;
   font-size: 14px;
@@ -351,8 +358,6 @@ const openTraceMode = () => {
   gap: 8px;
   align-items: center;
 }
-
-/* AI 聊天 */
 .ai-chat {
   margin-top: 16px;
 }
@@ -371,8 +376,6 @@ const openTraceMode = () => {
   margin-bottom: 4px;
   color: #1989fa;
 }
-
-/* 数据统计 */
 .data-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -403,8 +406,6 @@ const openTraceMode = () => {
   margin-bottom: 8px;
   font-weight: 500;
 }
-
-/* 溯源日志 */
 .trace-log {
   margin-top: 12px;
   padding: 10px;
@@ -413,7 +414,6 @@ const openTraceMode = () => {
   font-size: 13px;
   color: #d48806;
 }
-
 .footer {
   height: 40px;
   background: white;
