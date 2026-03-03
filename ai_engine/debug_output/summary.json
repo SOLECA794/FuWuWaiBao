@@ -1,0 +1,52 @@
+{
+  "passed": true,
+  "total_checks": 11,
+  "passed_checks": 11,
+  "checks": [
+    {
+      "check": "PDF doc_type 正确",
+      "passed": true
+    },
+    {
+      "check": "PPTX doc_type 正确",
+      "passed": true
+    },
+    {
+      "check": "PDF 至少解析出 1 页",
+      "passed": true
+    },
+    {
+      "check": "PPTX 至少解析出 1 页",
+      "passed": true
+    },
+    {
+      "check": "生成结果包含至少 1 条 lesson",
+      "passed": true
+    },
+    {
+      "check": "lesson 包含 script",
+      "passed": true
+    },
+    {
+      "check": "lesson 包含 mindmap_markdown",
+      "passed": true
+    },
+    {
+      "check": "普通问答返回正确 source_page",
+      "passed": true
+    },
+    {
+      "check": "普通问答不触发重讲",
+      "passed": true
+    },
+    {
+      "check": "听不懂问题触发重讲",
+      "passed": true
+    },
+    {
+      "check": "重讲回答非空",
+      "passed": true
+    }
+  ],
+  "artifacts_dir": "D:\\Desktop\\FuWuWaiBao\\ai_engine\\debug_output"
+}

@@ -1,0 +1,12 @@
+{
+  "question": "我听不懂，换个例子",
+  "source_page": 1,
+  "source_excerpt": "··············",
+  "intent": {
+    "need_reteach": true,
+    "reason": "keyword_trigger"
+  },
+  "answer": "你这个问题我换个更通俗的方式讲。第1页的核心是：··············。你可以把它理解成“先明确目标，再按步骤执行”，就像做菜：先看菜谱，再按顺序下锅，最后调味。这样理解通常会更容易把概念记住。",
+  "resume_page": 1,
+  "follow_up_suggestion": "如果你愿意，我可以再换一个更简单的例子。"
+}

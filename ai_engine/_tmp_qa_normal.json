@@ -1,0 +1,12 @@
+{
+  "question": "这一页在讲什么",
+  "source_page": 1,
+  "source_excerpt": "AI Parser Test Page 1",
+  "intent": {
+    "need_reteach": false,
+    "reason": "normal_qa"
+  },
+  "answer": "基于第1页内容，我先回答你的问题：这一页在讲什么。这一页的关键线索是：AI Parser Test Page 1。如果你想更深入，我可以继续拆成定义、原理和应用三个层次来讲。",
+  "resume_page": 1,
+  "follow_up_suggestion": "是否需要我再给一个更贴近生活的例子？"
+}
