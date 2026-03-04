@@ -1,4 +1,4 @@
-# 智能互动讲课系统 - 教师端接口文档
+# 智能互动讲课系统 - 接口文档（教师端 + 学生端）
 
 ## 基础信息
 - **基础URL**: `http://localhost:8080/api`
@@ -13,6 +13,7 @@
 3. [学情分析](#3-学情分析)
 4. [提问记录](#4-提问记录)
 5. [课件预览](#5-课件预览)
+6. [学生端接口](#6-学生端接口)
 
 ---
 
@@ -294,3 +295,114 @@
 | 日期 | 版本 | 更新内容 |
 |------|------|----------|
 | 2026-03-03 | v1.0 | 完成所有教师端接口文档 |
+
+---
+
+# 6. 学生端接口
+
+> 说明：学生端以“播放 + 问答 + 续接”为核心。问答接口使用 SSE 流式输出（`text/event-stream`）。
+
+## 6.1 开始学习会话（可选）
+- **接口**: `POST /student/session/start`
+- **功能**: 初始化学生在某课件上的学习会话（便于服务端建立 Redis Session）
+
+**请求体**:
+```json
+{
+  "userId": "user001",
+  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "sessionId": "sess_xxx",
+    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d"
+  }
+}
+```
+
+## 6.2 上报播放进度（用于续接）
+- **接口**: `POST /student/progress/update`
+- **功能**: 上报当前播放游标（页码 + node），用于问答打断与续接
+
+**请求体**:
+```json
+{
+  "sessionId": "sess_xxx",
+  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
+  "page": 5,
+  "nodeId": "p5_n12"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "ok"
+}
+```
+
+## 6.3 获取某页讲稿（学生播放用）
+- **接口**: `GET /student/script/{courseId}/{page}`
+- **功能**: 获取指定课件指定页的结构化脚本（nodes[]）
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
+    "page": 5,
+    "nodes": [
+      {"node_id": "p5_n1", "type": "opening", "text": "..."},
+      {"node_id": "p5_n2", "type": "explain", "text": "..."},
+      {"node_id": "p5_n3", "type": "transition", "text": "..."}
+    ],
+    "page_summary": "..."
+  }
+}
+```
+
+## 6.4 问答流式接口（核心）
+- **接口**: `POST /student/qa/stream`
+- **功能**: 学生在讲授过程中打断提问，服务端以 SSE 方式流式返回回答
+- **响应 Content-Type**: `text/event-stream; charset=utf-8`
+
+**请求体**:
+```json
+{
+  "sessionId": "sess_xxx",
+  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
+  "page": 5,
+  "nodeId": "p5_n12",
+  "question": "这个公式里的 x 表示什么？"
+}
+```
+
+**SSE 输出示例**（每帧以空行结尾）：
+```text
+event: token
+data: {"text":"x"}
+
+event: token
+data: {"text":"表示"}
+
+event: sentence
+data: {"text":"这里的 x 通常表示……（分句用于触发 TTS）"}
+
+event: final
+data: {"need_reteach":false,"source_page":5,"resume_page":5,"resume_node_id":"p5_n13"}
+
+```
+
+**错误输出示例**:
+```text
+event: error
+data: {"message":"AI 服务暂时不可用","trace_id":"req_xxx"}
+
+```
