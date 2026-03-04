@@ -99,6 +99,7 @@ func main() {
 	courseHandler := handler.NewCourseHandler(courseService)
 	teacherHandler := handler.NewTeacherHandler(db)
 	studentHandler := handler.NewStudentHandler(db)
+	weakPointHandler := handler.NewWeakPointHandler(db)
 
 	// 设置Gin
 	if cfg.Server.Mode == "release" {
@@ -191,7 +192,21 @@ func main() {
 
 			// 4. 提问记录
 			teacher.GET("/question-records/:courseId", teacherHandler.GetQuestionRecords)
+
+			teacher.GET("/card-data/:courseId", teacherHandler.GetCardData)
 		}
+
+		// AI薄弱点接口
+		weakPoint := api.Group("/weakPoint")
+		{
+			weakPoint.GET("/getList", weakPointHandler.GetWeakPointList)
+			weakPoint.POST("/getExplain", weakPointHandler.GetWeakPointExplain)
+			weakPoint.POST("/getTest", weakPointHandler.GetWeakPointTest)
+			weakPoint.POST("/checkAnswer", weakPointHandler.CheckAnswer)
+		}
+
+		// AI知识点解析
+		api.POST("/ai/parseKnowledge", weakPointHandler.ParseKnowledge)
 
 		// 公开接口
 		//api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {
