@@ -98,6 +98,7 @@ func main() {
 	// 初始化处理器
 	courseHandler := handler.NewCourseHandler(courseService)
 	teacherHandler := handler.NewTeacherHandler(db)
+	studentHandler := handler.NewStudentHandler(db)
 
 	// 设置Gin
 	if cfg.Server.Mode == "release" {
@@ -160,6 +161,17 @@ func main() {
 		// 课件预览（公开）
 		api.GET("/courseware/:courseId/page/:pageNum", teacherHandler.GetPagePreview)
 
+		// 学生端接口
+		student := api.Group("/student")
+		{
+			student.POST("/courseware/page", studentHandler.GetCoursewarePage)
+			student.POST("/ai/question", studentHandler.AskAIQuestion)
+			student.POST("/ai/traceQuestion", studentHandler.TraceAIQuestion)
+			student.GET("/studyData", studentHandler.GetStudentStudyData)
+			student.GET("/breakpoint", studentHandler.GetStudentBreakpoint)
+			student.POST("/saveNote", studentHandler.SaveStudentNote)
+		}
+
 		// 教师端接口
 		teacher := api.Group("/teacher")
 		{
@@ -182,9 +194,9 @@ func main() {
 		}
 
 		// 公开接口
-		api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "待实现"})
-		})
+		//api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {
+		//	c.JSON(200, gin.H{"message": "待实现"})
+		//})
 	}
 
 	// 启动服务

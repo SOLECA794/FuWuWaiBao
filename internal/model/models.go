@@ -83,3 +83,12 @@ type MindMapNode struct {
 	PageIndex int    `gorm:"default:0" json:"page_index"`
 	SortOrder int    `gorm:"default:0" json:"sort_order"`
 }
+
+// StudentNote 学生笔记表
+type StudentNote struct {
+	BaseModel
+	UserID   string `gorm:"size:36;not null;index" json:"user_id"`
+	CourseID string `gorm:"size:36;not null;index" json:"course_id"`
+	PageNum  int    `gorm:"not null" json:"page_num"`
+	Note     string `gorm:"type:text" json:"note"`
+}
