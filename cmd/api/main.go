@@ -82,7 +82,6 @@ func main() {
 	if err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
-	_ = redisClient
 	applogger.Info("Redis连接成功")
 
 	// 初始化MinIO客户端
@@ -95,10 +94,11 @@ func main() {
 	// 初始化服务
 	courseService := service.NewCourseService(db, minioClient)
 
-	// 初始化处理器
-	courseHandler := handler.NewCourseHandler(courseService)
+	// 初始化处理器 - 注意参数个数
+	courseHandler := handler.NewCourseHandler(courseService) // 只传一个参数
 	teacherHandler := handler.NewTeacherHandler(db)
-	studentHandler := handler.NewStudentHandler(db)
+	studentHandler := handler.NewStudentHandler(db, redisClient)
+	aiHandler := handler.NewAIHandler(db)
 	weakPointHandler := handler.NewWeakPointHandler(db)
 
 	// 设置Gin
@@ -106,28 +106,22 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// 创建 gin 引擎
 	r := gin.New()
+	r.Use(gin.Recovery())
 
-	// 最重要的中间件：设置 UTF-8 响应头（放在最前面）
+	// UTF-8中间件
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		c.Next()
 	})
 
-	// 恢复中间件
-	r.Use(gin.Recovery())
-
-	// 请求体 UTF-8 检查中间件
+	// 请求体UTF-8检查
 	r.Use(func(c *gin.Context) {
-		// 读取请求体
 		bodyBytes, readErr := io.ReadAll(c.Request.Body)
 		if readErr == nil && len(bodyBytes) > 0 {
-			// 确保请求体是 UTF-8
 			if !utf8.Valid(bodyBytes) {
 				applogger.Warn("请求体包含非 UTF-8 字符")
 			}
-			// 重新设置请求体，因为已经被读取
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 		c.Next()
@@ -156,62 +150,87 @@ func main() {
 		})
 	})
 
-	// API路由
-	api := r.Group("/api")
+	// API路由 - 使用 v1 版本
+	api := r.Group("/api/v1")
 	{
-		// 课件预览（公开）
-		api.GET("/courseware/:courseId/page/:pageNum", teacherHandler.GetPagePreview)
+		// ==================== 教师端接口 ====================
+		teacher := api.Group("/teacher/coursewares")
+		{
+			// 2.1 获取课件列表
+			teacher.GET("/", teacherHandler.GetCoursewareList)
 
-		// 学生端接口
+			// 2.2 上传并解析课件
+			teacher.POST("/upload", courseHandler.UploadCourse)
+
+			// 2.6 发布课件
+			teacher.POST("/:courseId/publish", teacherHandler.PublishCourseware)
+
+			// 1.3 删除课件
+			teacher.DELETE("/:courseId", courseHandler.DeleteCourse)
+
+			// 2.3 获取页面讲稿
+			teacher.GET("/:courseId/scripts/:pageNum", teacherHandler.GetScript)
+
+			// 2.4 更新页面讲稿
+			teacher.PUT("/:courseId/scripts/:pageNum", teacherHandler.UpdateScript)
+
+			// 2.5 AI生成讲稿
+			teacher.POST("/:courseId/scripts/ai-generate", teacherHandler.AIGenerateScript)
+
+			// 6.1 教师端 - 班级宏观学情
+			teacher.GET("/:courseId/stats", teacherHandler.GetClassStats)
+
+			// 6.2 教师端 - 历史提问记录
+			teacher.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
+		}
+
+		// ==================== AI 学伴与互动答疑 ====================
+		ai := api.Group("/ai/coursewares")
+		{
+			// 3.1 获取课件知识图谱
+			ai.GET("/:courseId/knowledge-graph", aiHandler.GetKnowledgeGraph)
+
+			// 3.2 智能多模态答疑
+			ai.POST("/:courseId/ask", aiHandler.AskQuestion)
+		}
+
+		// ==================== 学生端接口 ====================
 		student := api.Group("/student")
 		{
-			student.POST("/courseware/page", studentHandler.GetCoursewarePage)
-			student.POST("/ai/question", studentHandler.AskAIQuestion)
-			student.POST("/ai/traceQuestion", studentHandler.TraceAIQuestion)
-			student.GET("/studyData", studentHandler.GetStudentStudyData)
-			student.GET("/breakpoint", studentHandler.GetStudentBreakpoint)
-			student.POST("/saveNote", studentHandler.SaveStudentNote)
+			// 5.1 获取/更新学习断点
+			student.GET("/coursewares/:courseId/breakpoint", studentHandler.GetBreakpoint)
+			student.PUT("/coursewares/:courseId/breakpoint", studentHandler.UpdateBreakpoint)
+
+			// 5.2 保存随堂笔记
+			student.POST("/coursewares/:courseId/notes", studentHandler.SaveNote)
+
+			// 6.3 学生端 - 个人微观学情
+			student.GET("/coursewares/:courseId/stats", studentHandler.GetPersonalStats)
+
+			// 4.1 获取个人薄弱点列表 - 暂时注释掉，等 weakPointHandler 实现后再启用
+			student.GET("/coursewares/:courseId/weak-points", weakPointHandler.GetWeakPointList)
+
+			// 4.2 薄弱点 AI 详细讲解 - 暂时注释掉
+			student.GET("/weak-points/:weakPointId/explain", weakPointHandler.GetWeakPointExplain)
+
+			// 4.3 生成随堂检测题 - 暂时注释掉
+			student.POST("/weak-points/:weakPointId/generate-test", weakPointHandler.GenerateTest)
+
+			// 4.4 提交并校验答案 - 暂时注释掉
+			student.POST("/tests/:questionId/check", weakPointHandler.CheckAnswer)
+
+			// 6.1 开始学习会话
+			student.POST("/session/start", studentHandler.StartSession)
+
+			// 6.2 上报播放进度
+			student.POST("/progress/update", studentHandler.UpdateProgress)
+
+			// 6.3 获取某页讲稿（学生播放用）
+			student.GET("/coursewares/:courseId/pages/:pageNum", studentHandler.GetCoursewarePage)
+
+			// 6.4 问答流式接口（核心）
+			student.POST("/qa/stream", studentHandler.QAStream)
 		}
-
-		// 教师端接口
-		teacher := api.Group("/teacher")
-		{
-			// 1. 课件管理
-			teacher.GET("/courseware-list", teacherHandler.GetCoursewareList)
-			teacher.POST("/upload-courseware", courseHandler.UploadCourse)
-			teacher.DELETE("/courseware/:courseId", courseHandler.DeleteCourse)
-			teacher.POST("/publish-courseware", teacherHandler.PublishCourseware)
-
-			// 2. 讲稿编辑
-			teacher.GET("/script/:courseId/:page", teacherHandler.GetScript)
-			teacher.POST("/script/save", teacherHandler.SaveScript)
-			teacher.POST("/ai-generate-script", teacherHandler.AIGenerateScript)
-
-			// 3. 学情分析
-			teacher.GET("/student-stats/:courseId", teacherHandler.GetStudentStats)
-
-			// 4. 提问记录
-			teacher.GET("/question-records/:courseId", teacherHandler.GetQuestionRecords)
-
-			teacher.GET("/card-data/:courseId", teacherHandler.GetCardData)
-		}
-
-		// AI薄弱点接口
-		weakPoint := api.Group("/weakPoint")
-		{
-			weakPoint.GET("/getList", weakPointHandler.GetWeakPointList)
-			weakPoint.POST("/getExplain", weakPointHandler.GetWeakPointExplain)
-			weakPoint.POST("/getTest", weakPointHandler.GetWeakPointTest)
-			weakPoint.POST("/checkAnswer", weakPointHandler.CheckAnswer)
-		}
-
-		// AI知识点解析
-		api.POST("/ai/parseKnowledge", weakPointHandler.ParseKnowledge)
-
-		// 公开接口
-		//api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {
-		//	c.JSON(200, gin.H{"message": "待实现"})
-		//})
 	}
 
 	// 启动服务

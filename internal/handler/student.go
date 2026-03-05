@@ -1,10 +1,16 @@
 package handler
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
@@ -12,258 +18,127 @@ import (
 )
 
 type StudentHandler struct {
-	db *gorm.DB
+	db          *gorm.DB
+	redisClient *redis.Client
+	ctx         context.Context
 }
 
-func NewStudentHandler(db *gorm.DB) *StudentHandler {
-	return &StudentHandler{db: db}
+func NewStudentHandler(db *gorm.DB, redisClient *redis.Client) *StudentHandler {
+	return &StudentHandler{
+		db:          db,
+		redisClient: redisClient,
+		ctx:         context.Background(),
+	}
 }
 
-// ==================== 请求参数结构体 ====================
+// 6.1 开始学习会话
+// POST /api/v1/student/session/start
+func (h *StudentHandler) StartSession(c *gin.Context) {
+	var req struct {
+		UserID   string `json:"userId" binding:"required"`
+		CourseID string `json:"courseId" binding:"required"`
+	}
 
-// GetCoursewarePageRequest 获取课件页面请求
-type GetCoursewarePageRequest struct {
-	CourseID    string `json:"courseId" binding:"required"`
-	CurrentPage int    `json:"currentPage" binding:"required"`
-}
-
-// AIQuestionRequest AI提问请求
-type AIQuestionRequest struct {
-	CourseID string `json:"courseId" binding:"required"`
-	PageNum  int    `json:"pageNum" binding:"required"`
-	Question string `json:"question" binding:"required"`
-	Type     string `json:"type"` // text/voice/image
-}
-
-// TraceQuestionRequest 溯源提问请求
-type TraceQuestionRequest struct {
-	CourseID string  `json:"courseId" binding:"required"`
-	PageNum  int     `json:"pageNum" binding:"required"`
-	X        float64 `json:"x" binding:"required"`
-	Y        float64 `json:"y" binding:"required"`
-	Question string  `json:"question" binding:"required"`
-}
-
-// StudyDataRequest 学习数据请求
-type StudyDataRequest struct {
-	StudentID string `form:"studentId" binding:"required"`
-	CourseID  string `form:"courseId" binding:"required"`
-}
-
-// BreakpointRequest 断点请求
-type BreakpointRequest struct {
-	StudentID string `form:"studentId" binding:"required"`
-	CourseID  string `form:"courseId" binding:"required"`
-}
-
-// SaveNoteRequest 保存笔记请求
-type SaveNoteRequest struct {
-	StudentID string `json:"studentId" binding:"required"`
-	PageNum   int    `json:"pageNum" binding:"required"`
-	Note      string `json:"note" binding:"required"`
-}
-
-// ==================== 1. 获取课件页面 ====================
-
-// GetCoursewarePage 获取指定页码的课件信息
-// POST /api/student/courseware/page
-func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
-	var req GetCoursewarePageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "缺少必填参数: courseId 或 currentPage",
+			"message": "参数错误",
 		})
 		return
 	}
 
-	// 查询课件信息
-	var course model.Course
-	if err := h.db.First(&course, "id = ?", req.CourseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
+	// 生成会话ID
+	sessionId := "sess_" + uuid.New().String()
+
+	// 保存到 Redis
+	sessionKey := "session:" + sessionId
+	err := h.redisClient.HSet(h.ctx, sessionKey, map[string]interface{}{
+		"user_id":         req.UserID,
+		"course_id":       req.CourseID,
+		"current_page":    1,
+		"current_node_id": "",
+		"interrupted":     false,
+		"created_at":      time.Now().Unix(),
+	}).Err()
+
+	if err != nil {
+		logger.Errorf("保存会话失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "创建会话失败",
 		})
 		return
 	}
 
-	// 查询指定页面的讲稿
-	var coursePage model.CoursePage
-	err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.CurrentPage).First(&coursePage).Error
-
-	content := ""
-	if err == nil {
-		content = coursePage.ScriptText
-	}
-
-	// TODO: 这里可以调用 AI 生成更丰富的内容
-	data := gin.H{
-		"courseId":    req.CourseID,
-		"currentPage": req.CurrentPage,
-		"content":     content,
-		"title":       course.Title,
-	}
+	h.redisClient.Expire(h.ctx, sessionKey, 24*time.Hour)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
-		"message": "成功",
-		"data":    data,
-	})
-}
-
-// ==================== 2. 多模态提问 ====================
-
-// AskAIQuestion 多模态提问
-// POST /api/student/ai/question
-func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
-	var req AIQuestionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "缺少必填参数: courseId, pageNum 或 question",
-		})
-		return
-	}
-
-	// 获取当前页面的讲稿作为上下文
-	var coursePage model.CoursePage
-	context := ""
-	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.PageNum).First(&coursePage).Error; err == nil {
-		context = coursePage.ScriptText
-	}
-
-	// TODO: 调用 AI 大模型 API 获取答案
-	// 这里先返回模拟数据
-	answer := generateAIAnswer(req.Question, context)
-
-	// 记录提问日志
-	log := model.QuestionLog{
-		UserID:    c.GetString("userId"), // 需要从 JWT 中获取
-		CourseID:  req.CourseID,
-		PageIndex: req.PageNum,
-		Question:  req.Question,
-		Answer:    answer,
-	}
-	h.db.Create(&log)
-
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "成功",
+		"message": "请求成功",
 		"data": gin.H{
-			"answer": answer,
+			"sessionId": sessionId,
+			"courseId":  req.CourseID,
 		},
 	})
 }
 
-// ==================== 3. 溯源定位提问 ====================
+// 6.2 上报播放进度
+// POST /api/v1/student/progress/update
+func (h *StudentHandler) UpdateProgress(c *gin.Context) {
+	var req struct {
+		SessionID string `json:"sessionId" binding:"required"`
+		CourseID  string `json:"courseId" binding:"required"`
+		Page      int    `json:"page" binding:"required"`
+		NodeID    string `json:"nodeId"`
+	}
 
-// TraceAIQuestion 溯源定位提问
-// POST /api/student/ai/traceQuestion
-func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
-	var req TraceQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "缺少必填参数: courseId, pageNum, x, y 或 question",
+			"message": "参数错误",
 		})
 		return
 	}
 
-	// TODO: 根据坐标定位到具体内容，调用 AI 生成针对性回答
-	answer := generateTraceAnswer(req.Question, req.X, req.Y)
+	// 更新 Redis 中的进度
+	sessionKey := "session:" + req.SessionID
+	err := h.redisClient.HSet(h.ctx, sessionKey, map[string]interface{}{
+		"current_page":    req.Page,
+		"current_node_id": req.NodeID,
+		"updated_at":      time.Now().Unix(),
+	}).Err()
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "成功",
-		"data": gin.H{
-			"answer": answer,
-		},
-	})
-}
-
-// ==================== 4. 获取学习数据 ====================
-
-// GetStudentStudyData 获取学生学习数据
-// GET /api/student/studyData
-func (h *StudentHandler) GetStudentStudyData(c *gin.Context) {
-	var req StudyDataRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "缺少必填参数: studentId 或 courseId",
+	if err != nil {
+		logger.Errorf("更新进度失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "更新进度失败",
 		})
 		return
-	}
-
-	// 查询该学生的提问记录
-	var totalQuestions int64
-	h.db.Model(&model.QuestionLog{}).
-		Where("user_id = ? AND course_id = ?", req.StudentID, req.CourseID).
-		Count(&totalQuestions)
-
-	// 查询提问最多的页面（薄弱点）
-	type WeakPoint struct {
-		PageIndex int `json:"pageIndex"`
-		Count     int `json:"count"`
-	}
-	var weakPoints []WeakPoint
-	h.db.Table("question_logs").
-		Select("page_index, count(*) as count").
-		Where("user_id = ? AND course_id = ?", req.StudentID, req.CourseID).
-		Group("page_index").
-		Order("count desc").
-		Limit(3).
-		Scan(&weakPoints)
-
-	// 计算专注度（简单算法：提问越少专注度越高）
-	focusScore := 85
-	if totalQuestions > 10 {
-		focusScore = 70
-	} else if totalQuestions > 5 {
-		focusScore = 80
-	}
-
-	// 格式化薄弱点
-	weakPointList := make([]string, 0)
-	for _, wp := range weakPoints {
-		weakPointList = append(weakPointList, "第"+strconv.Itoa(wp.PageIndex)+"页")
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
-		"message": "成功",
-		"data": gin.H{
-			"studentId":      req.StudentID,
-			"courseId":       req.CourseID,
-			"focusScore":     focusScore,
-			"weakPoints":     weakPointList,
-			"totalQuestions": totalQuestions,
-		},
+		"message": "ok",
 	})
 }
 
-// ==================== 5. 获取断点 ====================
+// 5.1 获取学习断点
+// GET /api/v1/student/coursewares/:courseId/breakpoint
+func (h *StudentHandler) GetBreakpoint(c *gin.Context) {
+	courseId := c.Param("courseId")
+	userId := c.Query("userId")
 
-// GetStudentBreakpoint 获取学习断点
-// GET /api/student/breakpoint
-func (h *StudentHandler) GetStudentBreakpoint(c *gin.Context) {
-	var req BreakpointRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
+	if userId == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "缺少必填参数: studentId 或 courseId",
+			"message": "缺少参数: userId",
 		})
 		return
 	}
 
-	// 查询学生进度
 	var progress model.UserProgress
-	err := h.db.Where("user_id = ? AND course_id = ?", req.StudentID, req.CourseID).First(&progress).Error
+	err := h.db.Where("user_id = ? AND course_id = ?", userId, courseId).First(&progress).Error
 
 	lastPageNum := 1
 	if err == nil {
@@ -272,32 +147,73 @@ func (h *StudentHandler) GetStudentBreakpoint(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
-		"message": "成功",
+		"message": "请求成功",
 		"data": gin.H{
 			"lastPageNum": lastPageNum,
 		},
 	})
 }
 
-// ==================== 6. 保存笔记 ====================
+// 5.1 更新学习断点
+// PUT /api/v1/student/coursewares/:courseId/breakpoint
+func (h *StudentHandler) UpdateBreakpoint(c *gin.Context) {
+	courseId := c.Param("courseId")
 
-// SaveStudentNote 保存学生笔记
-// POST /api/student/saveNote
-func (h *StudentHandler) SaveStudentNote(c *gin.Context) {
-	var req SaveNoteRequest
+	var req struct {
+		UserID  string `json:"userId" binding:"required"`
+		PageNum int    `json:"pageNum" binding:"required"`
+	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("参数错误: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
 			"code":    400,
-			"message": "缺少必填参数: studentId, pageNum 或 note",
+			"message": "参数错误",
 		})
 		return
 	}
 
-	// TODO: 创建笔记表 model.StudentNote 并保存
-	// 这里先用日志记录
-	logger.Infof("保存笔记: studentId=%s, pageNum=%d, note=%s",
-		req.StudentID, req.PageNum, req.Note)
+	var progress model.UserProgress
+	err := h.db.Where("user_id = ? AND course_id = ?", req.UserID, courseId).First(&progress).Error
+
+	if err != nil {
+		progress = model.UserProgress{
+			UserID:   req.UserID,
+			CourseID: courseId,
+			LastPage: req.PageNum,
+		}
+		h.db.Create(&progress)
+	} else {
+		h.db.Model(&progress).Update("last_page", req.PageNum)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "ok",
+	})
+}
+
+// 5.2 保存随堂笔记
+// POST /api/v1/student/coursewares/:courseId/notes
+func (h *StudentHandler) SaveNote(c *gin.Context) {
+	courseId := c.Param("courseId")
+
+	var req struct {
+		UserID  string `json:"userId" binding:"required"`
+		PageNum int    `json:"pageNum" binding:"required"`
+		Content string `json:"content" binding:"required"`
+		X       int    `json:"x"`
+		Y       int    `json:"y"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "参数错误",
+		})
+		return
+	}
+
+	logger.Infof("保存笔记: userId=%s, courseId=%s, pageNum=%d", req.UserID, courseId, req.PageNum)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
@@ -308,17 +224,151 @@ func (h *StudentHandler) SaveStudentNote(c *gin.Context) {
 	})
 }
 
-// ==================== 辅助函数 ====================
+// 6.3 获取某页讲稿（学生播放用）
+// GET /api/v1/student/coursewares/:courseId/pages/:pageNum
+func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
+	courseId := c.Param("courseId")
+	pageNumStr := c.Param("pageNum")
 
-// 生成 AI 回答（模拟）
-func generateAIAnswer(question, context string) string {
-	// TODO: 接入真实 AI 服务
-	return "这是AI基于上下文生成的回答：" + question
+	pageNum, err := strconv.Atoi(pageNumStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "页码必须是数字",
+		})
+		return
+	}
+
+	var course model.Course
+	if err := h.db.First(&course, "id = ?", courseId).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "课件不存在",
+		})
+		return
+	}
+
+	var coursePage model.CoursePage
+	err = h.db.Where("course_id = ? AND page_index = ?", courseId, pageNum).First(&coursePage).Error
+
+	nodes := []gin.H{
+		{"node_id": fmt.Sprintf("p%d_n1", pageNum), "type": "opening", "text": "欢迎学习本节课..."},
+		{"node_id": fmt.Sprintf("p%d_n2", pageNum), "type": "explain", "text": coursePage.ScriptText},
+		{"node_id": fmt.Sprintf("p%d_n3", pageNum), "type": "transition", "text": "接下来我们继续学习..."},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "请求成功",
+		"data": gin.H{
+			"courseId":     courseId,
+			"page":         pageNum,
+			"nodes":        nodes,
+			"page_summary": coursePage.ScriptText,
+		},
+	})
 }
 
-// 生成溯源回答（模拟）
-func generateTraceAnswer(question string, x, y float64) string {
-	// TODO: 接入真实 AI 服务
-	return "针对坐标(" + strconv.FormatFloat(x, 'f', 2, 64) + "," +
-		strconv.FormatFloat(y, 'f', 2, 64) + ")的解答：" + question
+// 6.4 问答流式接口（核心）
+// POST /api/v1/student/qa/stream
+func (h *StudentHandler) QAStream(c *gin.Context) {
+	var req struct {
+		SessionID string `json:"sessionId" binding:"required"`
+		CourseID  string `json:"courseId" binding:"required"`
+		Page      int    `json:"page" binding:"required"`
+		NodeID    string `json:"nodeId"`
+		Question  string `json:"question" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "参数错误",
+		})
+		return
+	}
+
+	// 设置 SSE 头
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// 标记会话为中断状态
+	sessionKey := "session:" + req.SessionID
+	h.redisClient.HSet(h.ctx, sessionKey, "interrupted", true)
+
+	// 模拟流式输出
+	answer := "这是一个关于" + req.Question + "的详细解答。"
+	runes := []rune(answer)
+
+	for i := 0; i < len(runes); i++ {
+		if i%3 == 0 {
+			token := string(runes[i])
+			fmt.Fprintf(c.Writer, "event: token\ndata: {\"text\":\"%s\"}\n\n", token)
+			c.Writer.Flush()
+			time.Sleep(30 * time.Millisecond)
+		}
+	}
+
+	fmt.Fprintf(c.Writer, "event: sentence\ndata: {\"text\":\"%s\"}\n\n", answer)
+	c.Writer.Flush()
+
+	final := map[string]interface{}{
+		"need_reteach":   false,
+		"source_page":    req.Page,
+		"resume_page":    req.Page,
+		"resume_node_id": req.NodeID,
+	}
+	finalJSON, _ := json.Marshal(final)
+	fmt.Fprintf(c.Writer, "event: final\ndata: %s\n\n", finalJSON)
+	c.Writer.Flush()
+
+	// 更新 Redis
+	h.redisClient.HSet(h.ctx, sessionKey, map[string]interface{}{
+		"interrupted":    false,
+		"resume_page":    req.Page,
+		"resume_node_id": req.NodeID,
+	})
+}
+
+// 6.3 学生端 - 个人微观学情
+// GET /api/v1/student/coursewares/:courseId/stats
+func (h *StudentHandler) GetPersonalStats(c *gin.Context) {
+	courseId := c.Param("courseId")
+	userId := c.Query("userId")
+
+	if userId == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "缺少参数: userId",
+		})
+		return
+	}
+
+	// 查询该学生的提问次数
+	var totalQuestions int64
+	h.db.Model(&model.QuestionLog{}).
+		Where("user_id = ? AND course_id = ?", userId, courseId).
+		Count(&totalQuestions)
+
+	// 计算学习时长（模拟）
+	studyHours := 2.5
+
+	// 计算掌握情况（模拟）
+	mastery := gin.H{
+		"章节一": 85,
+		"章节二": 70,
+		"章节三": 90,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "请求成功",
+		"data": gin.H{
+			"totalQuestions": totalQuestions,
+			"studyHours":     studyHours,
+			"mastery":        mastery,
+		},
+	})
 }

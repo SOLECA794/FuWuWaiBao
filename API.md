@@ -266,7 +266,227 @@
 }
 ```
 
+## 6. 学习卡点分析
+
+### 6.1 获取学习卡点数据
+- **接口**: `GET /api/teacher/card-data/{courseId}`
+- **功能**: 获取指定课件的学习卡点分析数据（提问量、停留时长、卡点指数）
+
+**路径参数**:
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| courseId | String | 课件ID |
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "pageStats": [
+      {"page": 1, "questionCount": 2, "stayTime": 20, "cardIndex": 2.0},
+      {"page": 3, "questionCount": 4, "stayTime": 32, "cardIndex": 3.6},
+      {"page": 5, "questionCount": 8, "stayTime": 45, "cardIndex": 6.25}
+    ],
+    "topPages": [
+      {"page": 5, "value": 8, "ratio": 53.33},
+      {"page": 3, "value": 4, "ratio": 26.67},
+      {"page": 1, "value": 2, "ratio": 13.33}
+    ],
+    "totalQuestions": 8
+  }
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| pageStats.page | 页码 |
+| pageStats.questionCount | 提问量 |
+| pageStats.stayTime | 平均停留时长(秒) |
+| pageStats.cardIndex | 卡点指数(0-10) |
+| topPages | TOP5卡点页面 |
+| totalQuestions | 总提问数 |
+
 ---
+
+## 7. AI薄弱点功能
+
+### 7.1 知识点解析
+- **接口**: `POST /api/ai/parseKnowledge`
+- **功能**: 解析课件内容，拆解知识点层级结构
+
+**请求体**:
+```json
+{
+  "fileContent": "数据清洗是数据分析的重要步骤...",
+  "fileType": "pptx",
+  "studentId": "2025001"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "structure": [
+      {
+        "chapter": "第一章：数据清洗基础",
+        "knowledgePoints": [
+          {"name": "缺失值处理", "subPoints": ["fillna()", "interpolate()", "dropna()"]},
+          {"name": "异常值识别", "subPoints": ["Z-Score", "IQR"]}
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 7.2 获取薄弱点列表
+- **接口**: `GET /api/weakPoint/getList`
+- **功能**: 获取指定学生的AI诊断薄弱点列表
+
+**查询参数**:
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| studentId | String | 是 | 学生ID |
+| courseId | String | 是 | 课程ID |
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": [
+    {"name": "缺失值填充", "count": 5, "mastery": 60},
+    {"name": "异常值识别", "count": 3, "mastery": 45},
+    {"name": "重复值处理", "count": 2, "mastery": 80}
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| name | 薄弱点名称 |
+| count | 出现次数 |
+| mastery | 掌握程度(0-100) |
+
+### 7.3 获取薄弱点讲解
+- **接口**: `POST /api/weakPoint/getExplain`
+- **功能**: 获取指定薄弱点的详细讲解内容
+
+**请求体**:
+```json
+{
+  "weakPointName": "缺失值填充",
+  "studentId": "2025001"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "title": "缺失值填充 · 知识点讲解",
+    "content": "缺失值是数据中为空的部分，常用方法：\n1. fillna() 填充常数、均值、中位数\n2. interpolate() 线性插值（适合时序）\n3. dropna() 直接删除行/列",
+    "examples": [
+      "df.fillna(0)  # 用0填充",
+      "df.interpolate()  # 线性插值",
+      "df.dropna()  # 删除缺失值"
+    ]
+  }
+}
+```
+
+### 7.4 生成检测习题
+- **接口**: `POST /api/weakPoint/getTest`
+- **功能**: 根据薄弱点生成对应的检测习题
+
+**请求体**:
+```json
+{
+  "weakPointName": "缺失值填充",
+  "studentId": "2025001",
+  "questionType": "single"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "questionId": "Q001",
+    "content": "处理缺失值时，以下哪种方法最适合时间序列数据？",
+    "type": "single",
+    "options": [
+      "A. fillna(0) 用0填充",
+      "B. interpolate() 线性插值",
+      "C. dropna() 删除缺失值",
+      "D. fillna(method='ffill') 向前填充"
+    ]
+  }
+}
+```
+
+### 7.5 校验答案
+- **接口**: `POST /api/weakPoint/checkAnswer`
+- **功能**: 校验习题答案，返回解析和掌握状态
+
+**请求体**:
+```json
+{
+  "studentId": "2025001",
+  "questionId": "Q001",
+  "userAnswer": "B"
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "data": {
+    "isCorrect": true,
+    "correctAnswer": "B",
+    "explanation": "interpolate() 线性插值适合时间序列数据，可以基于前后值推算缺失值。",
+    "masteryDelta": 10
+  }
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| isCorrect | 答案是否正确 |
+| correctAnswer | 正确答案 |
+| explanation | 答案解析 |
+| masteryDelta | 掌握度变化值 |
+
+---
+
+## 8. 数据说明
+
+### 卡点指数计算公式
+```
+卡点指数 = 提问量 × 0.5 + 停留时长 ÷ 20
+```
+
+### 掌握度计算
+- 初始掌握度：根据历史答题正确率计算
+- 每次正确答题：掌握度 +10
+- 每次错误答题：掌握度 -5
+- 掌握度范围：0-100
+
+---
+
+## 更新记录
+
+| 日期 | 版本 | 更新内容 |
+|------|------|----------|
+| 2026-03-04 | v1.1 | 添加学习卡点分析和AI薄弱点功能接口 |
+
+---
+
+
 
 ## 错误码说明
 
