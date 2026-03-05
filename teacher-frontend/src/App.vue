@@ -1,1085 +1,1143 @@
 <template>
   <div class="teacher-app">
     <!-- 顶部导航栏 -->
-    <div class="top-nav">
+    <el-header height="56px" class="top-nav">
       <div class="nav-left">
         <span class="app-title">智能互动教学平台 · 教师端</span>
       </div>
       <div class="nav-right">
-        <div class="teacher-info">
-          <div class="avatar">
-            <img src="https://picsum.photos/id/1005/40/40" alt="头像" />
-          </div>
-          <span class="teacher-name">教师 2025T001</span>
-        </div>
+        <el-avatar :size="36" src="https://picsum.photos/id/1005/40/40">
+          <el-icon><UserFilled /></el-icon>
+        </el-avatar>
+        <span class="teacher-name ml-2">教师 2025T001</span>
       </div>
-    </div>
+    </el-header>
 
     <!-- 主体内容 -->
-    <div class="main-content">
-      <!-- 左侧：课件管理区 -->
-      <div class="courseware-manage-section">
+    <el-container class="main-container">
+      <!-- 左侧课件管理区 -->
+      <el-aside width="320px" class="courseware-manage-section">
         <div class="section-header">
           <h3>课件管理</h3>
           <div class="header-actions">
-            <button @click="showPublishModal = true" class="publish-btn" :disabled="!currentCourseId">发布课件</button>
-            <button @click="showUploadModal = true" class="upload-btn">+ 上传课件</button>
+            <el-button 
+              type="success" 
+              size="small" 
+              @click="showPublishModal = true"
+              :disabled="!currentCourseId"
+            >
+              <el-icon><UploadFilled /></el-icon> 发布课件
+            </el-button>
+            <el-button 
+              type="primary" 
+              size="small" 
+              @click="showUploadModal = true"
+            >
+              <el-icon><Plus /></el-icon> 上传课件
+            </el-button>
           </div>
         </div>
 
-        <div class="courseware-list">
-          <div
-            v-for="course in coursewareList"
-            :key="course.id"
-            class="course-item"
-            :class="{ active: course.id === currentCourseId }"
-            @click="selectCourse(course)"
-          >
-            <span class="course-name">{{ course.name }}</span>
-            <div class="course-actions">
-              <span v-if="course.published" class="published-tag">已发布</span>
-              <button @click.stop="deleteCourse(course.id)" class="del-btn">删除</button>
-            </div>
-          </div>
-          <div v-if="coursewareList.length === 0" class="empty-tip">暂无课件，请点击上方按钮上传</div>
-        </div>
+        <!-- 课件列表 -->
+        <el-card shadow="hover" class="courseware-list-card mt-2">
+          <el-list border :data="coursewareList" empty-text="暂无课件，请点击上方按钮上传">
+            <el-list-item 
+              v-for="course in coursewareList" 
+              :key="course.courseId"
+              :class="{ active: course.courseId === currentCourseId }"
+              @click="selectCourse(course)"
+            >
+              <el-list-item-meta>
+                <el-list-item-meta-title>
+                  {{ course.title }}
+                  <el-tag 
+                    :type="getStatusTagType(course.status)" 
+                    size="small" 
+                    class="ml-2"
+                  >
+                    {{ getStatusText(course.status) }}
+                  </el-tag>
+                </el-list-item-meta-title>
+                <el-list-item-meta-description>
+                  {{ course.fileType }} | {{ formatTime(course.createdAt) }}
+                </el-list-item-meta-description>
+              </el-list-item-meta>
+              <el-space>
+                <el-tag v-if="course.published" size="small" type="info">已发布</el-tag>
+                <el-button 
+                  v-if="course.status === 'failed'"
+                  size="mini" 
+                  type="text" 
+                  @click.stop="retryParseCourse(course.courseId)"
+                >
+                  重试解析
+                </el-button>
+                <el-button 
+                  size="mini" 
+                  type="text" 
+                  text 
+                  @click.stop="deleteCourse(course.courseId)"
+                >
+                  <el-icon color="#ff4d4f"><Delete /></el-icon>
+                </el-button>
+              </el-space>
+            </el-list-item>
+          </el-list>
+        </el-card>
 
-        <div class="page-selector" v-if="currentCourseId">
-          <h4>当前课件：{{ currentCourseName }}</h4>
-          <div class="page-buttons">
-            <button
+        <!-- 页码选择器 -->
+        <el-card shadow="hover" class="page-selector-card mt-2" v-if="currentCourseId">
+          <div class="page-selector-header">
+            <span>当前课件：{{ currentCourseTitle }}</span>
+          </div>
+          <el-space wrap class="page-buttons mt-2">
+            <el-button 
               v-for="page in currentCourseTotalPages"
               :key="page"
-              class="page-btn"
-              :class="{ active: page === currentEditPage }"
+              size="small"
+              :type="page === currentEditPageNum ? 'primary' : 'default'"
               @click="selectEditPage(page)"
             >
               第{{ page }}页
-            </button>
-          </div>
-        </div>
-      </div>
+            </el-button>
+          </el-space>
+        </el-card>
+      </el-aside>
 
-      <!-- 右侧：讲稿编辑与分析区 -->
-      <div class="editor-section">
-        <div class="tabs">
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'script' }"
-            @click="activeTab = 'script'"
-          >
-            讲稿编辑
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'stats' }"
-            @click="activeTab = 'stats'"
-          >
-            学情分析
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === 'questions' }"
-            @click="activeTab = 'questions'"
-          >
-            提问统计
-          </button>
-          <button
-            class="tab-btn"
-            :class="{ active: activeTab === '卡点分析' }"
-            @click="activeTab = '卡点分析'; renderChart()"
-          >
-            学习卡点可视化
-          </button>
-        </div>
-
-        <!-- 讲稿编辑 -->
-        <div class="tab-content" v-if="activeTab === 'script'">
-          <div class="course-preview">
-            <h4>第{{ currentEditPage }}页课件预览</h4>
-            <img
-              :src="`http://localhost:3000/api/courseware/${currentCourseId}/page/${currentEditPage}`"
-              alt="课件预览"
-              class="preview-img"
-              v-if="currentCourseId"
-            />
-            <div class="no-preview" v-else>请先上传并选择课件</div>
-          </div>
-
-          <div class="script-editor">
-            <div class="editor-actions">
-              <button @click="generateAIScript" class="ai-btn">AI 生成讲稿</button>
-              <button @click="saveScript" class="save-btn">保存讲稿</button>
-            </div>
-            <textarea
-              v-model="currentScript"
-              placeholder="请输入本页讲稿内容，支持AI生成..."
-              class="script-textarea"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- 学情分析 -->
-        <div class="tab-content" v-if="activeTab === 'stats'">
-          <div class="stats-header" v-if="currentCourseId">
-            <h4>学情分析 - {{ currentCourseName }}</h4>
-          </div>
-          <div class="stats-grid" v-if="currentCourseId">
-            <div class="stat-card">
-              <div class="stat-value">{{ studentStats.totalQuestions }}</div>
-              <div class="stat-label">总提问数</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">{{ studentStats.hotPages.join('、') || '暂无' }}</div>
-              <div class="stat-label">高频提问页码</div>
-            </div>
-            <div class="stat-card" style="grid-column: span 2">
-              <div class="stat-value">{{ studentStats.keyDifficulties }}</div>
-              <div class="stat-label">重点难点</div>
-            </div>
-          </div>
-          <div v-else class="empty-tip">请先选择一个课件查看学情数据</div>
-        </div>
-
-        <!-- 提问统计 -->
-        <div class="tab-content" v-if="activeTab === 'questions'">
-          <div class="questions-header" v-if="currentCourseId">
-            <h4>提问统计 - {{ currentCourseName }}</h4>
-            <div class="filter-bar">
-              <span>按页码筛选：</span>
-              <select v-model="filterPage" class="page-select">
-                <option value="">全部</option>
-                <option v-for="page in currentCourseTotalPages" :key="page" :value="page">第{{ page }}页</option>
-              </select>
-            </div>
-          </div>
-          <div class="questions-list" v-if="currentCourseId">
-            <div
-              v-for="q in filteredQuestions"
-              :key="q.id"
-              class="question-item"
-            >
-              <div class="question-meta">
-                <span class="student-id">学生 {{ q.studentId }}</span>
-                <span class="page-tag">第{{ q.page }}页</span>
-                <span class="time">{{ q.time }}</span>
+      <!-- 右侧编辑区 -->
+      <el-main class="editor-section">
+        <el-tabs v-model="activeTab" type="card" class="editor-tabs">
+          <!-- 讲稿编辑 -->
+          <el-tab-pane label="讲稿编辑" name="script">
+            <!-- 课件预览 -->
+            <el-card class="course-preview-card mb-4">
+              <template #header>
+                <span>第{{ currentEditPageNum }}页课件预览</span>
+              </template>
+              <div v-if="currentCourseId" class="preview-container">
+                <div v-if="coursewarePreviewLoading" class="preview-loading">
+                  <el-skeleton :rows="8" animated />
+                </div>
+                <div v-else class="preview-content">
+                  <div ref="previewRef" class="preview-viewport"></div>
+                </div>
               </div>
-              <div class="question-content">{{ q.content }}</div>
-              <div class="answer-content" v-if="q.answer">
-                <span class="answer-label">AI 回复：</span>{{ q.answer }}
-              </div>
-            </div>
-            <div v-if="filteredQuestions.length === 0" class="empty-tip">暂无提问记录</div>
-          </div>
-          <div v-else class="empty-tip">请先选择一个课件查看提问统计</div>
-        </div>
+              <el-empty v-else description="请先上传并选择课件"></el-empty>
+            </el-card>
 
-        <!-- 学习卡点可视化 -->
-        <div class="tab-content" v-if="activeTab === '卡点分析'">
-          <div class="chart-header" v-if="currentCourseId">
-            <h4>学习卡点分析 - {{ currentCourseName }}</h4>
-            <div class="chart-type">
-              <span>图表类型：</span>
-              <button 
-                class="chart-btn" 
-                :class="{ active: chartType === 'bar' }"
-                @click="chartType = 'bar'; renderChart()"
-              >柱状图</button>
-              <button 
-                class="chart-btn" 
-                :class="{ active: chartType === 'line' }"
-                @click="chartType = 'line'; renderChart()"
-              >折线图</button>
-              <button 
-                class="chart-btn" 
-                :class="{ active: chartType === 'pie' }"
-                @click="chartType = 'pie'; renderChart()"
-              >饼图</button>
-            </div>
-          </div>
-          <div v-if="currentCourseId" class="chart-container">
-            <div id="卡点图表" class="chart" style="width:100%;height:400px;"></div>
-            <div class="chart-tip">
-              <p>数据说明：</p>
-              <ul>
-                <li>提问量：该页面学生发起的提问总数</li>
-                <li>停留时长：学生平均停留时长（秒）</li>
-                <li>卡点指数：综合提问量+停留时长计算的卡点程度（0-10）</li>
-              </ul>
-            </div>
-          </div>
-          <div v-else class="empty-tip">请先选择一个课件查看卡点分析</div>
-        </div>
-      </div>
-    </div>
+            <!-- 富文本编辑 -->
+            <el-card>
+              <template #header>
+                <div class="editor-actions">
+                  <el-button 
+                    type="success" 
+                    size="small"
+                    @click="generateAIScript"
+                    :loading="aiGenerating"
+                  >
+                    <el-icon><RobotFilled /></el-icon> AI 生成讲稿
+                  </el-button>
+                  <el-button 
+                    type="primary" 
+                    size="small"
+                    @click="saveScript"
+                    :loading="savingScript"
+                  >
+                    <el-icon><Save /></el-icon> 保存讲稿
+                  </el-button>
+                </div>
+              </template>
+              <QuillEditor
+                v-model:content="currentScriptContent"
+                placeholder="请输入本页讲稿内容，支持富文本编辑..."
+                :options="editorOptions"
+                class="script-editor"
+              />
+            </el-card>
+          </el-tab-pane>
 
-    <!-- 课件上传弹窗 -->
-    <div class="modal-overlay" v-if="showUploadModal" @click="showUploadModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>上传课件（PPT/PDF）</h3>
-          <button @click="showUploadModal = false" class="close-btn">×</button>
+          <!-- 学情分析 -->
+          <el-tab-pane label="学情分析" name="stats">
+            <el-card v-if="currentCourseId">
+              <template #header>
+                <span>学情分析 - {{ currentCourseTitle }}</span>
+              </template>
+              <el-descriptions :column="2" border>
+                <el-descriptions-item label="总提问数">
+                  {{ studentStats.totalQuestions }}
+                </el-descriptions-item>
+                <el-descriptions-item label="高频提问页码">
+                  {{ studentStats.hotPages.join('、') || '暂无' }}
+                </el-descriptions-item>
+                <el-descriptions-item label="重点难点" :span="2">
+                  {{ studentStats.keyDifficulties }}
+                </el-descriptions-item>
+              </el-descriptions>
+              <!-- 学情分析图表 - 加宽处理 -->
+              <div class="stats-chart mt-4" ref="statsChartRef" style="width:100%;min-width:900px;height:400px;"></div>
+            </el-card>
+            <el-empty v-else description="请先选择一个课件查看学情数据"></el-empty>
+          </el-tab-pane>
+
+          <!-- 提问记录 -->
+          <el-tab-pane label="提问记录" name="questions">
+            <el-card v-if="currentCourseId">
+              <template #header>
+                <div class="questions-header">
+                  <span>提问记录 - {{ currentCourseTitle }}</span>
+                  <el-select 
+                    v-model="filterPageNum" 
+                    placeholder="按页码筛选" 
+                    size="small"
+                    class="ml-2"
+                    style="width: 120px"
+                  >
+                    <el-option label="全部" value="" />
+                    <el-option 
+                      v-for="page in currentCourseTotalPages"
+                      :key="page"
+                      :label="`第${page}页`"
+                      :value="page"
+                    />
+                  </el-select>
+                </div>
+              </template>
+              <el-table 
+                :data="filteredQuestions" 
+                border 
+                stripe
+                :loading="questionsLoading"
+              >
+                <el-table-column prop="studentId" label="学生ID" width="100" />
+                <el-table-column prop="pageNum" label="页码" width="80" />
+                <el-table-column prop="content" label="提问内容" min-width="300" />
+                <el-table-column prop="answer" label="AI回复" min-width="300" />
+                <el-table-column prop="time" label="提问时间" width="180" />
+              </el-table>
+              <el-pagination
+                @size-change="handlePageSizeChange"
+                @current-change="handleCurrentPageChange"
+                :current-page="questionsPage.current"
+                :page-sizes="[10, 20, 50]"
+                :page-size="questionsPage.size"
+                layout="total, sizes, prev, pager, next, jumper"
+                :total="questionsPage.total"
+                class="mt-3 pagination"
+              />
+            </el-card>
+            <el-empty v-else description="请先选择一个课件查看提问记录"></el-empty>
+          </el-tab-pane>
+
+          <!-- 卡点可视化 - 加宽处理 -->
+          <el-tab-pane label="学习卡点可视化" name="card-analysis">
+            <el-card v-if="currentCourseId">
+              <template #header>
+                <div class="chart-header">
+                  <span>学习卡点分析 - {{ currentCourseTitle }}</span>
+                  <el-space class="ml-2">
+                    <span>图表类型：</span>
+                    <el-button 
+                      size="small"
+                      :type="chartType === 'bar' ? 'primary' : 'default'"
+                      @click="chartType = 'bar'; renderCardChart()"
+                    >
+                      柱状图
+                    </el-button>
+                    <el-button 
+                      size="small"
+                      :type="chartType === 'line' ? 'primary' : 'default'"
+                      @click="chartType = 'line'; renderCardChart()"
+                    >
+                      折线图
+                    </el-button>
+                    <el-button 
+                      size="small"
+                      :type="chartType === 'pie' ? 'primary' : 'default'"
+                      @click="chartType = 'pie'; renderCardChart()"
+                    >
+                      饼图
+                    </el-button>
+                  </el-space>
+                </div>
+              </template>
+              <!-- 卡点可视化图表 - 加宽处理 -->
+              <div 
+                ref="cardChartRef" 
+                class="card-chart-container"
+                style="width:100%;min-width:900px;height:500px;margin:0 auto;"
+              ></div>
+              <el-alert 
+                title="数据说明" 
+                type="info" 
+                :closable="false"
+                class="mt-3"
+              >
+                <ul class="chart-tip">
+                  <li>提问量：该页面学生发起的提问总数</li>
+                  <li>停留时长：学生平均停留时长（秒）</li>
+                  <li>卡点指数：综合提问量+停留时长计算的卡点程度（0-10）</li>
+                </ul>
+              </el-alert>
+            </el-card>
+            <el-empty v-else description="请先选择一个课件查看卡点分析"></el-empty>
+          </el-tab-pane>
+        </el-tabs>
+      </el-main>
+    </el-container>
+
+    <!-- 上传课件弹窗 -->
+    <el-dialog 
+      v-model="showUploadModal" 
+      title="上传课件（PDF/PPTX）" 
+      width="500px"
+      destroy-on-close
+    >
+      <el-upload
+        ref="uploadRef"
+        class="upload-demo"
+        drag
+        action="#"
+        :auto-upload="false"
+        :file-list="uploadFileList"
+        accept=".pdf,.pptx"
+        :on-change="handleFileChange"
+        :on-remove="handleFileRemove"
+      >
+        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          将文件拖到此处，或<em>点击上传</em>
         </div>
-        <div class="upload-form">
-          <input
-            type="file"
-            ref="fileInput"
-            accept=".ppt,.pptx,.pdf"
-            @change="handleFileSelect"
-            class="file-input"
+        <template #tip>
+          <div class="el-upload__tip">
+            只能上传 PDF/PPTX 文件，且不超过 10MB
+          </div>
+        </template>
+      </el-upload>
+      <el-form :model="uploadForm" class="mt-3" label-width="80px">
+        <el-form-item label="课件标题" prop="title">
+          <el-input 
+            v-model="uploadForm.title" 
+            placeholder="可选，默认使用文件名"
           />
-          <div class="file-name" v-if="selectedFileName">{{ selectedFileName }}</div>
-          <button @click="uploadCourseware" class="upload-submit" :disabled="!selectedFileName">
-            {{ uploadLoading ? '上传中...' : '上传并解析' }}
-          </button>
-        </div>
-      </div>
-    </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showUploadModal = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="uploadCourseware"
+          :loading="uploading"
+          :disabled="uploadFileList.length === 0"
+        >
+          上传并解析
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 发布课件弹窗 -->
-    <div class="modal-overlay" v-if="showPublishModal" @click="showPublishModal = false">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>发布课件给学生端</h3>
-          <button @click="showPublishModal = false" class="close-btn">×</button>
-        </div>
-        <div class="publish-form">
-          <div class="form-item">
-            <label>当前课件：</label>
-            <span>{{ currentCourseName }}</span>
-          </div>
-          <div class="form-item">
-            <label>发布范围：</label>
-            <select v-model="publishScope" class="scope-select">
-              <option value="all">全部学生</option>
-              <option value="class1">班级1</option>
-              <option value="class2">班级2</option>
-            </select>
-          </div>
-          <div class="form-actions">
-            <button @click="publishCourseware" class="confirm-btn">确认发布</button>
-            <button @click="showPublishModal = false" class="cancel-btn">取消</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <el-dialog 
+      v-model="showPublishModal" 
+      title="发布课件给学生端" 
+      width="400px"
+    >
+      <el-form :model="publishForm" label-width="80px">
+        <el-form-item label="当前课件">
+          <el-input v-model="currentCourseTitle" disabled />
+        </el-form-item>
+        <el-form-item label="发布范围" prop="scope">
+          <el-select v-model="publishForm.scope" placeholder="请选择发布范围">
+            <el-option label="全部学生" value="all" />
+            <el-option label="班级1" value="class1" />
+            <el-option label="班级2" value="class2" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showPublishModal = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="publishCourseware"
+          :loading="publishing"
+        >
+          确认发布
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue';
-import * as echarts from 'echarts';
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
+import { QuillEditor } from '@vueup/vue-quill'
+import 'quill/dist/quill.snow.css' // 富文本编辑器样式
+import * as echarts from 'echarts'
+import * as pdfjsLib from 'pdfjs-dist'
+import { getDocument } from 'pdfjs-dist/build/pdf'
+import { ElMessageBox, ElMessage } from 'element-plus'
+import { get, post, put, del } from './utils/request'
+
+// PDF.js 配置
+pdfjsLib.GlobalWorkerOptions.workerSrc = '//unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js'
 
 // ========== 核心变量 ==========
-const coursewareList = ref([
-  { id: '1', name: 'Python数据分析·第3课：缺失值处理', totalPages: 10, published: true },
-  { id: '2', name: 'Python数据分析·第2课：数据清洗', totalPages: 8, published: false }
-]);
-const currentCourseId = ref('1');
-const currentCourseName = ref('Python数据分析·第3课：缺失值处理');
-const currentCourseTotalPages = ref(10);
-const currentEditPage = ref(1);
-const currentScript = ref('这是第1页的讲稿内容...');
+const coursewareList = ref([])
+const currentCourseId = ref('')
+const currentCourseTitle = ref('')
+const currentCourseTotalPages = ref(0)
+const currentEditPageNum = ref(1)
+const currentScriptContent = ref('')
 
-const showUploadModal = ref(false);
-const fileInput = ref(null);
-const selectedFileName = ref('');
-const uploadLoading = ref(false);
+// 上传相关
+const showUploadModal = ref(false)
+const uploadRef = ref(null)
+const uploadFileList = ref([])
+const uploadForm = ref({ title: '' })
+const uploading = ref(false)
 
-const showPublishModal = ref(false);
-const publishScope = ref('all');
+// 发布相关
+const showPublishModal = ref(false)
+const publishForm = ref({ scope: 'all' })
+const publishing = ref(false)
 
-const activeTab = ref('script');
+// 标签页
+const activeTab = ref('script')
+
+// 学情分析
 const studentStats = ref({
-  totalQuestions: 12,
-  hotPages: [4, 6, 8],
-  keyDifficulties: '缺失值填充、异常值识别'
-});
+  totalQuestions: 0,
+  hotPages: [],
+  keyDifficulties: ''
+})
 
-// 提问统计
-const questionRecords = ref([
-  { id: 1, studentId: '2025001', page: 4, content: '这一页的缺失值填充方法有哪些？', answer: '常用方法有均值填充、中位数填充、KNN填充等。', time: '2026-03-01 20:15' },
-  { id: 2, studentId: '2025002', page: 4, content: '为什么要处理缺失值？不处理会有什么影响？', answer: '缺失值会导致统计偏差，影响模型训练效果。', time: '2026-03-01 20:20' },
-  { id: 3, studentId: '2025001', page: 6, content: '异常值识别的常用方法是什么？', answer: '常用方法有3σ原则、箱线图法、Z-score等。', time: '2026-03-01 20:30' }
-]);
-const filterPage = ref('');
+// 提问记录
+const questionRecords = ref([])
+const filterPageNum = ref('')
+const questionsPage = ref({
+  current: 1,
+  size: 20,
+  total: 0
+})
+const questionsLoading = ref(false)
+
+// 卡点可视化
+const chartType = ref('bar')
+let cardChartInstance = null
+let statsChartInstance = null
+const cardData = ref([])
+
+// 加载状态
+const coursewarePreviewLoading = ref(false)
+const aiGenerating = ref(false)
+const savingScript = ref(false)
+
+// 图表Ref
+const previewRef = ref(null)
+const cardChartRef = ref(null)
+const statsChartRef = ref(null)
+
+// ========== 计算属性 ==========
 const filteredQuestions = computed(() => {
-  if (!filterPage.value) return questionRecords.value;
-  return questionRecords.value.filter(q => q.page === Number(filterPage.value));
-});
+  if (!filterPageNum.value) return questionRecords.value
+  return questionRecords.value.filter(q => q.pageNum === Number(filterPageNum.value))
+})
 
-// 学习卡点可视化
-const chartType = ref('bar');
-let chartInstance = null;
-const cardData = ref([
-  { page: 1, 提问量: 1, 停留时长: 20, 卡点指数: 1.2 },
-  { page: 2, 提问量: 0, 停留时长: 15, 卡点指数: 0.8 },
-  { page: 3, 提问量: 2, 停留时长: 30, 卡点指数: 2.5 },
-  { page: 4, 提问量: 8, 停留时长: 90, 卡点指数: 8.5 },
-  { page: 5, 提问量: 3, 停留时长: 45, 卡点指数: 3.8 },
-  { page: 6, 提问量: 7, 停留时长: 80, 卡点指数: 7.2 },
-  { page: 7, 提问量: 2, 停留时长: 25, 卡点指数: 2.1 },
-  { page: 8, 提问量: 6, 停留时长: 75, 卡点指数: 6.8 },
-  { page: 9, 提问量: 1, 停留时长: 18, 卡点指数: 1.0 },
-  { page: 10, 提问量: 0, 停留时长: 12, 卡点指数: 0.5 }
-]);
+// ========== 工具方法 ==========
+const getStatusText = (status) => {
+  const statusMap = {
+    'parsing': '解析中',
+    'ready': '解析完成',
+    'failed': '解析失败'
+  }
+  return statusMap[status] || '未知状态'
+}
 
-// ========== 初始化 ==========
+const getStatusTagType = (status) => {
+  const typeMap = {
+    'parsing': 'warning',
+    'ready': 'success',
+    'failed': 'danger'
+  }
+  return typeMap[status] || 'info'
+}
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return ''
+  return new Date(timeStr).toLocaleString('zh-CN')
+}
+
+// ========== 生命周期 ==========
 onMounted(async () => {
-  await loadCoursewareList();
-  await loadStudentStats(currentCourseId.value);
-  await loadCardData(currentCourseId.value);
-});
+  await loadCoursewareList()
+  initCharts()
+})
 
 onUnmounted(() => {
-  if (chartInstance) {
-    chartInstance.dispose();
-    chartInstance = null;
+  if (cardChartInstance) cardChartInstance.dispose()
+  if (statsChartInstance) statsChartInstance.dispose()
+})
+
+// 监听课件切换
+watch(currentCourseId, async (newVal) => {
+  if (newVal) {
+    await loadCoursewareDetail(newVal)
+    await loadScript(newVal, currentEditPageNum.value)
+    await loadStudentStats(newVal)
+    await loadQuestionRecords(newVal)
+    await loadCardData(newVal)
+    await loadCoursewarePreview(newVal, currentEditPageNum.value)
+  } else {
+    currentCourseTitle.value = ''
+    currentCourseTotalPages.value = 0
+    currentScriptContent.value = ''
   }
-});
+})
+
+// 监听页码切换
+watch(currentEditPageNum, async (newVal) => {
+  if (currentCourseId.value) {
+    await loadScript(currentCourseId.value, newVal)
+    await loadCoursewarePreview(currentCourseId.value, newVal)
+  }
+})
 
 // ========== 课件管理 ==========
 const loadCoursewareList = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/teacher/courseware-list');
-    const data = await res.json();
-    coursewareList.value = data.list || coursewareList.value;
-  } catch (err) {
-    console.error('加载课件列表失败', err);
-  }
-};
-
-const selectCourse = async (course) => {
-  currentCourseId.value = course.id;
-  currentCourseName.value = course.name;
-  currentCourseTotalPages.value = course.totalPages;
-  currentEditPage.value = 1;
-  await loadScript(course.id, 1);
-  await loadStudentStats(course.id);
-  await loadCardData(course.id);
-};
-
-const deleteCourse = async (courseId) => {
-  if (!confirm('确定删除该课件吗？')) return;
-  try {
-    await fetch(`http://localhost:3000/api/teacher/courseware/${courseId}`, { method: 'DELETE' });
-    await loadCoursewareList();
-    if (currentCourseId.value === courseId) {
-      currentCourseId.value = '';
-      currentCourseName.value = '';
-      currentCourseTotalPages.value = 0;
+    // 模拟数据
+    coursewareList.value = [
+      {
+        courseId: 'uuid-1001',
+        title: 'Python 基础教程',
+        fileType: 'PDF',
+        status: 'ready',
+        published: true,
+        totalPages: 10,
+        createdAt: '2025-03-01 10:00:00'
+      },
+      {
+        courseId: 'uuid-1002',
+        title: 'Vue3 实战开发',
+        fileType: 'PPTX',
+        status: 'parsing',
+        published: false,
+        totalPages: 8,
+        createdAt: '2025-03-02 14:30:00'
+      },
+      {
+        courseId: 'uuid-1003',
+        title: 'JavaScript 高级语法',
+        fileType: 'PDF',
+        status: 'failed',
+        published: false,
+        totalPages: 12,
+        createdAt: '2025-03-03 09:15:00'
+      }
+    ]
+    if (coursewareList.value.length > 0) {
+      selectCourse(coursewareList.value[0])
     }
   } catch (err) {
-    alert('删除课件失败：' + err.message);
+    console.error('加载课件列表失败', err)
   }
-};
+}
 
-const selectEditPage = async (page) => {
-  currentEditPage.value = page;
-  await loadScript(currentCourseId.value, page);
-};
-
-// ========== 讲稿相关 ==========
-const loadScript = async (courseId, page) => {
+const loadCoursewareDetail = async (courseId) => {
   try {
-    const res = await fetch(`http://localhost:3000/api/teacher/script/${courseId}/${page}`);
-    const data = await res.json();
-    currentScript.value = data.content || currentScript.value;
+    const course = coursewareList.value.find(item => item.courseId === courseId)
+    if (course) {
+      currentCourseTotalPages.value = course.totalPages || 0
+    }
   } catch (err) {
-    currentScript.value = '';
+    console.error('加载课件详情失败', err)
   }
-};
+}
 
-const saveScript = async () => {
-  if (!currentScript.value.trim()) {
-    alert('请输入讲稿内容！');
-    return;
-  }
+const selectCourse = (course) => {
+  currentCourseId.value = course.courseId
+  currentCourseTitle.value = course.title
+  currentCourseTotalPages.value = course.totalPages || 0
+  currentEditPageNum.value = 1
+}
+
+const deleteCourse = async (courseId) => {
   try {
-    await fetch('http://localhost:3000/api/teacher/script/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        courseId: currentCourseId.value,
-        page: currentEditPage.value,
-        content: currentScript.value
-      })
-    });
-    alert('讲稿保存成功！');
+    await ElMessageBox.confirm(
+      '确定删除该课件吗？删除后将无法恢复',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    coursewareList.value = coursewareList.value.filter(item => item.courseId !== courseId)
+    ElMessage.success('删除成功')
+    
+    if (currentCourseId.value === courseId) {
+      currentCourseId.value = ''
+      currentCourseTitle.value = ''
+      currentCourseTotalPages.value = 0
+    }
   } catch (err) {
-    alert('保存讲稿失败：' + err.message);
+    console.error('删除课件失败', err)
   }
-};
+}
 
-const generateAIScript = async () => {
+const retryParseCourse = async (courseId) => {
   try {
-    currentScript.value = 'AI正在生成讲稿...';
-    const res = await fetch('http://localhost:3000/api/teacher/ai-generate-script', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        courseId: currentCourseId.value,
-        page: currentEditPage.value,
-        courseName: currentCourseName.value
-      })
-    });
-    const data = await res.json();
-    currentScript.value = data.content || 'AI生成失败，请重试';
+    const course = coursewareList.value.find(item => item.courseId === courseId)
+    if (course) {
+      course.status = 'parsing'
+      setTimeout(() => {
+        course.status = 'ready'
+        ElMessage.success('解析成功')
+      }, 2000)
+    }
   } catch (err) {
-    currentScript.value = '生成失败：' + err.message;
+    console.error('重试解析失败', err)
   }
-};
+}
 
-// ========== 上传课件 ==========
-const handleFileSelect = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    selectedFileName.value = file.name;
+const selectEditPage = (pageNum) => {
+  currentEditPageNum.value = pageNum
+}
+
+// ========== 课件上传 ==========
+const handleFileChange = (file) => {
+  uploadFileList.value = [file]
+  if (!uploadForm.title) {
+    uploadForm.title = file.name.split('.').slice(0, -1).join('.')
   }
-};
+}
+
+const handleFileRemove = () => {
+  uploadFileList.value = []
+}
 
 const uploadCourseware = async () => {
-  const file = fileInput.value.files[0];
-  if (!file) return;
-
-  uploadLoading.value = true;
-  const formData = new FormData();
-  formData.append('courseware', file);
-
+  if (uploadFileList.length === 0) return
+  
+  uploading.value = true
   try {
-    const res = await fetch('http://localhost:3000/api/teacher/upload-courseware', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    alert('课件上传并解析成功！');
-    showUploadModal.value = false;
-    selectedFileName.value = '';
-    await loadCoursewareList();
+    const newCourse = {
+      courseId: `uuid-${Date.now()}`,
+      title: uploadForm.title || uploadFileList[0].name.split('.').slice(0, -1).join('.'),
+      fileType: uploadFileList[0].name.split('.').pop().toUpperCase(),
+      status: 'parsing',
+      published: false,
+      totalPages: Math.floor(Math.random() * 10) + 5,
+      createdAt: new Date().toLocaleString('zh-CN')
+    }
+    
+    coursewareList.value.unshift(newCourse)
+    ElMessage.success('上传成功，正在解析...')
+    
+    showUploadModal.value = false
+    uploadFileList.value = []
+    uploadForm.title = ''
+    
+    setTimeout(() => {
+      newCourse.status = 'ready'
+      ElMessage.success('课件解析完成')
+    }, 3000)
   } catch (err) {
-    alert('上传失败：' + err.message);
+    console.error('上传课件失败', err)
   } finally {
-    uploadLoading.value = false;
-    fileInput.value.value = '';
+    uploading.value = false
   }
-};
+}
 
-// ========== 发布课件 ==========
-const publishCourseware = async () => {
+// ========== 讲稿管理 ==========
+const loadScript = async (courseId, pageNum) => {
   try {
-    await fetch('http://localhost:3000/api/teacher/publish-courseware', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        courseId: currentCourseId.value,
-        scope: publishScope.value
-      })
-    });
-    const course = coursewareList.value.find(c => c.id === currentCourseId.value);
-    if (course) course.published = true;
-    alert('课件发布成功！学生端已可查看。');
-    showPublishModal.value = false;
+    currentScriptContent.value = `第${pageNum}页讲稿内容：
+欢迎学习 ${currentCourseTitle.value} 的第${pageNum}页内容，
+本节主要讲解：
+1. 核心知识点
+2. 实战案例
+3. 常见问题解答`
   } catch (err) {
-    alert('发布失败：' + err.message);
+    currentScriptContent.value = ''
   }
-};
+}
+
+const saveScript = async () => {
+  if (!currentScriptContent.value.trim()) {
+    ElMessage.warning('请输入讲稿内容！')
+    return
+  }
+  
+  savingScript.value = true
+  try {
+    ElMessage.success('讲稿保存成功')
+  } catch (err) {
+    console.error('保存讲稿失败', err)
+  } finally {
+    savingScript.value = false
+  }
+}
+
+const generateAIScript = async () => {
+  aiGenerating.value = true
+  try {
+    const contentList = [
+      `第${currentEditPageNum.value}页 ${currentCourseTitle.value} 详细讲解：\n`,
+      '一、知识点梳理\n',
+      '1. 核心概念：\n',
+      '    - 定义：\n',
+      '    - 应用场景：\n',
+      '2. 实战案例：\n',
+      '    - 案例1：\n',
+      '    - 案例2：\n',
+      '二、常见问题解答\n',
+      '1. 问题1：\n',
+      '2. 问题2：\n',
+      '三、总结与拓展\n'
+    ]
+    
+    currentScriptContent.value = ''
+    let index = 0
+    
+    const timer = setInterval(() => {
+      if (index < contentList.length) {
+        currentScriptContent.value += contentList[index]
+        index++
+      } else {
+        clearInterval(timer)
+        ElMessage.success('AI 讲稿生成完成')
+        aiGenerating.value = false
+      }
+    }, 300)
+  } catch (err) {
+    ElMessage.error('AI 讲稿生成失败')
+    console.error('生成失败', err)
+    aiGenerating.value = false
+  }
+}
+
+// ========== 课件发布 ==========
+const publishCourseware = async () => {
+  publishing.value = true
+  try {
+    const course = coursewareList.value.find(item => item.courseId === currentCourseId.value)
+    if (course) {
+      course.published = true
+      ElMessage.success('课件发布成功')
+      showPublishModal.value = false
+    }
+  } catch (err) {
+    console.error('发布课件失败', err)
+  } finally {
+    publishing.value = false
+  }
+}
+
+// ========== 课件预览 ==========
+const loadCoursewarePreview = async (courseId, pageNum) => {
+  if (!previewRef.value) return
+  
+  coursewarePreviewLoading.value = true
+  try {
+    setTimeout(() => {
+      previewRef.value.innerHTML = `
+        <div style="width:100%;height:400px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;">
+            <img src="https://picsum.photos/id/${pageNum * 10}/600/400" style="max-width:100%;max-height:400px;" />
+            <p style="margin-top:10px;color:#666;">${currentCourseTitle.value} - 第${pageNum}页预览</p>
+          </div>
+        </div>
+      `
+      coursewarePreviewLoading.value = false
+    }, 1000)
+  } catch (err) {
+    console.error('加载预览失败', err)
+    previewRef.value.innerHTML = '<div class="preview-error">预览加载失败</div>'
+    coursewarePreviewLoading.value = false
+  }
+}
 
 // ========== 学情分析 ==========
 const loadStudentStats = async (courseId) => {
   try {
-    const res = await fetch(`http://localhost:3000/api/teacher/student-stats/${courseId}`);
-    const data = await res.json();
     studentStats.value = {
-      totalQuestions: data.totalQuestions || 12,
-      hotPages: data.hotPages || [4, 6, 8],
-      keyDifficulties: data.keyDifficulties || '缺失值填充、异常值识别'
-    };
+      totalQuestions: Math.floor(Math.random() * 50) + 10,
+      hotPages: [2, 4, 5, 7, 8],
+      keyDifficulties: '1. 函数闭包的理解；2. 异步编程的执行顺序；3. 组件通信的多种方式'
+    }
+    renderStatsChart()
   } catch (err) {
     studentStats.value = {
       totalQuestions: 0,
       hotPages: [],
       keyDifficulties: '加载失败'
-    };
+    }
   }
-};
+}
 
-// ========== 学习卡点可视化 ==========
+// ========== 提问记录 ==========
+const loadQuestionRecords = async (courseId) => {
+  questionsLoading.value = true
+  try {
+    const mockQuestions = []
+    for (let i = 1; i <= 25; i++) {
+      mockQuestions.push({
+        studentId: `stu-${1000 + i}`,
+        pageNum: Math.floor(Math.random() * currentCourseTotalPages.value) + 1,
+        content: `第${Math.floor(Math.random() * currentCourseTotalPages.value) + 1}页的这个知识点不太理解，能再解释一下吗？`,
+        answer: '好的，这个知识点的核心是...（AI 详细解答内容）',
+        time: new Date(Date.now() - Math.random() * 86400000 * 7).toLocaleString('zh-CN')
+      })
+    }
+    
+    questionRecords.value = mockQuestions
+    questionsPage.total = mockQuestions.length
+  } catch (err) {
+    questionRecords.value = []
+    questionsPage.total = 0
+  } finally {
+    questionsLoading.value = false
+  }
+}
+
+const handlePageSizeChange = (size) => {
+  questionsPage.size = size
+}
+
+const handleCurrentPageChange = (page) => {
+  questionsPage.current = page
+}
+
+// ========== 图表相关 ==========
+const initCharts = () => {
+  // 初始化时确保容器已渲染，避免图表缩成一团
+  setTimeout(() => {
+    if (cardChartRef.value) {
+      cardChartInstance = echarts.init(cardChartRef.value)
+    }
+    if (statsChartRef.value) {
+      statsChartInstance = echarts.init(statsChartRef.value)
+    }
+  }, 500)
+}
+
 const loadCardData = async (courseId) => {
   try {
-    const res = await fetch(`http://localhost:3000/api/teacher/card-data/${courseId}`);
-    const data = await res.json();
-    cardData.value = data.list || cardData.value;
+    cardData.value = [
+      { pageNum: 1, 提问量: 1, 停留时长: 20, 卡点指数: 1.2 },
+      { pageNum: 2, 提问量: 5, 停留时长: 60, 卡点指数: 5.5 },
+      { pageNum: 3, 提问量: 2, 停留时长: 25, 卡点指数: 2.1 },
+      { pageNum: 4, 提问量: 8, 停留时长: 90, 卡点指数: 8.5 },
+      { pageNum: 5, 提问量: 3, 停留时长: 45, 卡点指数: 3.8 },
+      { pageNum: 6, 提问量: 7, 停留时长: 80, 卡点指数: 7.2 },
+      { pageNum: 7, 提问量: 4, 停留时长: 50, 卡点指数: 4.3 },
+      { pageNum: 8, 提问量: 6, 停留时长: 75, 卡点指数: 6.8 },
+      { pageNum: 9, 提问量: 1, 停留时长: 18, 卡点指数: 1.0 },
+      { pageNum: 10, 提问量: 0, 停留时长: 12, 卡点指数: 0.5 }
+    ]
+    renderCardChart()
   } catch (err) {
-    console.error('加载卡点数据失败，使用模拟数据', err);
+    console.error('加载卡点数据失败', err)
   }
-};
+}
 
-const renderChart = () => {
-  if (chartInstance) {
-    chartInstance.dispose();
-  }
+const renderCardChart = () => {
+  if (!cardChartInstance || cardData.value.length === 0) return
+  cardChartInstance.clear()
+  const pages = cardData.value.map(item => `第${item.pageNum}页`)
+  const questionCounts = cardData.value.map(item => item.提问量)
+  const stayTimes = cardData.value.map(item => item.停留时长)
+  const cardScores = cardData.value.map(item => item.卡点指数)
 
-  chartInstance = echarts.init(document.getElementById('卡点图表'));
-
-  const pages = cardData.value.map(item => `第${item.page}页`);
-  const questionCounts = cardData.value.map(item => item.提问量);
-  const stayTimes = cardData.value.map(item => item.停留时长);
-  const cardScores = cardData.value.map(item => item.卡点指数);
-
-  let option = {};
+  let option = {}
 
   switch (chartType.value) {
     case 'bar':
       option = {
-        title: { text: '各页面学习卡点数据' },
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
-        xAxis: { type: 'category', data: pages },
-        yAxis: { type: 'value' },
+        title: { text: '各页面学习卡点数据', left: 'center', fontSize: 16 },
+        tooltip: { trigger: 'axis', textStyle: { fontSize: 14 } },
+        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'], top: 30, textStyle: { fontSize: 14 } },
+        grid: { left: '5%', right: '5%', top: '15%', bottom: '10%' },
+        xAxis: { type: 'category', data: pages, axisLabel: { fontSize: 14 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 14 } },
         series: [
-          { name: '提问量', type: 'bar', data: questionCounts },
-          { name: '停留时长(秒)', type: 'bar', data: stayTimes },
-          { name: '卡点指数', type: 'bar', data: cardScores, itemStyle: { color: '#ff4d4f' } }
+          { name: '提问量', type: 'bar', data: questionCounts, barWidth: '20%' },
+          { name: '停留时长(秒)', type: 'bar', data: stayTimes, barWidth: '20%' },
+          { name: '卡点指数', type: 'bar', data: cardScores, barWidth: '20%', itemStyle: { color: '#ff4d4f' } }
         ]
-      };
-      break;
+      }
+      break
     case 'line':
       option = {
-        title: { text: '各页面学习卡点趋势' },
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
-        xAxis: { type: 'category', data: pages },
-        yAxis: { type: 'value' },
+        title: { text: '各页面学习卡点趋势', left: 'center', fontSize: 16 },
+        tooltip: { trigger: 'axis', textStyle: { fontSize: 14 } },
+        legend: { data: ['提问量', '停留时长(秒)', '卡点指数'], top: 30, textStyle: { fontSize: 14 } },
+        grid: { left: '5%', right: '5%', top: '15%', bottom: '10%' },
+        xAxis: { type: 'category', data: pages, axisLabel: { fontSize: 14 } },
+        yAxis: { type: 'value', axisLabel: { fontSize: 14 } },
         series: [
-          { name: '提问量', type: 'line', data: questionCounts },
-          { name: '停留时长(秒)', type: 'line', data: stayTimes },
-          { name: '卡点指数', type: 'line', data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
+          { name: '提问量', type: 'line', data: questionCounts, lineWidth: 3, symbolSize: 8 },
+          { name: '停留时长(秒)', type: 'line', data: stayTimes, lineWidth: 3, symbolSize: 8 },
+          { name: '卡点指数', type: 'line', data: cardScores, lineWidth: 3, symbolSize: 8, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
         ]
-      };
-      break;
+      }
+      break
     case 'pie':
-      const top5CardData = [...cardData.value].sort((a, b) => b.卡点指数 - a.卡点指数).slice(0, 5);
+      const top5CardData = [...cardData.value].sort((a, b) => b.卡点指数 - a.卡点指数).slice(0, 5)
       option = {
-        title: { text: 'TOP5 卡点页面占比' },
-        tooltip: { trigger: 'item' },
-        legend: { orient: 'vertical', left: 'left', data: top5CardData.map(item => `第${item.page}页`) },
+        title: { text: 'TOP5 卡点页面占比', left: 'center', fontSize: 16 },
+        tooltip: { trigger: 'item', textStyle: { fontSize: 14 } },
+        legend: { orient: 'vertical', left: 'left', top: 'center', textStyle: { fontSize: 14 } },
         series: [
           {
             name: '卡点指数',
             type: 'pie',
-            radius: ['40%', '70%'],
+            radius: ['30%', '70%'],
+            center: ['60%', '50%'],
             data: top5CardData.map(item => ({
-              name: `第${item.page}页`,
+              name: `第${item.pageNum}页`,
               value: item.卡点指数
             })),
             label: {
-              formatter: '{b}: {c} ({d}%)'
+              formatter: '{b}: {c} ({d}%)',
+              fontSize: 14
+            },
+            itemStyle: {
+              borderRadius: 5,
+              borderColor: '#fff',
+              borderWidth: 2
             }
           }
         ]
-      };
-      break;
+      }
+      break
   }
 
-  chartInstance.setOption(option);
-  window.addEventListener('resize', () => {
-    if (chartInstance) {
-      chartInstance.resize();
-    }
-  });
-};
+  cardChartInstance.setOption(option)
+  
+  // 强制自适应，解决缩成一团问题
+  const resizeChart = () => {
+    cardChartInstance?.resize()
+    statsChartInstance?.resize()
+  }
+  window.addEventListener('resize', resizeChart)
+  // 初始化时强制resize一次
+  resizeChart()
+}
+
+const renderStatsChart = () => {
+  if (!statsChartInstance || studentStats.value.hotPages.length === 0) return
+  
+  const option = {
+    title: { text: '高频提问页码分布', left: 'center', fontSize: 16 },
+    tooltip: { trigger: 'axis', textStyle: { fontSize: 14 } },
+    grid: { left: '5%', right: '5%', top: '15%', bottom: '10%' },
+    xAxis: { type: 'category', data: studentStats.value.hotPages.map(p => `第${p}页`), axisLabel: { fontSize: 14 } },
+    yAxis: { type: 'value', name: '提问次数', axisLabel: { fontSize: 14 } },
+    series: [
+      {
+        name: '提问次数',
+        type: 'bar',
+        data: studentStats.value.hotPages.map(() => Math.floor(Math.random() * 10) + 1),
+        barWidth: '30%',
+        itemStyle: { color: '#1677ff' }
+      }
+    ]
+  }
+  
+  statsChartInstance.setOption(option)
+  // 强制自适应
+  statsChartInstance.resize()
+}
+
+// ========== 富文本编辑器配置 ==========
+const editorOptions = {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      ['blockquote', 'code-block'],
+      [{ 'header': [1, 2, 3, false] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'script': 'sub'}, { 'script': 'super' }],
+      [{ 'indent': '-1'}, { 'indent': '+1' }],
+      [{ 'direction': 'rtl' }],
+      [{ 'size': ['small', false, 'large', 'huge'] }],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'font': [] }],
+      [{ 'align': [] }],
+      ['clean'],
+      ['link', 'image']
+    ]
+  }
+}
 </script>
 
 <style scoped>
-/* 全局 */
 .teacher-app {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f7fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* 顶部导航 */
 .top-nav {
-  height: 56px;
   background: #1677ff;
+  color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  color: white;
 }
 .app-title {
   font-size: 16px;
   font-weight: 500;
 }
-.teacher-info {
+.nav-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-.avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  overflow: hidden;
-}
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 .teacher-name {
+  margin-left: 8px;
   font-size: 14px;
 }
 
-/* 主体内容 */
-.main-content {
-  display: flex;
+/* 主体容器 */
+.main-container {
   height: calc(100vh - 56px);
+  overflow: hidden;
 }
 
 /* 左侧课件管理区 */
 .courseware-manage-section {
-  width: 320px;
-  background: white;
-  border-right: 1px solid #e8e8e8;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  background: #f5f7fa;
+  padding: 16px;
+  overflow-y: auto;
 }
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 8px;
 }
 .section-header h3 {
   font-size: 16px;
   font-weight: 500;
-  color: #333;
   margin: 0;
 }
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-.upload-btn {
-  padding: 6px 12px;
-  background: #1677ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.publish-btn {
-  padding: 6px 12px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.publish-btn:disabled {
-  background: #999;
-  cursor: not-allowed;
-}
-.courseware-list {
-  flex: 1;
-  overflow-y: auto;
-}
-.course-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: #fafafa;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.course-item:hover {
-  background: #f0f7ff;
-}
-.course-item.active {
-  background: #e6f7ff;
-  border-left: 3px solid #1677ff;
-}
-.course-name {
-  font-size: 14px;
-  color: #333;
-}
-.course-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.published-tag {
-  font-size: 12px;
-  color: #52c41a;
-  background: #f6ffed;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-.del-btn {
-  padding: 4px 8px;
-  background: #ff4d4f;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.page-selector h4 {
-  font-size: 14px;
-  color: #666;
+.courseware-list-card {
+  --el-card-padding: 12px;
   margin-bottom: 12px;
 }
+.el-list-item.active {
+  background-color: #e6f7ff;
+}
+.page-selector-card {
+  --el-card-padding: 12px;
+}
+.page-selector-header {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
 .page-buttons {
-  display: flex;
+  width: 100%;
   flex-wrap: wrap;
   gap: 8px;
 }
-.page-btn {
-  padding: 6px 10px;
-  border: 1px solid #d9d9d9;
-  background: white;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.page-btn.active {
-  background: #1677ff;
-  color: white;
-  border-color: #1677ff;
-}
-.empty-tip {
-  text-align: center;
-  color: #999;
-  font-size: 14px;
-  padding: 20px;
-}
 
-/* 右侧编辑与分析区 */
+/* 右侧编辑区 */
 .editor-section {
-  flex: 1;
-  background: white;
-  display: flex;
-  flex-direction: column;
-}
-.tabs {
-  display: flex;
-  border-bottom: 1px solid #e8e8e8;
-}
-.tab-btn {
-  flex: 1;
-  padding: 14px 0;
-  background: white;
-  border: none;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-.tab-btn.active {
-  color: #1677ff;
-  border-bottom-color: #1677ff;
-}
-.tab-content {
-  flex: 1;
-  padding: 20px;
+  padding: 16px;
+  background: #f5f7fa;
   overflow-y: auto;
+  height: calc(100vh - 56px);
 }
-
-/* 讲稿编辑 */
-.course-preview {
-  margin-bottom: 20px;
+.editor-tabs {
+  --el-tabs-card-border-color: #e8e8e8;
+  --el-tabs-active-color: #1677ff;
 }
-.course-preview h4 {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 12px;
+.course-preview-card {
+  --el-card-padding: 16px;
+  margin-bottom: 16px;
 }
-.preview-img {
-  max-width: 100%;
-  max-height: 300px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.preview-container {
+  width: 100%;
+  min-height: 300px;
 }
-.no-preview {
-  height: 300px;
+.preview-loading {
+  width: 100%;
+  height: 400px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
-  border: 1px dashed #d9d9d9;
-  border-radius: 8px;
-  background: #fafafa;
+}
+.preview-content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.preview-viewport {
+  max-width: 100%;
+  max-height: 500px;
 }
 .script-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  min-height: 400px;
+  --el-quill-editor-border-color: #e8e8e8;
 }
-.editor-actions {
-  display: flex;
-  gap: 12px;
-}
-.ai-btn {
-  padding: 8px 16px;
-  background: #52c41a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.save-btn {
-  padding: 8px 16px;
-  background: #1677ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.script-textarea {
-  width: 100%;
-  height: 300px;
-  padding: 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  resize: vertical;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-/* 学情分析 */
-.stats-header h4, .questions-header h4, .chart-header h4 {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 20px;
-}
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-.stat-card {
-  background: #fafafa;
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-}
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: #1677ff;
-  margin-bottom: 8px;
-}
-.stat-label {
-  font-size: 14px;
-  color: #666;
-}
-
-/* 提问统计 */
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #666;
-}
-.page-select {
-  padding: 6px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  font-size: 14px;
-}
-.questions-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.question-item {
-  background: #fafafa;
-  padding: 16px;
-  border-radius: 8px;
-}
-.question-meta {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #666;
-}
-.page-tag {
-  color: #1677ff;
-  background: #e6f7ff;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-.question-content {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 8px;
-}
-.answer-content {
-  font-size: 14px;
-  color: #666;
-}
-.answer-label {
-  color: #1677ff;
-  font-weight: 500;
-}
-
-/* 学习卡点可视化 */
-.chart-type {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  color: #666;
-}
-.chart-btn {
-  padding: 6px 12px;
-  border: 1px solid #d9d9d9;
-  background: white;
-  border-radius: 4px;
-  font-size: 14px;
-  cursor: pointer;
-}
-.chart-btn.active {
-  background: #1677ff;
-  color: white;
-  border-color: #1677ff;
-}
-.chart-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.chart {
-  background: #fafafa;
-  padding: 16px;
-  border-radius: 8px;
-}
-.chart-tip {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.6;
-}
-.chart-tip ul {
-  margin: 8px 0 0 20px;
-  padding: 0;
-}
-
-/* 上传/发布弹窗 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-}
-.modal-content {
-  width: 500px;
-  background: white;
-  border-radius: 8px;
-  padding: 24px;
-}
-.modal-header {
+.questions-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e8e8e8;
+  margin-bottom: 12px;
 }
-.modal-header h3 {
-  font-size: 16px;
-  font-weight: 500;
-  color: #333;
-  margin: 0;
-}
-.close-btn {
-  background: transparent;
-  border: none;
-  font-size: 20px;
-  color: #666;
-  cursor: pointer;
-}
-.upload-form, .publish-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.file-input, .scope-select {
-  padding: 10px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  background: #fafafa;
-}
-.file-name {
-  padding: 10px;
-  background: #fafafa;
-  border-radius: 4px;
-  color: #333;
-  font-size: 14px;
-}
-.upload-submit {
-  padding: 10px;
-  background: #1677ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.upload-submit:disabled {
-  background: #999;
-  cursor: not-allowed;
-}
-.form-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: #333;
-}
-.form-item label {
-  width: 80px;
-  font-weight: 500;
-}
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+.pagination {
+  text-align: right;
   margin-top: 16px;
 }
-.confirm-btn {
-  padding: 8px 16px;
-  background: #1677ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.cancel-btn {
-  padding: 8px 16px;
+/* 图表容器样式 - 加宽处理 */
+.card-chart-container {
   background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+.stats-chart {
+  background: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+.chart-tip {
+  margin: 8px 0 0 20px;
+  padding: 0;
+  font-size: 14px;
   color: #666;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  cursor: pointer;
+}
+
+/* 响应式适配 - 保证图表不挤压 */
+@media (min-width: 1200px) {
+  .editor-section {
+    padding: 24px;
+  }
+  .card-chart-container {
+    min-width: 1000px;
+    height: 550px !important;
+  }
+  .stats-chart {
+    min-width: 1000px;
+    height: 450px !important;
+  }
+}
+@media (max-width: 1199px) {
+  .card-chart-container {
+    min-width: 700px;
+    height: 450px !important;
+  }
+  .stats-chart {
+    min-width: 700px;
+    height: 350px !important;
+  }
 }
 </style>
