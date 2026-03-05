@@ -1,21 +1,5 @@
-﻿version: '3.8'
 
 services:
-  app:
-    build: .
-    container_name: teaching-backend
-    ports:
-      - "8080:8080"
-    environment:
-      - GIN_MODE=release
-    depends_on:
-      - postgres
-      - redis
-      - minio
-    networks:
-      - teaching-network
-    restart: unless-stopped
-
   postgres:
     image: postgres:15
     container_name: teaching-postgres
@@ -23,8 +7,6 @@ services:
       POSTGRES_DB: teaching
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
-      LANG: C.UTF-8
-      LC_ALL: C.UTF-8
     ports:
       - "5432:5432"
     volumes:
@@ -32,6 +14,11 @@ services:
     networks:
       - teaching-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -43,6 +30,12 @@ services:
     networks:
       - teaching-network
     restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   minio:
     image: minio/minio
@@ -51,14 +44,19 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:9000"   # API端口
+      - "9001:9001"   # 控制台端口
     volumes:
       - minio-data:/data
-    command: server /data --console-address ":9001"
     networks:
       - teaching-network
     restart: unless-stopped
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
 
 volumes:
   postgres-data:
