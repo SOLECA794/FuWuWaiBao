@@ -1,97 +1,51 @@
-🚀 技术栈
-组件	技术	说明
-框架	Gin	Web框架
-数据库	PostgreSQL	关系型数据库
-缓存	Redis	会话/进度缓存
-对象存储	MinIO	课件文件存储
-容器化	Docker	容器部署
-语言	Go 1.21+	开发语言
-📁 项目结构
-text
-smart-teaching-backend/
-├── cmd/
-│   └── api/              # 主程序入口
-├── internal/
-│   ├── handler/          # HTTP处理器
-│   ├── service/          # 业务逻辑
-│   ├── repository/       # 数据访问
-│   ├── model/            # 数据模型
-│   └── middleware/       # 中间件
-├── pkg/
-│   ├── config/           # 配置管理
-│   ├── logger/           # 日志工具
-│   ├── oss/              # 对象存储
-│   └── ai/               # AI服务（预留）
-├── config/               # 配置文件
-├── API.md                # 接口文档
-├── Dockerfile            # 容器构建文件
-├── docker-compose.yml    # 开发环境配置
-└── docker-compose.prod.yml # 生产环境配置
-✨ 已完成功能
-教师端接口
-模块	功能	状态
-📁 课件管理	上传、列表、删除、发布	✅ 完成
-📝 讲稿编辑	获取、保存、AI生成	✅ 完成
-📊 学情分析	页面统计、关键词分析	✅ 完成
-❓ 提问记录	分页查询学生提问	✅ 完成
-🖼️ 课件预览	获取预览图片	✅ 完成
-基础服务
-✅ PostgreSQL 数据持久化
+# 泛雅 AI 智课系统 (Smart Teaching)
 
-✅ Redis 缓存
+本项目是一个包含 Go 后端、FastAPI AI 引擎以及三个前端应用的综合系统。
 
-✅ MinIO 对象存储
+## 项目结构
+- **backend/**: Go 企业级后端 (Gin + GORM + Redis + MinIO)
+- **ai_engine/**: Python AI 核心服务 (PPT/PDF 解析 + 讲稿生成 + 问答)
+- **frontend/**: 包含所有前端应用
+    - **student/**: 学生端前端 (Vue 3 + Element Plus)
+    - **teacher/**: 教师端前端 (Vue 3)
+    - **ai-tool/**: AI 指令辅助/测试前端
+- **docs/**: 项目接口与设计文档
+- **uploads/**: 用于存储上传的临时文档 (PPT/PDF)
 
-✅ Docker 容器化部署
+## 快速开始
 
-📚 接口文档
-详细接口文档请查看 API.md
+### 1. 基础设施 (Postgres, Redis, MinIO)
+```bash
+# 启动数据库/存储依赖
+docker-compose -f backend/docker-compose.yml up -d
+```
 
-主要接口列表：
+### 2. AI 引擎 (Python)
+```bash
+# 进入目录并切换 conda 环境
+conda activate fuww_ai
+pip install -r requirements.txt
+python ai_engine/main.py
+```
 
-方法	路径	功能
-GET	/api/teacher/courseware-list	获取课件列表
-POST	/api/teacher/upload-courseware	上传课件
-DELETE	/api/teacher/courseware/{courseId}	删除课件
-POST	/api/teacher/publish-courseware	发布课件
-GET	/api/teacher/script/{courseId}/{page}	获取讲稿
-POST	/api/teacher/script/save	保存讲稿
-POST	/api/teacher/ai-generate-script	AI生成讲稿
-GET	/api/teacher/student-stats/{courseId}	学情分析
-GET	/api/teacher/question-records/{courseId}	提问记录
-GET	/api/courseware/{courseId}/page/{pageNum}	课件预览
-🛠️ 环境变量配置
-在 config/config.yaml 中配置：
+### 3. 后端服务 (Go)
+```bash
+# 拷贝配置示例
+cp backend/config/config.yaml.example backend/config/config.yaml
+# 运行
+go run backend/cmd/api/main.go
+```
 
-yaml
-server:
-port: 8080
-mode: debug
+### 4. 前端 (学生端示例)
+```bash
+cd student-frontend
+npm install
+npm run dev
+```
 
-database:
-host: localhost
-port: 5432
-user: postgres
-password: 123456
-dbname: teaching
+## 功能清单
+- [x] 多模态（PDF/PPTX）分页解析
+- [x] 智能讲稿生成
+- [x] 实时对话与案例重讲
+- [ ] 知识点地图展示
 
-redis:
-host: localhost
-port: 6379
-password: ""
-
-minio:
-endpoint: localhost:9000
-access_key: minioadmin
-secret_key: minioadmin
-bucket: courses
-
-📝 更新记录
-v1.0.0 (2026-03-03)
-✨ 完成所有教师端接口
-
-📚 添加完整接口文档
-
-🐳 支持 Docker 部署
-
-🔧 集成 PostgreSQL/Redis/MinIO
