@@ -1,26 +1,31 @@
-# 智能互动讲课系统 - 接口文档（教师端 + 学生端）
+# 智能互动讲课系统 - 接口文档 v2.0（教师端 + 学生端）
 
 ## 基础信息
-- **基础URL**: `http://localhost:8080/api`
+- **基础URL**: `http://localhost:8080/api/v1`
 - **响应格式**: 所有接口返回 JSON 格式
 - **字符编码**: UTF-8
+- **身份认证**: 需要鉴权的接口在 HTTP Header 中携带 `Authorization: Bearer <Token>`
 
 ---
 
 ## 目录
-1. [课件管理](#1-课件管理)
-2. [讲稿编辑](#2-讲稿编辑)
-3. [学情分析](#3-学情分析)
-4. [提问记录](#4-提问记录)
-5. [课件预览](#5-课件预览)
-6. [学生端接口](#6-学生端接口)
+1. [课件管理（教师端）](#1-课件管理教师端)
+2. [讲稿编辑（教师端）](#2-讲稿编辑教师端)
+3. [学情分析（教师端）](#3-学情分析教师端)
+4. [提问记录（教师端）](#4-提问记录教师端)
+5. [学习卡点分析（教师端）](#5-学习卡点分析教师端)
+6. [AI学伴与互动答疑（学生端）](#6-ai学伴与互动答疑学生端)
+7. [薄弱点诊断与练习（学生端）](#7-薄弱点诊断与练习学生端)
+8. [学习过程数据（学生端）](#8-学习过程数据学生端)
+9. [课件预览（公开）](#9-课件预览公开)
 
 ---
 
-## 1. 课件管理
+## 1. 课件管理（教师端）
+> 基础路径: `/teacher/coursewares`
 
 ### 1.1 获取课件列表
-- **接口**: `GET /teacher/courseware-list`
+- **接口**: `GET /`
 - **功能**: 获取所有已上传的课件
 - **请求参数**: 无
 
@@ -28,21 +33,21 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": [
     {
-      "id": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
+      "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
       "title": "测试课件",
-      "file_url": "http://localhost:9000/courses/xxx/test.pdf",
-      "file_type": "pdf",
-      "total_page": 0,
-      "created_at": "2026-03-02T19:29:06+08:00"
+      "fileType": "pdf",
+      "status": "published",
+      "createdAt": "2026-03-02T19:29:06+08:00"
     }
   ]
 }
 ```
 
 ### 1.2 上传课件
-- **接口**: `POST /teacher/upload-courseware`
+- **接口**: `POST /upload`
 - **功能**: 上传并解析课件（支持 PDF/PPT）
 - **Content-Type**: `multipart/form-data`
 
@@ -68,7 +73,7 @@
 ```
 
 ### 1.3 删除课件
-- **接口**: `DELETE /teacher/courseware/{courseId}`
+- **接口**: `DELETE /{courseId}`
 - **功能**: 删除指定课件
 
 **响应示例**:
@@ -80,16 +85,10 @@
 ```
 
 ### 1.4 发布课件
-- **接口**: `POST /teacher/publish-courseware`
+- **接口**: `POST /{courseId}/publish`
 - **功能**: 发布课件给学生端
 
-**请求体**:
-```json
-{
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "scope": "all"
-}
-```
+**请求体**: 无
 
 **响应示例**:
 ```json
@@ -98,47 +97,46 @@
   "message": "发布成功",
   "data": {
     "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "scope": "all",
-    "publishedAt": "2026-03-03 10:30:00"
+    "publishedAt": "2026-03-05T10:30:00+08:00"
   }
 }
 ```
 
 ---
 
-## 2. 讲稿编辑
+## 2. 讲稿编辑（教师端）
+> 基础路径: `/teacher/coursewares/{courseId}/scripts`
 
 ### 2.1 获取讲稿
-- **接口**: `GET /teacher/script/{courseId}/{page}`
+- **接口**: `GET /{pageNum}`
 - **功能**: 获取指定课件指定页码的讲稿
 
 **路径参数**:
 | 参数名 | 类型 | 说明 |
 |--------|------|------|
 | courseId | String | 课件ID |
-| page | Integer | 页码 |
+| pageNum | Integer | 页码 |
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
     "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "page": 1,
+    "pageNum": 1,
     "content": "这是第一页的讲稿内容"
   }
 }
 ```
 
 ### 2.2 保存讲稿
-- **接口**: `POST /teacher/script/save`
+- **接口**: `PUT /{pageNum}`
 - **功能**: 保存或更新讲稿
 
 **请求体**:
 ```json
 {
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 1,
   "content": "这是更新后的讲稿内容"
 }
 ```
@@ -152,15 +150,14 @@
 ```
 
 ### 2.3 AI生成讲稿
-- **接口**: `POST /teacher/ai-generate-script`
+- **接口**: `POST /{courseId}/scripts/ai-generate`
 - **功能**: AI自动生成讲稿内容
 
 **请求体**:
 ```json
 {
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 1,
-  "courseName": "Go语言基础教程"
+  "pageNum": 1,
+  "mode": "llm"
 }
 ```
 
@@ -168,9 +165,10 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
     "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "page": 1,
+    "pageNum": 1,
     "content": "## Go语言基础教程 第1页：课程导入\n\n### 教学目标\n- 了解本章节的核心概念\n..."
   }
 }
@@ -178,39 +176,42 @@
 
 ---
 
-## 3. 学情分析
+## 3. 学情分析（教师端）
+> 基础路径: `/teacher/coursewares/{courseId}`
 
-### 3.1 获取学情数据
-- **接口**: `GET /teacher/student-stats/{courseId}`
-- **功能**: 获取课件的学情分析数据
+### 3.1 获取班级宏观学情
+- **接口**: `GET /stats`
+- **功能**: 获取课件的学情分析数据（停留时长、提问频次、词云）
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
-    "pageStats": [
+    "pageStayTime": [
+      {"page": 1, "stayAvg": 120.5},
+      {"page": 2, "stayAvg": 85.3}
+    ],
+    "questionFreq": [
       {"page": 1, "count": 3},
-      {"page": 2, "count": 2},
-      {"page": 3, "count": 2}
+      {"page": 2, "count": 2}
     ],
-    "keywords": [
+    "wordCloud": [
       {"word": "依赖注入", "count": 3},
-      {"word": "微服务", "count": 2},
-      {"word": "AOP", "count": 1}
-    ],
-    "totalQuestions": 7,
-    "activeUsers": 5
+      {"word": "微服务", "count": 2}
+    ]
   }
 }
 ```
 
 ---
 
-## 4. 提问记录
+## 4. 提问记录（教师端）
+> 基础路径: `/teacher/coursewares/{courseId}`
 
 ### 4.1 获取提问记录
-- **接口**: `GET /teacher/question-records/{courseId}`
+- **接口**: `GET /questions`
 - **功能**: 分页获取学生的提问记录
 
 **查询参数**:
@@ -223,6 +224,7 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
     "list": [
       {
@@ -237,40 +239,17 @@
     ],
     "total": 7,
     "page": 1,
-    "pageSize": 20,
-    "totalPage": 1
+    "pageSize": 20
   }
 }
 ```
 
 ---
 
-## 5. 课件预览
+## 5. 学习卡点分析（教师端）
 
-### 5.1 获取预览图片
-- **接口**: `GET /courseware/{courseId}/page/{pageNum}`
-- **功能**: 获取课件指定页码的预览图片
-
-**路径参数**:
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| courseId | String | 课件ID |
-| pageNum | Integer | 页码 |
-
-**响应**:
-- 成功: 302 重定向到图片URL
-- 失败:
-```json
-{
-  "code": 404,
-  "message": "预览图不存在"
-}
-```
-
-## 6. 学习卡点分析
-
-### 6.1 获取学习卡点数据
-- **接口**: `GET /api/teacher/card-data/{courseId}`
+### 5.1 获取学习卡点数据
+- **接口**: `GET /teacher/card-data/{courseId}`
 - **功能**: 获取指定课件的学习卡点分析数据（提问量、停留时长、卡点指数）
 
 **路径参数**:
@@ -285,56 +264,37 @@
   "data": {
     "pageStats": [
       {"page": 1, "questionCount": 2, "stayTime": 20, "cardIndex": 2.0},
-      {"page": 3, "questionCount": 4, "stayTime": 32, "cardIndex": 3.6},
-      {"page": 5, "questionCount": 8, "stayTime": 45, "cardIndex": 6.25}
+      {"page": 3, "questionCount": 4, "stayTime": 32, "cardIndex": 3.6}
     ],
     "topPages": [
-      {"page": 5, "value": 8, "ratio": 53.33},
-      {"page": 3, "value": 4, "ratio": 26.67},
-      {"page": 1, "value": 2, "ratio": 13.33}
+      {"page": 5, "value": 8, "ratio": 53.33}
     ],
     "totalQuestions": 8
   }
 }
 ```
 
-| 字段 | 说明 |
-|------|------|
-| pageStats.page | 页码 |
-| pageStats.questionCount | 提问量 |
-| pageStats.stayTime | 平均停留时长(秒) |
-| pageStats.cardIndex | 卡点指数(0-10) |
-| topPages | TOP5卡点页面 |
-| totalQuestions | 总提问数 |
-
 ---
 
-## 7. AI薄弱点功能
+## 6. AI学伴与互动答疑（学生端）
+> 基础路径: `/api/v1/ai/coursewares`
 
-### 7.1 知识点解析
-- **接口**: `POST /api/ai/parseKnowledge`
-- **功能**: 解析课件内容，拆解知识点层级结构
-
-**请求体**:
-```json
-{
-  "fileContent": "数据清洗是数据分析的重要步骤...",
-  "fileType": "pptx",
-  "studentId": "2025001"
-}
-```
+### 6.1 获取课件知识图谱
+- **接口**: `GET /{courseId}/knowledge-graph`
+- **功能**: 获取 AI 解析拆解出的知识点层级结构
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
+    "courseId": "PY202501",
     "structure": [
       {
         "chapter": "第一章：数据清洗基础",
         "knowledgePoints": [
-          {"name": "缺失值处理", "subPoints": ["fillna()", "interpolate()", "dropna()"]},
-          {"name": "异常值识别", "subPoints": ["Z-Score", "IQR"]}
+          {"name": "缺失值处理", "subPoints": ["fillna()", "interpolate()", "dropna()"]}
         ]
       }
     ]
@@ -342,71 +302,92 @@
 }
 ```
 
-### 7.2 获取薄弱点列表
-- **接口**: `GET /api/weakPoint/getList`
-- **功能**: 获取指定学生的AI诊断薄弱点列表
+### 6.2 智能多模态答疑
+- **接口**: `POST /{courseId}/ask`
+- **功能**: 在学习某页时向 AI 提问（包含常规提问和圈选溯源提问）
+
+**请求体**:
+```json
+{
+  "pageNum": 3,
+  "type": "text",
+  "question": "这里提到的 fillna 怎么用？",
+  "tracePoint": {
+    "x": 200,
+    "y": 150
+  }
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "请求成功",
+  "data": {
+    "answer": "fillna() 是用于填充缺失值的函数..."
+  }
+}
+```
+
+---
+
+## 7. 薄弱点诊断与练习（学生端）
+> 基础路径: `/api/v1/student`
+
+### 7.1 获取个人薄弱点列表
+- **接口**: `GET /coursewares/{courseId}/weak-points`
+- **功能**: 获取学生在指定课程中的薄弱点列表
 
 **查询参数**:
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | studentId | String | 是 | 学生ID |
-| courseId | String | 是 | 课程ID |
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": [
-    {"name": "缺失值填充", "count": 5, "mastery": 60},
-    {"name": "异常值识别", "count": 3, "mastery": 45},
-    {"name": "重复值处理", "count": 2, "mastery": 80}
+    {
+      "id": "wp_001",
+      "name": "缺失值填充",
+      "description": "数据中空值的处理方法",
+      "count": 5,
+      "mastery": 60
+    }
   ]
 }
 ```
 
-| 字段 | 说明 |
-|------|------|
-| name | 薄弱点名称 |
-| count | 出现次数 |
-| mastery | 掌握程度(0-100) |
-
-### 7.3 获取薄弱点讲解
-- **接口**: `POST /api/weakPoint/getExplain`
-- **功能**: 获取指定薄弱点的详细讲解内容
-
-**请求体**:
-```json
-{
-  "weakPointName": "缺失值填充",
-  "studentId": "2025001"
-}
-```
+### 7.2 薄弱点 AI 详细讲解
+- **接口**: `GET /weak-points/{weakPointId}/explain`
+- **功能**: AI 对该薄弱知识点进行重构和二次讲解
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
+    "id": "wp_001",
+    "name": "缺失值填充",
     "title": "缺失值填充 · 知识点讲解",
-    "content": "缺失值是数据中为空的部分，常用方法：\n1. fillna() 填充常数、均值、中位数\n2. interpolate() 线性插值（适合时序）\n3. dropna() 直接删除行/列",
-    "examples": [
-      "df.fillna(0)  # 用0填充",
-      "df.interpolate()  # 线性插值",
-      "df.dropna()  # 删除缺失值"
-    ]
+    "content": "缺失值是数据中为空的部分，常用处理方法：...",
+    "examples": ["df.fillna(0)", "df.interpolate()"],
+    "relatedConcepts": ["数据清洗", "异常值处理"]
   }
 }
 ```
 
-### 7.4 生成检测习题
-- **接口**: `POST /api/weakPoint/getTest`
+### 7.3 生成随堂检测题
+- **接口**: `POST /weak-points/{weakPointId}/generate-test`
 - **功能**: 根据薄弱点生成对应的检测习题
 
 **请求体**:
 ```json
 {
-  "weakPointName": "缺失值填充",
-  "studentId": "2025001",
   "questionType": "single"
 }
 ```
@@ -415,29 +396,26 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
-    "questionId": "Q001",
-    "content": "处理缺失值时，以下哪种方法最适合时间序列数据？",
+    "questionId": "q_001",
     "type": "single",
+    "content": "处理缺失值时，以下哪种方法最适合时间序列数据？",
     "options": [
-      "A. fillna(0) 用0填充",
-      "B. interpolate() 线性插值",
-      "C. dropna() 删除缺失值",
-      "D. fillna(method='ffill') 向前填充"
+      {"key": "A", "value": "fillna(0)"},
+      {"key": "B", "value": "interpolate()"}
     ]
   }
 }
 ```
 
-### 7.5 校验答案
-- **接口**: `POST /api/weakPoint/checkAnswer`
+### 7.4 提交并校验答案
+- **接口**: `POST /tests/{questionId}/check`
 - **功能**: 校验习题答案，返回解析和掌握状态
 
 **请求体**:
 ```json
 {
-  "studentId": "2025001",
-  "questionId": "Q001",
   "userAnswer": "B"
 }
 ```
@@ -446,85 +424,25 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
     "isCorrect": true,
     "correctAnswer": "B",
-    "explanation": "interpolate() 线性插值适合时间序列数据，可以基于前后值推算缺失值。",
-    "masteryDelta": 10
+    "explanation": "interpolate() 线性插值适合时间序列数据",
+    "masteryDelta": 10,
+    "newMastery": 75
   }
 }
 ```
 
-| 字段 | 说明 |
-|------|------|
-| isCorrect | 答案是否正确 |
-| correctAnswer | 正确答案 |
-| explanation | 答案解析 |
-| masteryDelta | 掌握度变化值 |
-
 ---
 
-## 8. 数据说明
+## 8. 学习过程数据（学生端）
+> 基础路径: `/api/v1/student`
 
-### 卡点指数计算公式
-```
-卡点指数 = 提问量 × 0.5 + 停留时长 ÷ 20
-```
-
-### 掌握度计算
-- 初始掌握度：根据历史答题正确率计算
-- 每次正确答题：掌握度 +10
-- 每次错误答题：掌握度 -5
-- 掌握度范围：0-100
-
----
-
-## 更新记录
-
-| 日期 | 版本 | 更新内容 |
-|------|------|----------|
-| 2026-03-04 | v1.1 | 添加学习卡点分析和AI薄弱点功能接口 |
-
----
-
-
-
-## 错误码说明
-
-| 错误码 | 说明 |
-|--------|------|
-| 200 | 成功 |
-| 400 | 参数错误 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
-
----
-
-## 注意事项
-
-1. **文件上传**仅支持 PDF、PPT、PPTX 格式
-2. **分页接口**默认每页20条，最大支持100条
-3. **所有响应**均包含 `code` 字段，`code=200` 表示成功
-4. **中文编码**已统一为 UTF-8
-5. **时间格式**为 ISO8601: `2006-01-02T15:04:05+08:00`
-
----
-
-## 更新记录
-
-| 日期 | 版本 | 更新内容 |
-|------|------|----------|
-| 2026-03-03 | v1.0 | 完成所有教师端接口文档 |
-
----
-
-# 6. 学生端接口
-
-> 说明：学生端以“播放 + 问答 + 续接”为核心。问答接口使用 SSE 流式输出（`text/event-stream`）。
-
-## 6.1 开始学习会话（可选）
-- **接口**: `POST /student/session/start`
-- **功能**: 初始化学生在某课件上的学习会话（便于服务端建立 Redis Session）
+### 8.1 开始学习会话
+- **接口**: `POST /session/start`
+- **功能**: 初始化学生在某课件上的学习会话
 
 **请求体**:
 ```json
@@ -538,6 +456,7 @@
 ```json
 {
   "code": 200,
+  "message": "请求成功",
   "data": {
     "sessionId": "sess_xxx",
     "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d"
@@ -545,9 +464,9 @@
 }
 ```
 
-## 6.2 上报播放进度（用于续接）
-- **接口**: `POST /student/progress/update`
-- **功能**: 上报当前播放游标（页码 + node），用于问答打断与续接
+### 8.2 上报播放进度
+- **接口**: `POST /progress/update`
+- **功能**: 上报当前播放游标（页码 + node）
 
 **请求体**:
 ```json
@@ -567,31 +486,121 @@
 }
 ```
 
-## 6.3 获取某页讲稿（学生播放用）
-- **接口**: `GET /student/script/{courseId}/{page}`
-- **功能**: 获取指定课件指定页的结构化脚本（nodes[]）
+### 8.3 获取学习断点
+- **接口**: `GET /coursewares/{courseId}/breakpoint`
+- **功能**: 获取学生上次学习的页码（用于续播）
+
+**查询参数**:
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| userId | String | 是 | 学生ID |
 
 **响应示例**:
 ```json
 {
   "code": 200,
+  "message": "请求成功",
+  "data": {
+    "lastPageNum": 5
+  }
+}
+```
+
+### 8.4 更新学习断点
+- **接口**: `PUT /coursewares/{courseId}/breakpoint`
+- **功能**: 更新学生学习断点
+
+**请求体**:
+```json
+{
+  "userId": "user001",
+  "pageNum": 5
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "ok"
+}
+```
+
+### 8.5 保存随堂笔记
+- **接口**: `POST /coursewares/{courseId}/notes`
+- **功能**: 保存学生笔记
+
+**请求体**:
+```json
+{
+  "userId": "user001",
+  "pageNum": 3,
+  "content": "fillna() 用于填充缺失值",
+  "x": 0,
+  "y": 0
+}
+```
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "保存成功",
+  "data": {
+    "status": "saved"
+  }
+}
+```
+
+### 8.6 获取某页讲稿（学生播放用）
+- **接口**: `GET /coursewares/{courseId}/pages/{pageNum}`
+- **功能**: 获取指定课件指定页的结构化脚本
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "请求成功",
   "data": {
     "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
     "page": 5,
     "nodes": [
-      {"node_id": "p5_n1", "type": "opening", "text": "..."},
-      {"node_id": "p5_n2", "type": "explain", "text": "..."},
-      {"node_id": "p5_n3", "type": "transition", "text": "..."}
+      {"node_id": "p5_n1", "type": "opening", "text": "..."}
     ],
     "page_summary": "..."
   }
 }
 ```
 
-## 6.4 问答流式接口（核心）
-- **接口**: `POST /student/qa/stream`
-- **功能**: 学生在讲授过程中打断提问，服务端以 SSE 方式流式返回回答
-- **响应 Content-Type**: `text/event-stream; charset=utf-8`
+### 8.7 获取个人微观学情
+- **接口**: `GET /coursewares/{courseId}/stats`
+- **功能**: 返回学生本人的学习数据
+
+**查询参数**:
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| userId | String | 是 | 学生ID |
+
+**响应示例**:
+```json
+{
+  "code": 200,
+  "message": "请求成功",
+  "data": {
+    "totalQuestions": 12,
+    "studyHours": 2.5,
+    "mastery": {
+      "章节一": 85,
+      "章节二": 70
+    }
+  }
+}
+```
+
+### 8.8 问答流式接口
+- **接口**: `POST /qa/stream`
+- **功能**: 打断提问，SSE 流式返回回答
+- **Content-Type**: `text/event-stream; charset=utf-8`
 
 **请求体**:
 ```json
@@ -604,7 +613,7 @@
 }
 ```
 
-**SSE 输出示例**（每帧以空行结尾）：
+**SSE 输出示例**:
 ```text
 event: token
 data: {"text":"x"}
@@ -613,16 +622,64 @@ event: token
 data: {"text":"表示"}
 
 event: sentence
-data: {"text":"这里的 x 通常表示……（分句用于触发 TTS）"}
+data: {"text":"这里的 x 通常表示..."}
 
 event: final
 data: {"need_reteach":false,"source_page":5,"resume_page":5,"resume_node_id":"p5_n13"}
-
 ```
 
-**错误输出示例**:
-```text
-event: error
-data: {"message":"AI 服务暂时不可用","trace_id":"req_xxx"}
+---
 
+## 9. 课件预览（公开）
+
+### 9.1 获取预览图片
+- **接口**: `GET /courseware/{courseId}/page/{pageNum}`
+- **功能**: 获取课件指定页码的预览图片
+
+**路径参数**:
+| 参数名 | 类型 | 说明 |
+|--------|------|------|
+| courseId | String | 课件ID |
+| pageNum | Integer | 页码 |
+
+**响应**:
+- 成功: 302 重定向到图片URL
+- 失败:
+```json
+{
+  "code": 404,
+  "message": "预览图不存在"
+}
 ```
+
+---
+
+## 错误码说明
+
+| 错误码 | 说明 |
+|--------|------|
+| 200 | 成功 |
+| 400 | 参数错误 |
+| 401 | 未授权 |
+| 403 | 无权访问 |
+| 404 | 资源不存在 |
+| 500 | 服务器内部错误 |
+
+---
+
+## 注意事项
+
+1. **文件上传**仅支持 PDF、PPT、PPTX 格式
+2. **分页接口**默认每页20条，最大支持100条
+3. **所有响应**均包含 `code` 字段，`code=200` 表示成功
+4. **中文编码**已统一为 UTF-8
+5. **时间格式**为 ISO8601: `2006-01-02T15:04:05+08:00`
+6. **SSE 流式接口**使用 `text/event-stream` 格式，每帧以空行结尾
+
+---
+
+## 更新记录
+
+| 日期 | 版本 | 更新内容 |
+|------|------|----------|
+| 2026-03-05 | v2.0 | 统一基础URL为 `/api/v1`，按规范重构所有接口路径，添加薄弱点诊断、学习会话、SSE问答等新接口 |
