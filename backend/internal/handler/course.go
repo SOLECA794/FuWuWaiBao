@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -17,132 +19,99 @@ type CourseHandler struct {
 	db            *gorm.DB
 }
 
-// NewCourseHandler 创建课件处理器
 func NewCourseHandler(courseService service.CourseService, db *gorm.DB) *CourseHandler {
-	return &CourseHandler{
-		courseService: courseService,
-		db:            db,
-	}
+	return &CourseHandler{courseService: courseService, db: db}
 }
 
-// GetPagePreview 获取课件预览图片
-// GET /api/v1/courseware/:courseId/page/:pageNum
 func (h *CourseHandler) GetPagePreview(c *gin.Context) {
-	courseId := c.Param("courseId")
-	pageNumStr := c.Param("pageNum")
-
-	pageNum, err := strconv.Atoi(pageNumStr)
+	courseID := c.Param("courseId")
+	pageNum, err := strconv.Atoi(c.Param("pageNum"))
 	if err != nil || pageNum < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "页码必须是正整数",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是正整数"})
 		return
 	}
 
-	// 查询课件页面
 	var coursePage model.CoursePage
-	err = h.db.Where("course_id = ? AND page_index = ?", courseId, pageNum).First(&coursePage).Error
-
-	if err != nil {
-		// 如果查询出错，返回404
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "预览图不存在",
-		})
+	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err != nil || strings.TrimSpace(coursePage.ImageURL) == "" {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "预览图不存在"})
 		return
 	}
 
-	if coursePage.ImageURL == "" {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "预览图不存在",
-		})
-		return
-	}
-
-	// 重定向到图片URL
 	c.Redirect(http.StatusFound, coursePage.ImageURL)
 }
 
-// 上传课件
 func (h *CourseHandler) UploadCourse(c *gin.Context) {
-	// 这个方法保持不变，继续使用 h.courseService
-	file, _ := c.FormFile("file")
-	title := c.PostForm("title")
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请选择要上传的文件"})
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	validExts := map[string]bool{".pdf": true, ".ppt": true, ".pptx": true}
+	if !validExts[ext] {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "只支持 PDF/PPT/PPTX 格式"})
+		return
+	}
+
+	title := strings.TrimSpace(c.PostForm("title"))
+	if title == "" {
+		title = strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
+	}
 
 	course, err := h.courseService.UploadCourse(c.Request.Context(), file, title)
 	if err != nil {
 		logger.Errorf("上传课件失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "上传失败: " + err.Error(),
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "上传失败: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "上传成功",
-		"data":    course,
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "上传成功", "data": course})
 }
 
-// 获取课件详情
 func (h *CourseHandler) GetCourse(c *gin.Context) {
 	id := c.Param("id")
+	if id == "" {
+		id = c.Param("courseId")
+	}
 
 	course, err := h.courseService.GetCourse(id)
 	if err != nil {
 		logger.Errorf("获取课件失败: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
-		})
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": course,
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": course})
 }
 
-// 获取课件页面列表
 func (h *CourseHandler) GetCoursePages(c *gin.Context) {
 	courseID := c.Param("id")
+	if courseID == "" {
+		courseID = c.Param("courseId")
+	}
 
 	pages, err := h.courseService.GetCoursePages(courseID)
 	if err != nil {
 		logger.Errorf("获取课件页面失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取失败",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": pages,
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": pages})
 }
 
-// 删除课件
 func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 	id := c.Param("id")
+	if id == "" {
+		id = c.Param("courseId")
+	}
 
 	if err := h.courseService.DeleteCourse(id); err != nil {
 		logger.Errorf("删除课件失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "删除失败",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "删除成功",
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }

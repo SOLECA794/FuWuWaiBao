@@ -84,7 +84,7 @@ class QAResponder:
 
         api_key = os.getenv("AI_API_KEY")
         if not api_key:
-            return "本地 Mock: API_KEY 未设置，无法调用 LLM。"
+            raise RuntimeError("缺少环境变量 AI_API_KEY，无法调用大模型。")
 
         base_url = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
         client = OpenAI(api_key=api_key, base_url=base_url)
@@ -114,7 +114,7 @@ class QAResponder:
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"AI 响应异常: {str(e)}"
+            raise RuntimeError(f"AI 响应异常: {str(e)}") from e
 
     def _make_followup_suggestion(self, question: str, need_reteach: bool, source_page: int) -> str:
         """生成更贴近实际的后续操作建议（用于前端展示给学生选择）。"""

@@ -25,18 +25,15 @@ import (
 )
 
 func main() {
-	// 获取项目根目录
 	_, filename, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
 
-	// 加载配置
 	cfg, err := config.LoadConfig(filepath.Join(projectRoot, "config"))
 	if err != nil {
 		fmt.Printf("加载配置失败: %v\n", err)
 		return
 	}
 
-	// 初始化日志
 	err = applogger.InitLogger(
 		cfg.Log.Level,
 		filepath.Join(projectRoot, cfg.Log.Filename),
@@ -54,7 +51,6 @@ func main() {
 		zap.String("mode", cfg.Server.Mode),
 	)
 
-	// 连接数据库
 	db, err := gorm.Open(postgres.Open(cfg.Database.DSN()), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Info),
 	})
@@ -62,7 +58,6 @@ func main() {
 		applogger.Sugar.Fatalf("连接数据库失败: %v", err)
 	}
 
-	// 自动迁移
 	err = db.AutoMigrate(
 		&model.Course{},
 		&model.CoursePage{},
@@ -70,6 +65,11 @@ func main() {
 		&model.QuestionLog{},
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
+		&model.StudentNote{},
+		&model.WeakPoint{},
+		&model.KnowledgePoint{},
+		&model.Question{},
+		&model.AnswerRecord{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -77,31 +77,28 @@ func main() {
 
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
 
-	// 连接Redis
 	redisClient, err := repository.InitRedis(&cfg.Redis)
 	if err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
+	_ = redisClient
 	applogger.Info("Redis连接成功")
 
-	// 初始化MinIO客户端
 	minioClient, err := oss.NewMinioClient(&cfg.OSS)
 	if err != nil {
 		applogger.Sugar.Fatalf("初始化MinIO失败: %v", err)
 	}
 	applogger.Info("MinIO连接成功")
 
-	// 初始化服务
 	courseService := service.NewCourseService(db, minioClient)
+	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
 
-	// 初始化处理器
 	courseHandler := handler.NewCourseHandler(courseService, db)
-	teacherHandler := handler.NewTeacherHandler(db)
-	studentHandler := handler.NewStudentHandler(db, redisClient)
-	aiHandler := handler.NewAIHandler(db)
-	weakPointHandler := handler.NewWeakPointHandler(db)
+	teacherHandler := handler.NewTeacherHandler(db, aiClient)
+	studentHandler := handler.NewStudentHandler(db, aiClient)
+	weakPointHandler := handler.NewWeakPointHandler(db, aiClient)
+	compatHandler := handler.NewCompatibilityHandler(db, aiClient, courseService)
 
-	// 设置Gin
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -109,13 +106,18 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	// UTF-8中间件
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
 		c.Next()
 	})
 
-	// 请求体UTF-8检查
 	r.Use(func(c *gin.Context) {
 		bodyBytes, readErr := io.ReadAll(c.Request.Body)
 		if readErr == nil && len(bodyBytes) > 0 {
@@ -127,7 +129,6 @@ func main() {
 		c.Next()
 	})
 
-	// 日志中间件
 	r.Use(func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
@@ -142,101 +143,132 @@ func main() {
 		)
 	})
 
-	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"status": "ok",
-			"time":   time.Now().Format("2006-01-02 15:04:05"),
-		})
+		c.JSON(200, gin.H{"status": "ok", "time": time.Now().Format("2006-01-02 15:04:05")})
 	})
 
-	// API路由 - 使用 v1 版本
-	api := r.Group("/api/v1")
+	api := r.Group("/api")
 	{
-		// 公开接口
 		api.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
 
-		// ==================== 教师端接口 ====================
-		teacher := api.Group("/teacher/coursewares")
+		legacyTeacher := api.Group("/teacher")
 		{
-			// 2.1 获取课件列表
-			teacher.GET("/", teacherHandler.GetCoursewareList)
-
-			// 2.2 上传并解析课件
-			teacher.POST("/upload", courseHandler.UploadCourse)
-
-			// 2.6 发布课件
-			teacher.POST("/:courseId/publish", teacherHandler.PublishCourseware)
-
-			// 1.3 删除课件
-			teacher.DELETE("/:courseId", courseHandler.DeleteCourse)
-
-			// 2.3 获取页面讲稿
-			teacher.GET("/:courseId/scripts/:pageNum", teacherHandler.GetScript)
-
-			// 2.4 更新页面讲稿
-			teacher.PUT("/:courseId/scripts/:pageNum", teacherHandler.UpdateScript)
-
-			// 2.5 AI生成讲稿
-			teacher.POST("/:courseId/scripts/ai-generate", teacherHandler.AIGenerateScript)
-
-			// 6.1 教师端 - 班级宏观学情
-			teacher.GET("/:courseId/stats", teacherHandler.GetClassStats)
-
-			// 6.2 教师端 - 历史提问记录
-			teacher.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
+			legacyTeacher.GET("/courseware-list", teacherHandler.GetCoursewareList)
+			legacyTeacher.POST("/upload-courseware", courseHandler.UploadCourse)
+			legacyTeacher.DELETE("/courseware/:courseId", courseHandler.DeleteCourse)
+			legacyTeacher.POST("/publish-courseware", teacherHandler.PublishCourseware)
+			legacyTeacher.GET("/script/:courseId/:page", teacherHandler.GetScript)
+			legacyTeacher.POST("/script/save", teacherHandler.SaveScript)
+			legacyTeacher.POST("/ai-generate-script", teacherHandler.AIGenerateScript)
+			legacyTeacher.GET("/student-stats/:courseId", teacherHandler.GetStudentStats)
+			legacyTeacher.GET("/question-records/:courseId", teacherHandler.GetQuestionRecords)
+			legacyTeacher.GET("/card-data/:courseId", teacherHandler.GetCardData)
 		}
 
-		// ==================== AI 学伴与互动答疑 ====================
-		ai := api.Group("/ai/coursewares")
+		legacyStudent := api.Group("/student")
 		{
-			// 3.1 获取课件知识图谱
-			ai.GET("/:courseId/knowledge-graph", aiHandler.GetKnowledgeGraph)
+			legacyStudent.GET("/courseware-list", compatHandler.GetStudentCoursewareList)
+			legacyStudent.POST("/session/start", compatHandler.StartStudentSession)
+			legacyStudent.POST("/progress/update", compatHandler.UpdateStudentProgress)
+			legacyStudent.GET("/script/:courseId/:page", compatHandler.GetStudentScript)
+			legacyStudent.POST("/qa/stream", compatHandler.StreamStudentQA)
 
-			// 3.2 智能多模态答疑
-			ai.POST("/:courseId/ask", aiHandler.AskQuestion)
+			legacyStudent.POST("/courseware/page", studentHandler.GetCoursewarePage)
+			legacyStudent.POST("/ai/question", studentHandler.AskAIQuestion)
+			legacyStudent.POST("/ai/traceQuestion", studentHandler.TraceAIQuestion)
+			legacyStudent.GET("/studyData", studentHandler.GetStudentStudyData)
+			legacyStudent.GET("/breakpoint", studentHandler.GetStudentBreakpoint)
+			legacyStudent.PUT("/breakpoint", studentHandler.UpdateStudentBreakpoint)
+			legacyStudent.POST("/saveNote", studentHandler.SaveStudentNote)
 		}
 
-		// ==================== 学生端接口 ====================
-		student := api.Group("/student")
+		legacyWeakPoint := api.Group("/weakPoint")
 		{
-			// 5.1 获取/更新学习断点
-			student.GET("/coursewares/:courseId/breakpoint", studentHandler.GetBreakpoint)
-			student.PUT("/coursewares/:courseId/breakpoint", studentHandler.UpdateBreakpoint)
+			legacyWeakPoint.GET("/getList", weakPointHandler.GetWeakPointList)
+			legacyWeakPoint.POST("/getExplain", weakPointHandler.GetWeakPointExplain)
+			legacyWeakPoint.POST("/getTest", weakPointHandler.GenerateTest)
+			legacyWeakPoint.POST("/checkAnswer", weakPointHandler.CheckAnswer)
+		}
 
-			// 5.2 保存随堂笔记
-			student.POST("/coursewares/:courseId/notes", studentHandler.SaveNote)
+		api.POST("/ai/parseKnowledge", weakPointHandler.ParseKnowledge)
 
-			// 6.3 学生端 - 个人微观学情
-			student.GET("/coursewares/:courseId/stats", studentHandler.GetPersonalStats)
+		v1 := api.Group("/v1")
+		{
+			v1.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
 
-			// 4.1 获取个人薄弱点列表 - 暂时注释掉，等 weakPointHandler 实现后再启用
-			student.GET("/coursewares/:courseId/weak-points", weakPointHandler.GetWeakPointList)
+			teacherV1 := v1.Group("/teacher/coursewares")
+			{
+				teacherV1.GET("", teacherHandler.GetCoursewareList)
+				teacherV1.GET("/", teacherHandler.GetCoursewareList)
+				teacherV1.POST("/upload", compatHandler.UploadCoursewareV1)
+				teacherV1.DELETE(":courseId", compatHandler.DeleteCoursewareV1)
+				teacherV1.GET(":courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
+				teacherV1.PUT(":courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
+				teacherV1.POST(":courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
+				teacherV1.POST(":courseId/publish", compatHandler.PublishCoursewareV1)
+				teacherV1.GET(":courseId/stats", teacherHandler.GetClassStats)
+				teacherV1.GET(":courseId/questions", teacherHandler.GetQuestionRecords)
+				teacherV1.GET(":courseId/card-data", compatHandler.GetCardDataV1)
+			}
 
-			// 4.2 薄弱点 AI 详细讲解 - 暂时注释掉
-			student.GET("/weak-points/:weakPointId/explain", weakPointHandler.GetWeakPointExplain)
+			aiV1 := v1.Group("/ai")
+			{
+				aiV1.POST("/parse-knowledge", compatHandler.ParseKnowledgeV1)
+				coursewareAI := aiV1.Group("/coursewares")
+				{
+					coursewareAI.GET(":courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
+					coursewareAI.POST(":courseId/ask", compatHandler.AskCoursewareV1)
+				}
+			}
 
-			// 4.3 生成随堂检测题 - 暂时注释掉
-			student.POST("/weak-points/:weakPointId/generate-test", weakPointHandler.GenerateTest)
+			studentV1 := v1.Group("/student")
+			{
+				studentV1.GET("/coursewares", compatHandler.GetStudentCoursewareListV1)
+				studentV1.POST("/sessions", compatHandler.StartStudentSessionV1)
+				studentV1.POST("/sessions/progress", compatHandler.UpdateStudentProgressV1)
+				studentV1.POST("/qa/stream", compatHandler.StreamStudentQAV1)
+				studentV1.GET("/coursewares/:courseId/weak-points", compatHandler.GetWeakPointsV1)
+				studentV1.GET("/coursewares/:courseId/scripts/:pageNum", compatHandler.GetStudentScriptV1)
+				studentV1.GET("/weak-points/:weakPointId/explain", compatHandler.ExplainWeakPointV1)
+				studentV1.POST("/weak-points/:weakPointId/generate-test", compatHandler.GenerateWeakPointTestV1)
+				studentV1.POST("/tests/:questionId/check", compatHandler.CheckAnswerV1)
+				studentV1.GET("/coursewares/:courseId/breakpoint", compatHandler.GetBreakpointV1)
+				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
+				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
+				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
+			}
 
-			// 4.4 提交并校验答案 - 暂时注释掉
-			student.POST("/tests/:questionId/check", weakPointHandler.CheckAnswer)
+			openLesson := v1.Group("/lesson")
+			openLesson.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openLesson.POST("/parse", compatHandler.OpenLessonParse)
+				openLesson.POST("/generateScript", compatHandler.OpenGenerateScript)
+				openLesson.POST("/generateAudio", compatHandler.OpenGenerateAudio)
+			}
 
-			// 6.1 开始学习会话
-			student.POST("/session/start", studentHandler.StartSession)
+			openQA := v1.Group("/qa")
+			openQA.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openQA.POST("/interact", compatHandler.OpenQAInteract)
+				openQA.POST("/voiceToText", compatHandler.OpenVoiceToText)
+			}
 
-			// 6.2 上报播放进度
-			student.POST("/progress/update", studentHandler.UpdateProgress)
+			openProgress := v1.Group("/progress")
+			openProgress.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openProgress.POST("/track", compatHandler.OpenTrackProgress)
+				openProgress.POST("/adjust", compatHandler.OpenAdjustProgress)
+			}
 
-			// 6.3 获取某页讲稿（学生播放用）
-			student.GET("/coursewares/:courseId/pages/:pageNum", studentHandler.GetCoursewarePage)
-
-			// 6.4 问答流式接口（核心）
-			student.POST("/qa/stream", studentHandler.QAStream)
+			openPlatform := v1.Group("/platform")
+			openPlatform.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
+				openPlatform.POST("/syncUser", compatHandler.OpenSyncUser)
+			}
 		}
 	}
 
-	// 启动服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	applogger.Sugar.Infof("服务器启动成功，访问地址: http://localhost%s", addr)
 	applogger.Sugar.Infof("健康检查: http://localhost%s/health", addr)

@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 18080
   mode: debug
 
 database:
@@ -26,9 +26,11 @@ oss:
   use_ssl: false
 
 ai:
-  provider: mock
+  provider: llm
+  base_url: http://127.0.0.1:8000
   api_key: ""
   model: ""
+  timeout: 30s
 
 log:
   level: info

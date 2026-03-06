@@ -1,341 +1,326 @@
 package handler
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 )
 
 type WeakPointHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewWeakPointHandler(db *gorm.DB) *WeakPointHandler {
-	return &WeakPointHandler{db: db}
+func NewWeakPointHandler(db *gorm.DB, aiClient service.AIEngine) *WeakPointHandler {
+	return &WeakPointHandler{db: db, aiClient: aiClient}
 }
 
-// 4.1 获取个人薄弱点列表
-// GET /api/v1/student/coursewares/:courseId/weak-points
-func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
-	// courseId := c.Param("courseId") // 使用 courseId 参数
-	studentId := c.Query("studentId")
-
-	if studentId == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "缺少参数: studentId",
-		})
+func (h *WeakPointHandler) ParseKnowledge(c *gin.Context) {
+	var req struct {
+		FileContent string `json:"fileContent" binding:"required"`
+		FileType    string `json:"fileType" binding:"required"`
+		StudentID   string `json:"studentId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 模拟数据
-	weakPoints := []gin.H{
-		{
-			"id":          "wp_001",
-			"name":        "缺失值填充",
-			"description": "数据中空值的处理方法",
-			"count":       5,
-			"mastery":     60,
-			"createdAt":   time.Now().AddDate(0, 0, -7),
-		},
-		{
-			"id":          "wp_002",
-			"name":        "异常值识别",
-			"description": "识别数据中的异常值",
-			"count":       3,
-			"mastery":     45,
-			"createdAt":   time.Now().AddDate(0, 0, -5),
-		},
-		{
-			"id":          "wp_003",
-			"name":        "重复值处理",
-			"description": "处理数据中的重复记录",
-			"count":       2,
-			"mastery":     80,
-			"createdAt":   time.Now().AddDate(0, 0, -3),
-		},
+	text := strings.TrimSpace(req.FileContent)
+	if text == "" {
+		text = fmt.Sprintf("请根据 %s 文件内容拆解知识点", req.FileType)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data":    weakPoints,
-	})
+	if h.aiClient != nil {
+		resp, err := h.aiClient.ParseKnowledge(c.Request.Context(), service.ParseKnowledgeRequest{Text: text, Mode: "llm"})
+		if err == nil && len(resp.Structure) > 0 {
+			c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"structure": resp.Structure}})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"structure": fallbackKnowledgeStructure(text)}})
 }
 
-// 4.2 薄弱点 AI 详细讲解
-// GET /api/v1/student/weak-points/:weakPointId/explain
+func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
+	courseID := c.Param("courseId")
+	if courseID == "" {
+		courseID = strings.TrimSpace(c.Query("courseId"))
+	}
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: studentId"})
+		return
+	}
+
+	weakPoints := buildWeakPointList(h.db, studentID, courseID)
+	if len(weakPoints) == 0 {
+		weakPoints = []gin.H{
+			{"weakPointId": "wp_001", "id": "wp_001", "name": "缺失值填充", "description": "数据中空值的处理方法", "count": 1, "mastery": 70, "createdAt": time.Now().AddDate(0, 0, -7)},
+			{"weakPointId": "wp_002", "id": "wp_002", "name": "异常值识别", "description": "识别数据中的异常值", "count": 1, "mastery": 62, "createdAt": time.Now().AddDate(0, 0, -5)},
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": weakPoints})
+}
+
 func (h *WeakPointHandler) GetWeakPointExplain(c *gin.Context) {
-	weakPointId := c.Param("weakPointId")
+	weakPointID, weakPointName := h.resolveWeakPointExplainInput(c)
+	if weakPointID == "" && weakPointName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少薄弱点参数"})
+		return
+	}
+	if weakPointName == "" {
+		weakPointName = fallbackWeakPointName(weakPointID)
+	}
 
-	// 根据不同的薄弱点ID返回不同的讲解内容
-	var data gin.H
-
-	switch weakPointId {
-	case "wp_001":
-		data = gin.H{
-			"id":    "wp_001",
-			"name":  "缺失值填充",
-			"title": "缺失值填充 · 知识点讲解",
-			"content": "缺失值是数据中为空的部分，常用处理方法：\n\n" +
-				"1. fillna() 填充常数、均值、中位数\n" +
-				"   df.fillna(0)                 # 用0填充\n" +
-				"   df.fillna(df.mean())         # 用均值填充\n" +
-				"   df.fillna(df.median())       # 用中位数填充\n" +
-				"   df.fillna(method='ffill')    # 用前一个值填充\n\n" +
-				"2. interpolate() 线性插值（适合时序）\n" +
-				"   df.interpolate()             # 线性插值\n" +
-				"   df.interpolate(method='quadratic')  # 二次插值\n\n" +
-				"3. dropna() 直接删除行/列\n" +
-				"   df.dropna()                  # 删除任何包含缺失值的行\n" +
-				"   df.dropna(axis=1)            # 删除任何包含缺失值的列\n" +
-				"   df.dropna(thresh=2)          # 至少保留2个非空值的行\n\n" +
-				"选择建议：\n" +
-				"- 时序数据：优先使用 interpolate()\n" +
-				"- 分类数据：可用众数填充或用'unknown'填充\n" +
-				"- 连续数据：可用均值或中位数填充\n" +
-				"- 缺失过多：考虑直接删除",
-			"examples": []string{
-				"df.fillna(0)",
-				"df.interpolate()",
-				"df.dropna()",
-			},
-			"relatedConcepts": []string{"数据清洗", "异常值处理", "数据预处理"},
-		}
-	case "wp_002":
-		data = gin.H{
-			"id":    "wp_002",
-			"name":  "异常值识别",
-			"title": "异常值识别 · 知识点讲解",
-			"content": "异常值是数据中明显偏离其他观测值的点，常用识别方法：\n\n" +
-				"1. Z-Score法\n" +
-				"   from scipy import stats\n" +
-				"   import numpy as np\n" +
-				"   z_scores = np.abs(stats.zscore(data))\n" +
-				"   threshold = 3\n" +
-				"   outliers = np.where(z_scores > threshold)\n\n" +
-				"2. IQR法（四分位距法）\n" +
-				"   Q1 = df.quantile(0.25)\n" +
-				"   Q3 = df.quantile(0.75)\n" +
-				"   IQR = Q3 - Q1\n" +
-				"   lower_bound = Q1 - 1.5 * IQR\n" +
-				"   upper_bound = Q3 + 1.5 * IQR\n" +
-				"   outliers = df[(df < lower_bound) | (df > upper_bound)]\n\n" +
-				"3. 可视化方法\n" +
-				"   - 箱线图（Box Plot）\n" +
-				"   - 散点图（Scatter Plot）\n" +
-				"   - 直方图（Histogram）\n\n" +
-				"处理策略：\n" +
-				"- 删除异常值（谨慎使用）\n" +
-				"- 替换为边界值（盖帽法）\n" +
-				"- 转换变量（如对数变换）",
-			"examples": []string{
-				"z_scores = np.abs(stats.zscore(data))",
-				"Q1, Q3 = df.quantile([0.25, 0.75])",
-				"df[~((df < lower_bound) | (df > upper_bound))]",
-			},
-			"relatedConcepts": []string{"数据清洗", "数据分布", "箱线图"},
-		}
-	case "wp_003":
-		data = gin.H{
-			"id":    "wp_003",
-			"name":  "重复值处理",
-			"title": "重复值处理 · 知识点讲解",
-			"content": "重复值是指数据集中完全相同的记录，处理方法：\n\n" +
-				"1. 识别重复值\n" +
-				"   df.duplicated()              # 标记重复行\n" +
-				"   df.duplicated(subset=['col1', 'col2'])  # 基于特定列\n\n" +
-				"2. 查看重复值\n" +
-				"   df[df.duplicated()]          # 查看重复行\n" +
-				"   df.duplicated().sum()        # 统计重复数量\n\n" +
-				"3. 删除重复值\n" +
-				"   df.drop_duplicates()         # 删除完全重复的行\n" +
-				"   df.drop_duplicates(subset=['col1'])  # 基于特定列删除\n" +
-				"   df.drop_duplicates(keep='last')      # 保留最后一个\n\n" +
-				"4. 聚合重复值\n" +
-				"   df.groupby(df.columns.tolist()).agg({\n" +
-				"       'col': 'first'\n" +
-				"   })\n\n" +
-				"注意事项：\n" +
-				"- 先确认重复是否合理\n" +
-				"- 时间序列数据可能需要保留\n" +
-				"- 考虑数据来源的业务含义",
-			"examples": []string{
-				"df.duplicated().sum()",
-				"df.drop_duplicates()",
-				"df.drop_duplicates(subset=['id'])",
-			},
-			"relatedConcepts": []string{"数据去重", "数据聚合", "数据清洗"},
-		}
-	default:
-		data = gin.H{
-			"id":              weakPointId,
-			"name":            "未知知识点",
-			"title":           "知识点讲解",
-			"content":         "这是该知识点的详细讲解内容...",
-			"examples":        []string{},
-			"relatedConcepts": []string{},
+	content := fallbackWeakPointExplain(weakPointID, weakPointName)
+	if h.aiClient != nil {
+		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: "请用教学口吻讲解知识点：" + weakPointName, CurrentPage: maxWeakPointPage(weakPointID), Context: weakPointName, Mode: "llm"})
+		if err == nil && strings.TrimSpace(resp.Answer) != "" {
+			content = resp.Answer
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data":    data,
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"id": weakPointID, "weakPointId": weakPointID, "name": weakPointName, "title": weakPointName + " · 知识点讲解", "content": content, "examples": []string{"结合当前页讲稿复述一遍", "尝试举一个自己的例子"}}})
 }
 
-// 4.3 生成随堂检测题
-// POST /api/v1/student/weak-points/:weakPointId/generate-test
 func (h *WeakPointHandler) GenerateTest(c *gin.Context) {
-	weakPointId := c.Param("weakPointId")
-
+	weakPointID := c.Param("weakPointId")
 	var req struct {
-		QuestionType string `json:"questionType"` // single/multiple
+		QuestionType  string `json:"questionType"`
+		WeakPointID   string `json:"weakPointId"`
+		WeakPointName string `json:"weakPointName"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if weakPointID == "" {
+		weakPointID = req.WeakPointID
+	}
+	questionType := strings.TrimSpace(req.QuestionType)
+	if questionType == "" {
+		questionType = "single"
+	}
+	weakPointName := strings.TrimSpace(req.WeakPointName)
+	if weakPointName == "" {
+		weakPointName = fallbackWeakPointName(weakPointID)
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		req.QuestionType = "single"
-	}
-
-	// 根据薄弱点ID生成不同的题目
-	questionId := "q_" + uuid.New().String()[:8]
-
-	var testData gin.H
-
-	switch weakPointId {
-	case "wp_001":
-		if req.QuestionType == "single" {
-			testData = gin.H{
-				"questionId": questionId,
-				"type":       "single",
-				"content":    "处理缺失值时，以下哪种方法最适合时间序列数据？",
-				"options": []gin.H{
-					{"key": "A", "value": "fillna(0) 用0填充"},
-					{"key": "B", "value": "interpolate() 线性插值"},
-					{"key": "C", "value": "dropna() 删除缺失值"},
-					{"key": "D", "value": "fillna(method='ffill') 向前填充"},
-				},
-			}
-		} else {
-			testData = gin.H{
-				"questionId": questionId,
-				"type":       "multiple",
-				"content":    "以下哪些是处理缺失值的常用方法？",
-				"options": []gin.H{
-					{"key": "A", "value": "fillna()"},
-					{"key": "B", "value": "interpolate()"},
-					{"key": "C", "value": "dropna()"},
-					{"key": "D", "value": "replace()"},
-				},
-			}
-		}
-	case "wp_002":
-		testData = gin.H{
-			"questionId": questionId,
-			"type":       "single",
-			"content":    "在IQR法中，异常值的判断标准是什么？",
-			"options": []gin.H{
-				{"key": "A", "value": "超出 Q1-1.5*IQR 或 Q3+1.5*IQR"},
-				{"key": "B", "value": "超出 Q1-2*IQR 或 Q3+2*IQR"},
-				{"key": "C", "value": "Z-Score > 2"},
-				{"key": "D", "value": "Z-Score > 1"},
-			},
-		}
-	case "wp_003":
-		testData = gin.H{
-			"questionId": questionId,
-			"type":       "single",
-			"content":    "以下哪个函数用于删除重复值？",
-			"options": []gin.H{
-				{"key": "A", "value": "df.unique()"},
-				{"key": "B", "value": "df.drop_duplicates()"},
-				{"key": "C", "value": "df.duplicated()"},
-				{"key": "D", "value": "df.nunique()"},
-			},
-		}
-	default:
-		testData = gin.H{
-			"questionId": questionId,
-			"type":       "single",
-			"content":    "关于该知识点的正确说法是？",
-			"options": []gin.H{
-				{"key": "A", "value": "选项A"},
-				{"key": "B", "value": "选项B"},
-				{"key": "C", "value": "选项C"},
-				{"key": "D", "value": "选项D"},
-			},
+	var payload *weakPointTestPayload
+	if h.aiClient != nil {
+		prompt := fmt.Sprintf("请为薄弱点“%s”生成一道%s题，返回严格JSON：{\"content\":\"题干\",\"options\":[\"A.xxx\",\"B.xxx\",\"C.xxx\",\"D.xxx\"],\"answer\":\"A\",\"explanation\":\"解析\"}", weakPointName, mapQuestionType(questionType))
+		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: prompt, CurrentPage: maxWeakPointPage(weakPointID), Context: weakPointName, Mode: "llm"})
+		if err == nil {
+			payload, _ = parseWeakPointTest(resp.Answer)
 		}
 	}
+	if payload == nil {
+		payload = fallbackWeakPointTest(weakPointID, questionType)
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data":    testData,
-	})
+	optionsJSON, _ := json.Marshal(payload.Options)
+	questionRecord := model.Question{WeakPointID: weakPointID, QuestionType: questionType, Content: payload.Content, Options: string(optionsJSON), Answer: payload.Answer, Explanation: payload.Explanation, Difficulty: 2}
+	if err := h.db.Create(&questionRecord).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存题目失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"questionId": questionRecord.ID, "type": questionType, "content": payload.Content, "options": payload.Options}})
 }
 
-// 4.4 提交并校验答案
-// POST /api/v1/student/tests/:questionId/check
 func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
-	questionId := c.Param("questionId")
-
+	questionID := c.Param("questionId")
 	var req struct {
+		StudentID  string `json:"studentId"`
+		QuestionID string `json:"questionId"`
 		UserAnswer string `json:"userAnswer" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "缺少参数: userAnswer",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: userAnswer"})
+		return
+	}
+	if questionID == "" {
+		questionID = req.QuestionID
+	}
+
+	var question model.Question
+	if err := h.db.First(&question, "id = ?", questionID).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": fallbackCheckAnswer(questionID, req.UserAnswer)})
 		return
 	}
 
-	// 根据题目ID判断正确答案
-	var isCorrect bool
-	var correctAnswer string
-	var explanation string
-	var masteryDelta int
-
-	// 简单判断，实际应该从数据库查询
-	if len(questionId) > 5 {
-		if req.UserAnswer == "B" || req.UserAnswer == "interpolate()" {
-			isCorrect = true
-			correctAnswer = "B"
-			explanation = "interpolate() 线性插值适合时间序列数据，可以基于前后值推算缺失值。"
-			masteryDelta = 10
-		} else if req.UserAnswer == "A" {
-			isCorrect = true
-			correctAnswer = "A"
-			explanation = "IQR法中，超出Q1-1.5*IQR或Q3+1.5*IQR的值被视为异常值。"
-			masteryDelta = 10
-		} else {
-			isCorrect = false
-			correctAnswer = "B"
-			explanation = "答案不正确，请重新学习相关知识。"
-			masteryDelta = -5
-		}
-	} else {
-		// 默认答案
-		correctAnswer = "A"
-		isCorrect = (req.UserAnswer == "A")
-		explanation = "这是正确答案的解析。"
-		masteryDelta = 5
+	correctAnswer := strings.TrimSpace(question.Answer)
+	userAnswer := strings.TrimSpace(req.UserAnswer)
+	isCorrect := strings.EqualFold(userAnswer, correctAnswer)
+	if !isCorrect && len(correctAnswer) == 1 {
+		isCorrect = strings.HasPrefix(strings.ToUpper(userAnswer), strings.ToUpper(correctAnswer))
+	}
+	masteryDelta := -5
+	if isCorrect {
+		masteryDelta = 10
+	}
+	if strings.TrimSpace(req.StudentID) != "" {
+		_ = h.db.Create(&model.AnswerRecord{StudentID: req.StudentID, QuestionID: questionID, UserAnswer: req.UserAnswer, IsCorrect: isCorrect, MasteryDelta: masteryDelta}).Error
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data": gin.H{
-			"isCorrect":     isCorrect,
-			"correctAnswer": correctAnswer,
-			"explanation":   explanation,
-			"masteryDelta":  masteryDelta,
-			"newMastery":    65 + masteryDelta,
-		},
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"isCorrect": isCorrect, "correctAnswer": correctAnswer, "explanation": question.Explanation, "masteryDelta": masteryDelta, "newMastery": 65 + masteryDelta}})
+}
+
+type weakPointTestPayload struct {
+	Content     string   `json:"content"`
+	Options     []string `json:"options"`
+	Answer      string   `json:"answer"`
+	Explanation string   `json:"explanation"`
+}
+
+func parseWeakPointTest(raw string) (*weakPointTestPayload, error) {
+	cleaned := strings.TrimSpace(raw)
+	if strings.HasPrefix(cleaned, "```") {
+		cleaned = strings.TrimPrefix(cleaned, "```json")
+		cleaned = strings.TrimPrefix(cleaned, "```")
+		cleaned = strings.TrimSuffix(cleaned, "```")
+		cleaned = strings.TrimSpace(cleaned)
+	}
+
+	var payload weakPointTestPayload
+	if err := json.Unmarshal([]byte(cleaned), &payload); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(payload.Content) == "" || len(payload.Options) < 2 || strings.TrimSpace(payload.Answer) == "" {
+		return nil, errInvalidAIResponse
+	}
+	if strings.TrimSpace(payload.Explanation) == "" {
+		payload.Explanation = "请回顾本题涉及的知识点后再尝试一次。"
+	}
+	return &payload, nil
+}
+
+var errInvalidAIResponse = errors.New("invalid AI response payload")
+
+func fallbackKnowledgeStructure(text string) []gin.H {
+	parts := strings.FieldsFunc(text, func(r rune) bool {
+		return r == '\n' || r == '。' || r == '；' || r == ';'
 	})
+	result := make([]gin.H, 0)
+	for index, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		result = append(result, gin.H{"name": fmt.Sprintf("知识点%d", index+1), "children": []gin.H{{"name": part}}})
+		if len(result) >= 6 {
+			break
+		}
+	}
+	if len(result) == 0 {
+		result = []gin.H{{"name": "课程概览", "children": []gin.H{{"name": "核心概念"}, {"name": "关键方法"}, {"name": "应用场景"}}}}
+	}
+	return result
+}
+
+func buildWeakPointList(db *gorm.DB, studentID, courseID string) []gin.H {
+	type pageStat struct {
+		PageIndex int
+		Count     int
+	}
+	var stats []pageStat
+	db.Table("question_logs").Select("page_index, count(*) as count").Where("user_id = ? AND course_id = ?", studentID, courseID).Group("page_index").Order("count desc").Limit(5).Scan(&stats)
+	result := make([]gin.H, 0, len(stats))
+	for _, stat := range stats {
+		mastery := 100 - stat.Count*12
+		if mastery < 0 {
+			mastery = 0
+		}
+		result = append(result, gin.H{"weakPointId": fmt.Sprintf("wp-page-%d", stat.PageIndex), "id": fmt.Sprintf("wp-page-%d", stat.PageIndex), "name": fmt.Sprintf("第%d页知识点", stat.PageIndex), "description": "根据提问记录自动识别的薄弱点", "count": stat.Count, "mastery": mastery, "pageIndex": stat.PageIndex})
+	}
+	return result
+}
+
+func (h *WeakPointHandler) resolveWeakPointExplainInput(c *gin.Context) (string, string) {
+	weakPointID := c.Param("weakPointId")
+	weakPointName := strings.TrimSpace(c.Query("name"))
+	if weakPointID != "" || weakPointName != "" {
+		return weakPointID, weakPointName
+	}
+	var req struct {
+		WeakPointID   string `json:"weakPointId"`
+		WeakPointName string `json:"weakPointName"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	return req.WeakPointID, req.WeakPointName
+}
+
+func fallbackWeakPointExplain(weakPointID, weakPointName string) string {
+	switch weakPointID {
+	case "wp_001":
+		return "缺失值是数据中为空的部分。常用处理方法包括 fillna()、interpolate() 和 dropna()，需要根据数据类型和业务场景选择合适策略。"
+	case "wp_002":
+		return "异常值是明显偏离总体分布的数据点。常见识别方法包括 Z-Score、IQR 和箱线图，处理时要先判断是否真实异常。"
+	default:
+		if page := maxWeakPointPage(weakPointID); page > 0 {
+			return fmt.Sprintf("第 %d 页知识点需要重点回顾。建议先重新阅读该页讲稿，再结合一个真实案例理解核心概念。", page)
+		}
+		return fmt.Sprintf("%s 是当前阶段需要重点巩固的知识点。建议从定义、例子、练习三个层面逐步掌握。", weakPointName)
+	}
+}
+
+func fallbackWeakPointName(weakPointID string) string {
+	if weakPointID == "" {
+		return "薄弱点练习"
+	}
+	if page := maxWeakPointPage(weakPointID); page > 0 {
+		return fmt.Sprintf("第%d页知识点", page)
+	}
+	return weakPointID
+}
+
+func fallbackWeakPointTest(weakPointID, questionType string) *weakPointTestPayload {
+	if questionType == "multiple" {
+		return &weakPointTestPayload{Content: "以下哪些方法可用于处理缺失值？", Options: []string{"A.fillna()", "B.interpolate()", "C.dropna()", "D.duplicated()"}, Answer: "ABC", Explanation: "fillna()、interpolate()、dropna() 都属于常见缺失值处理方法。"}
+	}
+	switch weakPointID {
+	case "wp_002":
+		return &weakPointTestPayload{Content: "在 IQR 法中，异常值通常指什么？", Options: []string{"A.超出 Q1-1.5IQR 或 Q3+1.5IQR 的值", "B.所有均值以上的值", "C.所有中位数以下的值", "D.随机出现的值"}, Answer: "A", Explanation: "IQR 法以四分位距为基准识别异常值。"}
+	default:
+		return &weakPointTestPayload{Content: "处理缺失值时，哪种方法更适合时间序列数据？", Options: []string{"A.fillna(0)", "B.interpolate()", "C.dropna()", "D.sort_values()"}, Answer: "B", Explanation: "时间序列数据通常更适合使用插值法保持变化趋势。"}
+	}
+}
+
+func fallbackCheckAnswer(questionID, userAnswer string) gin.H {
+	correctAnswer := "B"
+	explanation := "interpolate() 线性插值更适合时序数据，可以根据前后数据推断缺失值。"
+	if strings.Contains(questionID, "002") {
+		correctAnswer = "A"
+		explanation = "IQR 法中，超出 Q1-1.5IQR 或 Q3+1.5IQR 的值会被视为异常值。"
+	}
+	isCorrect := strings.EqualFold(strings.TrimSpace(userAnswer), correctAnswer)
+	masteryDelta := -5
+	if isCorrect {
+		masteryDelta = 10
+	}
+	return gin.H{"isCorrect": isCorrect, "correctAnswer": correctAnswer, "explanation": explanation, "masteryDelta": masteryDelta, "newMastery": 65 + masteryDelta}
+}
+
+func maxWeakPointPage(weakPointID string) int {
+	if strings.HasPrefix(weakPointID, "wp-page-") {
+		page, _ := strconv.Atoi(strings.TrimPrefix(weakPointID, "wp-page-"))
+		return page
+	}
+	return 1
+}
+
+func mapQuestionType(questionType string) string {
+	if strings.EqualFold(questionType, "multiple") {
+		return "多选"
+	}
+	return "单选"
 }
