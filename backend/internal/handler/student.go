@@ -8,15 +8,17 @@ import (
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 	"smart-teaching-backend/pkg/logger"
 )
 
 type StudentHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewStudentHandler(db *gorm.DB) *StudentHandler {
-	return &StudentHandler{db: db}
+func NewStudentHandler(db *gorm.DB, aiClient service.AIEngine) *StudentHandler {
+	return &StudentHandler{db: db, aiClient: aiClient}
 }
 
 // ==================== 请求参数结构体 ====================
@@ -56,9 +58,16 @@ type BreakpointRequest struct {
 	CourseID  string `form:"courseId" binding:"required"`
 }
 
+type UpdateBreakpointRequest struct {
+	StudentID string `json:"studentId" binding:"required"`
+	CourseID  string `json:"courseId" binding:"required"`
+	LastPage  int    `json:"lastPage" binding:"required"`
+}
+
 // SaveNoteRequest 保存笔记请求
 type SaveNoteRequest struct {
 	StudentID string `json:"studentId" binding:"required"`
+	CourseID  string `json:"courseId" binding:"required"`
 	PageNum   int    `json:"pageNum" binding:"required"`
 	Note      string `json:"note" binding:"required"`
 }
@@ -97,7 +106,6 @@ func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
 		content = coursePage.ScriptText
 	}
 
-	// TODO: 这里可以调用 AI 生成更丰富的内容
 	data := gin.H{
 		"courseId":    req.CourseID,
 		"currentPage": req.CurrentPage,
@@ -134,9 +142,22 @@ func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
 		context = coursePage.ScriptText
 	}
 
-	// TODO: 调用 AI 大模型 API 获取答案
-	// 这里先返回模拟数据
-	answer := generateAIAnswer(req.Question, context)
+	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    req.Question,
+		CurrentPage: req.PageNum,
+		Context:     context,
+		Mode:        "llm",
+	})
+	if err != nil {
+		logger.Errorf("调用AI问答失败: %v", err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"code":    503,
+			"message": "AI服务暂不可用，请稍后重试",
+		})
+		return
+	}
+
+	answer := aiResp.Answer
 
 	// 记录提问日志
 	log := model.QuestionLog{
@@ -152,7 +173,12 @@ func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
 		"code":    200,
 		"message": "成功",
 		"data": gin.H{
-			"answer": answer,
+			"answer":             answer,
+			"sourcePage":         aiResp.SourcePage,
+			"sourceExcerpt":      aiResp.SourceExcerpt,
+			"needReteach":        aiResp.Intent.NeedReteach,
+			"followUpSuggestion": aiResp.FollowUpSuggestion,
+			"aiUnavailable":      false,
 		},
 	})
 }
@@ -172,14 +198,35 @@ func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
 		return
 	}
 
-	// TODO: 根据坐标定位到具体内容，调用 AI 生成针对性回答
-	answer := generateTraceAnswer(req.Question, req.X, req.Y)
+	var coursePage model.CoursePage
+	context := ""
+	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.PageNum).First(&coursePage).Error; err == nil {
+		context = coursePage.ScriptText
+	}
+
+	traceQuestion := req.Question + "（圈选坐标: " + strconv.FormatFloat(req.X, 'f', 2, 64) + "," + strconv.FormatFloat(req.Y, 'f', 2, 64) + "）"
+	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    traceQuestion,
+		CurrentPage: req.PageNum,
+		Context:     context,
+		Mode:        "llm",
+	})
+	if err != nil {
+		logger.Errorf("调用AI溯源问答失败: %v", err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"code":    503,
+			"message": "AI服务暂不可用，请稍后重试",
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "成功",
 		"data": gin.H{
-			"answer": answer,
+			"answer":        aiResp.Answer,
+			"sourcePage":    aiResp.SourcePage,
+			"sourceExcerpt": aiResp.SourceExcerpt,
 		},
 	})
 }
@@ -279,6 +326,47 @@ func (h *StudentHandler) GetStudentBreakpoint(c *gin.Context) {
 	})
 }
 
+// UpdateStudentBreakpoint 更新学习断点
+// PUT /api/student/breakpoint
+func (h *StudentHandler) UpdateStudentBreakpoint(c *gin.Context) {
+	var req UpdateBreakpointRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Errorf("参数错误: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "缺少必填参数: studentId, courseId 或 lastPage",
+		})
+		return
+	}
+
+	if req.LastPage < 1 {
+		req.LastPage = 1
+	}
+
+	var progress model.UserProgress
+	err := h.db.Where("user_id = ? AND course_id = ?", req.StudentID, req.CourseID).First(&progress).Error
+	if err == nil {
+		if err := h.db.Model(&progress).Update("last_page", req.LastPage).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新断点失败"})
+			return
+		}
+	} else {
+		newProgress := model.UserProgress{UserID: req.StudentID, CourseID: req.CourseID, LastPage: req.LastPage}
+		if err := h.db.Create(&newProgress).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存断点失败"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "断点更新成功",
+		"data": gin.H{
+			"lastPageNum": req.LastPage,
+		},
+	})
+}
+
 // ==================== 6. 保存笔记 ====================
 
 // SaveStudentNote 保存学生笔记
@@ -294,31 +382,27 @@ func (h *StudentHandler) SaveStudentNote(c *gin.Context) {
 		return
 	}
 
-	// TODO: 创建笔记表 model.StudentNote 并保存
-	// 这里先用日志记录
-	logger.Infof("保存笔记: studentId=%s, pageNum=%d, note=%s",
-		req.StudentID, req.PageNum, req.Note)
+	note := model.StudentNote{
+		UserID:   req.StudentID,
+		CourseID: req.CourseID,
+		PageNum:  req.PageNum,
+		Note:     req.Note,
+	}
+	if err := h.db.Create(&note).Error; err != nil {
+		logger.Errorf("保存笔记失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "保存失败",
+		})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "保存成功",
 		"data": gin.H{
 			"status": "saved",
+			"noteId": note.ID,
 		},
 	})
-}
-
-// ==================== 辅助函数 ====================
-
-// 生成 AI 回答（模拟）
-func generateAIAnswer(question, context string) string {
-	// TODO: 接入真实 AI 服务
-	return "这是AI基于上下文生成的回答：" + question
-}
-
-// 生成溯源回答（模拟）
-func generateTraceAnswer(question string, x, y float64) string {
-	// TODO: 接入真实 AI 服务
-	return "针对坐标(" + strconv.FormatFloat(x, 'f', 2, 64) + "," +
-		strconv.FormatFloat(y, 'f', 2, 64) + ")的解答：" + question
 }

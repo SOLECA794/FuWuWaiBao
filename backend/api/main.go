@@ -70,6 +70,11 @@ func main() {
 		&model.QuestionLog{},
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
+		&model.StudentNote{},
+		&model.WeakPoint{},
+		&model.KnowledgePoint{},
+		&model.Question{},
+		&model.AnswerRecord{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -94,12 +99,14 @@ func main() {
 
 	// 初始化服务
 	courseService := service.NewCourseService(db, minioClient)
+	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
 
 	// 初始化处理器
 	courseHandler := handler.NewCourseHandler(courseService)
-	teacherHandler := handler.NewTeacherHandler(db)
-	studentHandler := handler.NewStudentHandler(db)
-	weakPointHandler := handler.NewWeakPointHandler(db)
+	teacherHandler := handler.NewTeacherHandler(db, aiClient)
+	studentHandler := handler.NewStudentHandler(db, aiClient)
+	weakPointHandler := handler.NewWeakPointHandler(db, aiClient)
+	compatHandler := handler.NewCompatibilityHandler(db, aiClient, courseService)
 
 	// 设置Gin
 	if cfg.Server.Mode == "release" {
@@ -112,6 +119,13 @@ func main() {
 	// 最重要的中间件：设置 UTF-8 响应头（放在最前面）
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
 		c.Next()
 	})
 
@@ -161,6 +175,11 @@ func main() {
 	{
 		// 课件预览（公开）
 		api.GET("/courseware/:courseId/page/:pageNum", teacherHandler.GetPagePreview)
+		api.GET("/student/courseware-list", compatHandler.GetStudentCoursewareList)
+		api.POST("/student/session/start", compatHandler.StartStudentSession)
+		api.POST("/student/progress/update", compatHandler.UpdateStudentProgress)
+		api.GET("/student/script/:courseId/:page", compatHandler.GetStudentScript)
+		api.POST("/student/qa/stream", compatHandler.StreamStudentQA)
 
 		// 学生端接口
 		student := api.Group("/student")
@@ -170,6 +189,7 @@ func main() {
 			student.POST("/ai/traceQuestion", studentHandler.TraceAIQuestion)
 			student.GET("/studyData", studentHandler.GetStudentStudyData)
 			student.GET("/breakpoint", studentHandler.GetStudentBreakpoint)
+			student.PUT("/breakpoint", studentHandler.UpdateStudentBreakpoint)
 			student.POST("/saveNote", studentHandler.SaveStudentNote)
 		}
 
@@ -207,6 +227,78 @@ func main() {
 
 		// AI知识点解析
 		api.POST("/ai/parseKnowledge", weakPointHandler.ParseKnowledge)
+
+		// v1 统一内部接口
+		v1 := api.Group("/v1")
+		{
+			teacherV1 := v1.Group("/teacher/coursewares")
+			{
+				teacherV1.GET("", teacherHandler.GetCoursewareList)
+				teacherV1.POST("/upload", compatHandler.UploadCoursewareV1)
+				teacherV1.DELETE("/:courseId", compatHandler.DeleteCoursewareV1)
+				teacherV1.GET("/:courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
+				teacherV1.PUT("/:courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
+				teacherV1.POST("/:courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
+				teacherV1.POST("/:courseId/publish", compatHandler.PublishCoursewareV1)
+				teacherV1.GET("/:courseId/stats", teacherHandler.GetStudentStats)
+				teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
+				teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
+			}
+
+			aiV1 := v1.Group("/ai/coursewares")
+			{
+				aiV1.GET("/:courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
+				aiV1.POST("/:courseId/ask", compatHandler.AskCoursewareV1)
+			}
+
+			studentV1 := v1.Group("/student")
+			{
+				studentV1.GET("/coursewares", compatHandler.GetStudentCoursewareListV1)
+				studentV1.POST("/sessions", compatHandler.StartStudentSessionV1)
+				studentV1.POST("/sessions/progress", compatHandler.UpdateStudentProgressV1)
+				studentV1.POST("/qa/stream", compatHandler.StreamStudentQAV1)
+				studentV1.GET("/coursewares/:courseId/weak-points", compatHandler.GetWeakPointsV1)
+				studentV1.GET("/coursewares/:courseId/scripts/:pageNum", compatHandler.GetStudentScriptV1)
+				studentV1.GET("/weak-points/:weakPointId/explain", compatHandler.ExplainWeakPointV1)
+				studentV1.POST("/weak-points/:weakPointId/generate-test", compatHandler.GenerateWeakPointTestV1)
+				studentV1.POST("/tests/:questionId/check", compatHandler.CheckAnswerV1)
+				studentV1.GET("/coursewares/:courseId/breakpoint", compatHandler.GetBreakpointV1)
+				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
+				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
+				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
+			}
+
+			v1.POST("/ai/parse-knowledge", compatHandler.ParseKnowledgeV1)
+
+			openLesson := v1.Group("/lesson")
+			openLesson.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openLesson.POST("/parse", compatHandler.OpenLessonParse)
+				openLesson.POST("/generateScript", compatHandler.OpenGenerateScript)
+				openLesson.POST("/generateAudio", compatHandler.OpenGenerateAudio)
+			}
+
+			openQA := v1.Group("/qa")
+			openQA.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openQA.POST("/interact", compatHandler.OpenQAInteract)
+				openQA.POST("/voiceToText", compatHandler.OpenVoiceToText)
+			}
+
+			openProgress := v1.Group("/progress")
+			openProgress.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openProgress.POST("/track", compatHandler.OpenTrackProgress)
+				openProgress.POST("/adjust", compatHandler.OpenAdjustProgress)
+			}
+
+			openPlatform := v1.Group("/platform")
+			openPlatform.Use(handler.OpenAPISignatureMiddleware())
+			{
+				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
+				openPlatform.POST("/syncUser", compatHandler.OpenSyncUser)
+			}
+		}
 
 		// 公开接口
 		//api.GET("/courseware/:courseId/page/:pageNum", func(c *gin.Context) {

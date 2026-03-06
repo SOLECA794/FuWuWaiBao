@@ -1,18 +1,26 @@
 package handler
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 )
 
 type WeakPointHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewWeakPointHandler(db *gorm.DB) *WeakPointHandler {
-	return &WeakPointHandler{db: db}
+func NewWeakPointHandler(db *gorm.DB, aiClient service.AIEngine) *WeakPointHandler {
+	return &WeakPointHandler{db: db, aiClient: aiClient}
 }
 
 // ParseKnowledge 拆解知识点层级
@@ -32,23 +40,28 @@ func (h *WeakPointHandler) ParseKnowledge(c *gin.Context) {
 		return
 	}
 
-	// TODO: 调用AI服务解析知识点
-	// 返回模拟数据
-	data := gin.H{
-		"structure": []gin.H{
-			{
-				"chapter": "第一章：数据清洗基础",
-				"knowledgePoints": []gin.H{
-					{"name": "缺失值处理", "subPoints": []string{"fillna()", "interpolate()", "dropna()"}},
-					{"name": "异常值识别", "subPoints": []string{"Z-Score", "IQR"}},
-				},
-			},
-		},
+	text := strings.TrimSpace(req.FileContent)
+	if text == "" {
+		text = "请基于上传文件进行知识点层级拆解"
+	}
+
+	aiResp, err := h.aiClient.ParseKnowledge(c.Request.Context(), service.ParseKnowledgeRequest{
+		Text: text,
+		Mode: "llm",
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "知识点拆解失败",
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
-		"data": data,
+		"data": gin.H{
+			"structure": aiResp.Structure,
+		},
 	})
 }
 
@@ -66,11 +79,31 @@ func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
 		return
 	}
 
-	// 从数据库查询或生成模拟数据
-	weakPoints := []gin.H{
-		{"name": "缺失值填充", "count": 5, "mastery": 60},
-		{"name": "异常值识别", "count": 3, "mastery": 45},
-		{"name": "重复值处理", "count": 2, "mastery": 80},
+	type pageStat struct {
+		PageIndex int
+		Count     int
+	}
+
+	var stats []pageStat
+	h.db.Table("question_logs").
+		Select("page_index, count(*) as count").
+		Where("user_id = ? AND course_id = ?", studentId, courseId).
+		Group("page_index").
+		Order("count desc").
+		Limit(5).
+		Scan(&stats)
+
+	weakPoints := make([]gin.H, 0, len(stats))
+	for _, stat := range stats {
+		mastery := 100 - stat.Count*12
+		if mastery < 0 {
+			mastery = 0
+		}
+		weakPoints = append(weakPoints, gin.H{
+			"name":    "第" + strconv.Itoa(stat.PageIndex) + "页知识点",
+			"count":   stat.Count,
+			"mastery": mastery,
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -95,38 +128,28 @@ func (h *WeakPointHandler) GetWeakPointExplain(c *gin.Context) {
 		return
 	}
 
-	// 根据不同薄弱点返回不同讲解内容
-	explains := map[string]gin.H{
-		"缺失值填充": {
-			"title": "缺失值填充 · 知识点讲解",
-			"content": "缺失值是数据中为空的部分，常用方法：\n" +
-				"1. fillna() 填充常数、均值、中位数\n" +
-				"2. interpolate() 线性插值（适合时序）\n" +
-				"3. dropna() 直接删除行/列",
-			"examples": []string{
-				"df.fillna(0)  # 用0填充",
-				"df.interpolate()  # 线性插值",
-				"df.dropna()  # 删除缺失值",
-			},
-		},
-		"异常值识别": {
-			"title": "异常值识别 · 知识点讲解",
-			"content": "异常值识别常用方法：\n" +
-				"1. Z-Score法：|Z|>3 视为异常\n" +
-				"2. IQR法：超出Q1-1.5IQR或Q3+1.5IQR视为异常",
-			"examples": []string{
-				"from scipy import stats\nz_scores = stats.zscore(data)",
-				"Q1 = df.quantile(0.25)\nQ3 = df.quantile(0.75)\nIQR = Q3 - Q1",
-			},
-		},
+	prompt := "请用教学口吻讲解知识点：" + req.WeakPointName + "。输出结构：先给定义，再给2个例子。"
+	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    prompt,
+		CurrentPage: 1,
+		Context:     req.WeakPointName,
+		Mode:        "llm",
+	})
+	if err != nil || strings.TrimSpace(aiResp.Answer) == "" {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"code":    503,
+			"message": "AI讲解暂不可用，请稍后重试",
+		})
+		return
 	}
 
-	data, exists := explains[req.WeakPointName]
-	if !exists {
-		data = gin.H{
-			"title":   req.WeakPointName + " · 知识点讲解",
-			"content": "这是" + req.WeakPointName + "的详细讲解内容...",
-		}
+	data := gin.H{
+		"title":   req.WeakPointName + " · 知识点讲解",
+		"content": aiResp.Answer,
+		"examples": []string{
+			"例1：结合本课件当前页核心概念进行复述",
+			"例2：尝试将概念应用到一个真实场景中",
+		},
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -152,29 +175,49 @@ func (h *WeakPointHandler) GetWeakPointTest(c *gin.Context) {
 		return
 	}
 
-	// 根据不同薄弱点生成不同习题
-	tests := map[string]gin.H{
-		"缺失值填充": {
-			"questionId": "Q001",
-			"content":    "处理缺失值时，以下哪种方法最适合时间序列数据？",
-			"type":       "single",
-			"options": []string{
-				"A. fillna(0) 用0填充",
-				"B. interpolate() 线性插值",
-				"C. dropna() 删除缺失值",
-				"D. fillna(method='ffill') 向前填充",
-			},
-		},
+	prompt := "请为薄弱点“" + req.WeakPointName + "”生成一道单选题，返回严格JSON：{\"content\":\"题干\",\"options\":[\"A.xxx\",\"B.xxx\",\"C.xxx\",\"D.xxx\"],\"answer\":\"A\",\"explanation\":\"解析\"}"
+	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    prompt,
+		CurrentPage: 1,
+		Context:     req.WeakPointName,
+		Mode:        "llm",
+	})
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"code":    503,
+			"message": "AI习题生成暂不可用，请稍后重试",
+		})
+		return
 	}
 
-	data, exists := tests[req.WeakPointName]
-	if !exists {
-		data = gin.H{
-			"questionId": "Q002",
-			"content":    "关于" + req.WeakPointName + "的正确说法是？",
-			"type":       "single",
-			"options":    []string{"A. 选项1", "B. 选项2", "C. 选项3", "D. 选项4"},
-		}
+	testData, parseErr := parseWeakPointTest(aiResp.Answer)
+	if parseErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "AI习题返回格式异常",
+		})
+		return
+	}
+
+	optionsJSON, _ := json.Marshal(testData.Options)
+	questionRecord := model.Question{
+		QuestionType: req.QuestionType,
+		Content:      testData.Content,
+		Options:      string(optionsJSON),
+		Answer:       testData.Answer,
+		Explanation:  testData.Explanation,
+		Difficulty:   2,
+	}
+	if strings.TrimSpace(questionRecord.QuestionType) == "" {
+		questionRecord.QuestionType = "single"
+	}
+	h.db.Create(&questionRecord)
+
+	data := gin.H{
+		"questionId": questionRecord.ID,
+		"content":    testData.Content,
+		"type":       questionRecord.QuestionType,
+		"options":    testData.Options,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -182,6 +225,37 @@ func (h *WeakPointHandler) GetWeakPointTest(c *gin.Context) {
 		"data": data,
 	})
 }
+
+type weakPointTestPayload struct {
+	Content     string   `json:"content"`
+	Options     []string `json:"options"`
+	Answer      string   `json:"answer"`
+	Explanation string   `json:"explanation"`
+}
+
+func parseWeakPointTest(raw string) (*weakPointTestPayload, error) {
+	cleaned := strings.TrimSpace(raw)
+	if strings.HasPrefix(cleaned, "```") {
+		cleaned = strings.TrimPrefix(cleaned, "```json")
+		cleaned = strings.TrimPrefix(cleaned, "```")
+		cleaned = strings.TrimSuffix(cleaned, "```")
+		cleaned = strings.TrimSpace(cleaned)
+	}
+
+	var payload weakPointTestPayload
+	if err := json.Unmarshal([]byte(cleaned), &payload); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(payload.Content) == "" || len(payload.Options) < 2 || strings.TrimSpace(payload.Answer) == "" {
+		return nil, errInvalidAIResponse
+	}
+	if strings.TrimSpace(payload.Explanation) == "" {
+		payload.Explanation = "请回顾本题涉及的知识点后再尝试一次。"
+	}
+	return &payload, nil
+}
+
+var errInvalidAIResponse = errors.New("invalid AI response payload")
 
 // CheckAnswer 校验答案
 // POST /api/weakPoint/checkAnswer
@@ -200,22 +274,38 @@ func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
 		return
 	}
 
-	// 校验答案（实际应从数据库查询正确答案）
-	isCorrect := false
-	correctAnswer := "B"
-	explanation := ""
-
-	if req.QuestionID == "Q001" {
-		correctAnswer = "B"
-		isCorrect = (req.UserAnswer == "B" || req.UserAnswer == "interpolate()")
-		explanation = "interpolate() 线性插值适合时间序列数据，可以基于前后值推算缺失值。"
+	var question model.Question
+	if err := h.db.First(&question, "id = ?", req.QuestionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"code":    404,
+			"message": "题目不存在",
+		})
+		return
 	}
+
+	correctAnswer := strings.TrimSpace(question.Answer)
+	userAnswer := strings.TrimSpace(req.UserAnswer)
+	isCorrect := strings.EqualFold(userAnswer, correctAnswer)
+	if !isCorrect && len(correctAnswer) == 1 {
+		isCorrect = strings.HasPrefix(strings.ToUpper(userAnswer), strings.ToUpper(correctAnswer))
+	}
+	explanation := question.Explanation
 
 	// 更新掌握度
 	masteryDelta := 0
 	if isCorrect {
 		masteryDelta = 10
+	} else {
+		masteryDelta = -5
 	}
+
+	_ = h.db.Create(&model.AnswerRecord{
+		StudentID:    req.StudentID,
+		QuestionID:   req.QuestionID,
+		UserAnswer:   req.UserAnswer,
+		IsCorrect:    isCorrect,
+		MasteryDelta: masteryDelta,
+	}).Error
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,

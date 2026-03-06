@@ -63,6 +63,7 @@ type OSSConfig struct {
 
 type AIConfig struct {
 	Provider string        `mapstructure:"provider"`
+	BaseURL  string        `mapstructure:"base_url"`
 	APIKey   string        `mapstructure:"api_key"`
 	Model    string        `mapstructure:"model"`
 	Timeout  time.Duration `mapstructure:"timeout"`

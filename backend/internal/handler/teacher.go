@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"sort"
@@ -15,15 +14,17 @@ import (
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 	"smart-teaching-backend/pkg/logger"
 )
 
 type TeacherHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewTeacherHandler(db *gorm.DB) *TeacherHandler {
-	return &TeacherHandler{db: db}
+func NewTeacherHandler(db *gorm.DB, aiClient service.AIEngine) *TeacherHandler {
+	return &TeacherHandler{db: db, aiClient: aiClient}
 }
 
 // ==================== 1. 课件管理模块 ====================
@@ -77,8 +78,20 @@ func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 		return
 	}
 
-	// TODO: 这里可以添加发布逻辑
-	// 比如：创建发布记录、推送通知到学生端等
+	// 当前版本记录发布动作与时间，供前端与后续消息推送扩展使用
+	now := time.Now()
+	if err := h.db.Model(&course).Updates(map[string]interface{}{
+		"is_published":  true,
+		"publish_scope": req.Scope,
+		"published_at":  now,
+	}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "发布状态写入失败",
+		})
+		return
+	}
+
 	logger.Infof("课件发布成功: courseId=%s, scope=%s, title=%s",
 		req.CourseID, req.Scope, course.Title)
 
@@ -88,7 +101,7 @@ func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 		"data": gin.H{
 			"courseId":    req.CourseID,
 			"scope":       req.Scope,
-			"publishedAt": time.Now().Format("2006-01-02 15:04:05"),
+			"publishedAt": now.Format("2006-01-02 15:04:05"),
 		},
 	})
 }
@@ -274,117 +287,48 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 		return
 	}
 
-	// 生成模拟讲稿内容
-	mockScript := generateMockScript(req.CourseName, req.Page)
+	var coursePage model.CoursePage
+	contextText := ""
+	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
+		contextText = coursePage.ScriptText
+	}
+	if strings.TrimSpace(contextText) == "" {
+		contextText = "课程：" + req.CourseName + "，页码：" + strconv.Itoa(req.Page)
+	}
+
+	aiResp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{
+		Page:       req.Page,
+		Content:    contextText,
+		CourseName: req.CourseName,
+		Mode:       "llm",
+	})
+	if err != nil {
+		logger.Errorf("调用AI讲稿生成失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": "AI生成失败",
+		})
+		return
+	}
 
 	logger.Infof("AI生成讲稿成功: courseId=%s, page=%d, courseName=%s",
 		req.CourseID, req.Page, req.CourseName)
 
+	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
+		h.db.Model(&coursePage).Update("script_text", aiResp.Script)
+	} else {
+		h.db.Create(&model.CoursePage{CourseID: req.CourseID, PageIndex: req.Page, ScriptText: aiResp.Script})
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"courseId": req.CourseID,
-			"page":     req.Page,
-			"content":  mockScript,
+			"courseId":        req.CourseID,
+			"page":            req.Page,
+			"content":         aiResp.Script,
+			"mindmapMarkdown": aiResp.MindmapMarkdown,
 		},
 	})
-}
-
-// generateMockScript 生成模拟讲稿内容
-func generateMockScript(courseName string, page int) string {
-	templates := []string{
-		`## %s 第%d页：课程导入
-    
-### 教学目标
-- 了解本章节的核心概念
-- 掌握基础知识框架
-- 能够理解实际应用场景
-
-### 重点内容
-1. 概念引入：通过生活中的例子引入
-2. 核心定义：准确定义本章节的核心概念
-3. 基本原理：讲解基本原理和运作机制
-
-### 案例分析
-以一个具体的例子来说明本章节的内容：
-
-示例：在实际开发中，我们经常会遇到...
-    
-### 小结
-本章节主要介绍了...为后续学习打下基础。`,
-
-		`## %s 第%d页：深入讲解
-    
-### 知识要点
-- 要点一：深入理解核心机制
-- 要点二：掌握常见的设计模式
-- 要点三：学会实际应用技巧
-
-### 代码示例
-
-func main() {
-    fmt.Println("Hello, " + courseName)
-}
-
-### 注意事项
-- 注意边界条件的处理
-- 注意性能优化要点
-- 注意代码规范要求
-
-### 练习题
-1. 请实现一个简单的示例
-2. 思考如何优化现有代码
-3. 尝试解决实际问题`,
-
-		`## %s 第%d页：实战应用
-    
-### 实战场景
-在实际项目中，我们通常需要...
-
-### 实现步骤
-1. 第一步：环境准备
-2. 第二步：核心代码实现
-3. 第三步：测试验证
-4. 第四步：优化改进
-
-### 常见问题
-- 问：遇到报错怎么办？
-- 答：检查配置文件和环境变量
-  
-- 问：性能不够怎么办？
-- 答：使用缓存和异步处理
-
-### 扩展阅读
-- 官方文档链接
-- 相关技术博客
-- 开源项目参考`,
-
-		`## %s 第%d页：总结回顾
-    
-### 本章总结
-知识点 | 重要程度 | 掌握情况
--------|----------|----------
-基础概念 | ⭐⭐⭐ | 需要掌握
-核心原理 | ⭐⭐⭐⭐ | 深入理解
-实战应用 | ⭐⭐⭐⭐⭐ | 熟练运用
-
-### 重点回顾
-1. 核心概念：...
-2. 关键技术：...
-3. 最佳实践：...
-
-### 下节预告
-下一章我们将学习...
-
-### 思考题
-1. 如何将本章知识应用到实际项目？
-2. 与之前学过的内容有什么联系？
-3. 有没有更好的实现方式？`,
-	}
-
-	// 根据页码选择不同的模板（循环使用）
-	template := templates[(page-1)%len(templates)]
-	return fmt.Sprintf(template, courseName, page)
 }
 
 // ==================== 3. 学情分析模块 ====================
@@ -467,17 +411,6 @@ func generateKeywordStats(questions []string) []gin.H {
 	sort.Slice(stats, func(i, j int) bool {
 		return stats[i]["count"].(int) > stats[j]["count"].(int)
 	})
-
-	// 如果少于10个，补充一些默认关键词
-	if len(stats) < 10 {
-		defaultKeywords := []string{"概念", "原理", "实现", "应用", "区别"}
-		for _, kw := range defaultKeywords {
-			stats = append(stats, gin.H{
-				"word":  kw,
-				"count": 1,
-			})
-		}
-	}
 
 	return stats
 }
@@ -601,37 +534,47 @@ func (h *TeacherHandler) GetCardData(c *gin.Context) {
 		for rows.Next() {
 			var stat PageStat
 			rows.Scan(&stat.PageIndex, &stat.QuestionCount)
-
-			// 模拟停留时长（实际应从学习行为表获取）
-			stat.StayTime = float64(20 + stat.PageIndex*5)
-			// 计算卡点指数 = 提问量 * 0.5 + 停留时长/20
-			stat.CardIndex = float64(stat.QuestionCount)*0.5 + stat.StayTime/20
+			stat.StayTime = 0
+			stat.CardIndex = float64(stat.QuestionCount)
 
 			stats = append(stats, stat)
 		}
 	}
 
-	// 如果没有数据，返回模拟数据供前端展示
+	// 如果没有提问日志，则按页返回零值，避免推导型 mock 数据
 	if len(stats) == 0 {
-		stats = []PageStat{
-			{PageIndex: 1, QuestionCount: 2, StayTime: 20, CardIndex: 2.0},
-			{PageIndex: 3, QuestionCount: 4, StayTime: 32, CardIndex: 3.6},
-			{PageIndex: 5, QuestionCount: 8, StayTime: 45, CardIndex: 6.25},
-			{PageIndex: 7, QuestionCount: 10, StayTime: 25, CardIndex: 6.25},
-			{PageIndex: 9, QuestionCount: 12, StayTime: 18, CardIndex: 6.9},
+		for page := 1; page <= course.TotalPage; page++ {
+			stats = append(stats, PageStat{
+				PageIndex:     page,
+				QuestionCount: 0,
+				StayTime:      0,
+				CardIndex:     0,
+			})
 		}
 	}
 
-	// 计算TOP5卡点页面
+	// 计算TOP5卡点页面（按卡点指数降序）
+	topCandidates := append([]PageStat(nil), stats...)
+	sort.Slice(topCandidates, func(i, j int) bool {
+		return topCandidates[i].CardIndex > topCandidates[j].CardIndex
+	})
+
 	var topPages []gin.H
-	for i, stat := range stats {
-		if i < 5 {
-			topPages = append(topPages, gin.H{
-				"page":  stat.PageIndex,
-				"value": stat.QuestionCount,
-				"ratio": float64(stat.QuestionCount) / 15 * 100, // 假设最大提问量为15
-			})
+	maxTop := 5
+	if len(topCandidates) < maxTop {
+		maxTop = len(topCandidates)
+	}
+	for i := 0; i < maxTop; i++ {
+		stat := topCandidates[i]
+		ratio := stat.CardIndex * 10
+		if ratio > 100 {
+			ratio = 100
 		}
+		topPages = append(topPages, gin.H{
+			"page":  stat.PageIndex,
+			"value": stat.QuestionCount,
+			"ratio": ratio,
+		})
 	}
 
 	// 计算总提问数

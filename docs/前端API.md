@@ -1,43 +1,152 @@
-# 智能学习平台接口说明文档
+# 前端对接说明（当前实现版）
 
-## 一、AI 解析与问答模块
-
-| 接口地址 | 请求方式 | 功能描述 | 请求参数（JSON 格式） |
-|---------|---------|---------|----------------------|
-| `/api/ai/parseKnowledge` | POST | 解析 PDF/PPTX 文件内容，拆解知识点层级结构（章节→知识点→子知识点） | `{ "fileContent": "解析后的文件文本内容", "fileType": "pdf/pptx", "studentId": "2025001" }` |
-| `/api/ai/question` | POST | 多模态提问（文字/语音/图片），AI 智能答疑 | `{ "courseId": 1, "pageNum": 3, "question": "fillna怎么用？", "type": "text" }` |
-| `/api/ai/traceQuestion` | POST | 溯源定位提问（精准定位课件区域提问） | `{ "courseId": 1, "pageNum": 3, "x": 200, "y": 150, "question": "这里不懂" }` |
+> 本文档用于指导前端按当前仓库真实接口接入教师端与学生端页面。
 
 ---
 
-## 二、薄弱点诊断与练习模块
+## 1. 以哪份文档为准？
 
-| 接口地址 | 请求方式 | 功能描述 | 请求参数（JSON 格式） |
-|---------|---------|---------|----------------------|
-| `/api/weakPoint/getList` | GET | 获取指定学生的 AI 诊断薄弱点列表 | `{ "studentId": "2025001", "courseId": "PY202501" }` |
-| `/api/weakPoint/getExplain` | POST | 获取指定薄弱点的详细讲解内容 | `{ "weakPointName": "缺失值填充", "studentId": "2025001" }` |
-| `/api/weakPoint/getTest` | POST | 根据薄弱点生成对应的检测习题（单选/多选） | `{ "weakPointName": "缺失值填充", "studentId": "2025001", "questionType": "single" }` |
-| `/api/weakPoint/checkAnswer` | POST | 校验习题答案，并返回解析和掌握状态 | `{ "studentId": "2025001", "questionId": "Q20250101", "userAnswer": "interpolate()" }` |
+按优先级从高到低：
+1. [当前运行接口清单.md](当前运行接口清单.md)
+2. [后端API.md](后端API.md)
+3. [API_DESIGN_V2.md](API_DESIGN_V2.md)
+4. [泛雅API规范.md](泛雅API规范.md)
 
----
-
-## 三、课件与学习数据模块
-
-| 接口地址 | 请求方式 | 功能描述 | 请求参数 |
-|---------|---------|---------|---------|
-| `/api/courseware/page` | POST | 获取指定页码的课件信息（翻页核心接口） | `{ "courseId": 1, "currentPage": 3 }` |
-| `/api/teacher/card-data/{courseId}` | GET | 获取指定课件的学习卡点 Log 数据 | 路径参数：`courseId`（课程 ID，字符串/数字） |
-| `/api/student/studyData` | GET | 获取学生课程学习数据统计（专注度/薄弱点等） | `{ "studentId": 2025001, "courseId": 1 }` |
-| `/api/student/breakpoint` | GET | 获取学生上次学习的断点页码（用于续播） | `{ "studentId": 2025001, "courseId": 1 }` |
-| `/api/student/saveNote` | POST | 保存学生课件笔记（扩展功能） | `{ "studentId": 2025001, "pageNum": 3, "note": "fillna()填充缺失值" }` |
+说明：
+- 当前页面联调，以“当前运行接口清单”优先。
+- `/api/v1` 是推荐主接口。
+- `/api/teacher/*`、`/api/student/*`、`/api/weakPoint/*` 仍保留兼容。
 
 ---
 
-## 核心说明
-- **请求方式**：GET 请求参数通常拼接在 URL 或 Query 中；POST 请求参数统一放在 Request Body 中，格式为 JSON。
-- **必填字段**：所有接口中标记为“必填”的字段不可缺失，否则接口会返回参数校验错误。
-- **数据类型**：注意区分字符串（如 `"2025001"`）和数字（如 `1`）类型，避免类型不匹配导致接口调用失败。
+## 2. 当前前端服务文件
+
+### 2.1 学生端
+- 入口聚合：`frontend/student/src/services/v1/index.js`
+- 资源模块：
+  - `frontend/student/src/services/v1/coursewareApi.js`
+  - `frontend/student/src/services/v1/sessionApi.js`
+  - `frontend/student/src/services/v1/qaApi.js`
+  - `frontend/student/src/services/v1/weakPointApi.js`
+  - `frontend/student/src/services/v1/knowledgeApi.js`
+- API 基址配置：`frontend/student/src/config/api.js`
+- 默认后端地址：`http://localhost:18080`
+
+### 2.2 教师端
+- 入口聚合：`frontend/teacher/src/services/v1/index.js`
+- 资源模块：
+  - `frontend/teacher/src/services/v1/coursewareApi.js`
+  - `frontend/teacher/src/services/v1/analyticsApi.js`
+- API 基址配置：`frontend/teacher/src/config/api.js`
+- 默认后端地址：`http://localhost:18080`
 
 ---
 
-要不要我帮你把这份接口说明整理成一份**可直接导入 Postman 的集合文件**，方便你和后端联调？
+## 3. 教师端当前使用接口
+
+| 功能 | 方法 | 路径 |
+|---|---|---|
+| 健康检查 | GET | `/health` |
+| 课件列表 | GET | `/api/v1/teacher/coursewares` |
+| 删除课件 | DELETE | `/api/v1/teacher/coursewares/{courseId}` |
+| 获取讲稿 | GET | `/api/v1/teacher/coursewares/{courseId}/scripts/{page}` |
+| 保存讲稿 | PUT | `/api/v1/teacher/coursewares/{courseId}/scripts/{page}` |
+| AI 生成讲稿 | POST | `/api/v1/teacher/coursewares/{courseId}/scripts/ai-generate` |
+| 上传课件 | POST | `/api/v1/teacher/coursewares/upload` |
+| 发布课件 | POST | `/api/v1/teacher/coursewares/{courseId}/publish` |
+| 学情统计 | GET | `/api/v1/teacher/coursewares/{courseId}/stats` |
+| 卡点数据 | GET | `/api/v1/teacher/coursewares/{courseId}/card-data` |
+| 提问记录 | GET | `/api/v1/teacher/coursewares/{courseId}/questions?page=1&pageSize=100` |
+
+---
+
+## 4. 学生端当前使用接口
+
+| 功能 | 方法 | 路径 |
+|---|---|---|
+| 健康检查 | GET | `/health` |
+| 课件列表 | GET | `/api/student/courseware-list` |
+| 开始会话 | POST | `/api/student/session/start` |
+| 获取页面脚本 | GET | `/api/student/script/{courseId}/{page}` |
+| 上报进度 | POST | `/api/student/progress/update` |
+| SSE 问答流 | POST | `/api/student/qa/stream` |
+| 获取断点 | GET | `/api/v1/student/coursewares/{courseId}/breakpoint?studentId=...` |
+| 保存断点 | PUT | `/api/v1/student/coursewares/{courseId}/breakpoint` |
+| 获取学习统计 | GET | `/api/v1/student/coursewares/{courseId}/stats?studentId=...` |
+| 获取薄弱点 | GET | `/api/v1/student/coursewares/{courseId}/weak-points?studentId=...` |
+| 获取讲解 | GET | `/api/v1/student/weak-points/{weakPointId}/explain?name=...` |
+| 生成习题 | POST | `/api/v1/student/weak-points/{weakPointId}/generate-test` |
+| 校验答案 | POST | `/api/v1/student/tests/{questionId}/check` |
+| 知识点解析 | POST | `/api/ai/parseKnowledge` |
+
+---
+
+## 5. 学生端最小闭环（当前已落地）
+
+学生端当前最小闭环已是：
+1. 获取课件列表
+2. 创建学习会话
+3. 获取某页结构化脚本（`nodes[]`）
+4. 更新当前播放进度（`currentPage/currentNodeId`）
+5. 发起 SSE 问答流
+6. 根据 `final.resume_node_id` 恢复播放节点
+7. 读取断点 / 保存断点
+8. 查看薄弱点 / 做题 / 判题
+
+---
+
+## 6. SSE 约定（当前已实现）
+
+### 6.1 事件类型
+- `token`：增量文本，用于打字机效果
+- `sentence`：完整句子
+- `final`：结束帧
+
+### 6.2 `final` 典型字段
+```json
+{
+  "need_reteach": false,
+  "source_page": 5,
+  "resume_page": 5,
+  "resume_node_id": "p5_n13"
+}
+```
+
+### 6.3 前端建议维护的状态
+- `sessionId`
+- `currentPage`
+- `currentNodeId`
+- `aiReply`
+- `qaHistory`
+- `resumeNodeId`
+
+---
+
+## 7. 当前前端实现注意事项
+
+### 7.1 学生端
+- 学生端已不再复用教师端课件列表接口。
+- 学生端问答优先走 `/api/student/qa/stream`。
+- 学生端脚本播放定位依赖 `node_id` 格式：`p{page}_n{index}`。
+
+### 7.2 教师端
+- 教师端已切换到 `/api/v1/teacher/coursewares/*`。
+- 讲稿保存已从旧版 `POST /api/teacher/script/save` 切换为 `PUT /api/v1/.../scripts/{pageNum}`。
+
+---
+
+## 8. 若要继续扩展前端
+
+优先建议：
+1. 把学生端“溯源定位”真正接到 `/api/v1/ai/coursewares/{courseId}/ask` 的 `tracePoint` 字段。
+2. 把学生端页面播放逻辑从“页级”继续细化到“node 级”。
+3. 为教师端增加 `/knowledge-graph` 的可视化展示。
+4. 后续若开放给平台嵌入，再接开放适配层而不是直接暴露内部接口。
+
+---
+
+## 9. 更新记录
+
+| 日期 | 版本 | 内容 |
+|---|---|---|
+| 2026-03-06 | v2.1 | 前端服务层改为 `services/v1` 资源模块结构，页面层围绕 v1 API 组织 |

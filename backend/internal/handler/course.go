@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -41,7 +42,7 @@ func (h *CourseHandler) UploadCourse(c *gin.Context) {
 	}
 
 	// 验证文件类型
-	ext := filepath.Ext(file.Filename)
+	ext := strings.ToLower(filepath.Ext(file.Filename))
 	validExts := map[string]bool{".pdf": true, ".ppt": true, ".pptx": true}
 	if !validExts[ext] {
 		c.JSON(http.StatusBadRequest, gin.H{
