@@ -94,8 +94,8 @@ func main() {
 	// 初始化服务
 	courseService := service.NewCourseService(db, minioClient)
 
-	// 初始化处理器 - 注意参数个数
-	courseHandler := handler.NewCourseHandler(courseService) // 只传一个参数
+	// 初始化处理器
+	courseHandler := handler.NewCourseHandler(courseService, db)
 	teacherHandler := handler.NewTeacherHandler(db)
 	studentHandler := handler.NewStudentHandler(db, redisClient)
 	aiHandler := handler.NewAIHandler(db)
@@ -153,6 +153,9 @@ func main() {
 	// API路由 - 使用 v1 版本
 	api := r.Group("/api/v1")
 	{
+		// 公开接口
+		api.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
+
 		// ==================== 教师端接口 ====================
 		teacher := api.Group("/teacher/coursewares")
 		{
