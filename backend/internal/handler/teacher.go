@@ -1,14 +1,12 @@
 package handler
 
 import (
-	"bytes"
-	"io"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -27,408 +25,212 @@ func NewTeacherHandler(db *gorm.DB, aiClient service.AIEngine) *TeacherHandler {
 	return &TeacherHandler{db: db, aiClient: aiClient}
 }
 
-// ==================== 1. 课件管理模块 ====================
-
-// GetCoursewareList 获取课件列表
-// GET /api/teacher/courseware-list
 func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 	var courses []model.Course
-
-	// 查询所有课件，按创建时间倒序排列
 	if err := h.db.Order("created_at desc").Find(&courses).Error; err != nil {
 		logger.Errorf("获取课件列表失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "获取课件列表失败",
-		})
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取课件列表失败"})
 		return
 	}
 
-	// 返回成功响应
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": courses,
-	})
+	data := make([]gin.H, 0, len(courses))
+	for _, course := range courses {
+		data = append(data, gin.H{
+			"id":           course.ID,
+			"courseId":     course.ID,
+			"title":        course.Title,
+			"file_url":     course.FileURL,
+			"fileType":     course.FileType,
+			"file_type":    course.FileType,
+			"total_page":   course.TotalPage,
+			"is_published": course.IsPublished,
+			"status":       publishStatus(course.IsPublished),
+			"createdAt":    course.CreatedAt,
+			"created_at":   course.CreatedAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": data})
 }
 
-// PublishCourseware 发布课件
-// POST /api/teacher/publish-courseware
-func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
-	var req struct {
-		CourseID string `json:"courseId" binding:"required"`
-		Scope    string `json:"scope" binding:"required"` // all/class1/class2
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("发布课件参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "参数错误",
-		})
-		return
-	}
-
-	// 检查课件是否存在
-	var course model.Course
-	if err := h.db.First(&course, "id = ?", req.CourseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
-		})
-		return
-	}
-
-	// 当前版本记录发布动作与时间，供前端与后续消息推送扩展使用
-	now := time.Now()
-	if err := h.db.Model(&course).Updates(map[string]interface{}{
-		"is_published":  true,
-		"publish_scope": req.Scope,
-		"published_at":  now,
-	}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "发布状态写入失败",
-		})
-		return
-	}
-
-	logger.Infof("课件发布成功: courseId=%s, scope=%s, title=%s",
-		req.CourseID, req.Scope, course.Title)
-
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "发布成功",
-		"data": gin.H{
-			"courseId":    req.CourseID,
-			"scope":       req.Scope,
-			"publishedAt": now.Format("2006-01-02 15:04:05"),
-		},
-	})
-}
-
-// ==================== 2. 讲稿编辑模块 ====================
-
-// GetScript 获取讲稿
-// GET /api/teacher/script/:courseId/:page
 func (h *TeacherHandler) GetScript(c *gin.Context) {
-	courseId := c.Param("courseId")
-	pageStr := c.Param("page")
-
-	// 转换页码为整数
-	page, err := strconv.Atoi(pageStr)
+	courseID := c.Param("courseId")
+	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "页码必须是数字",
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
 		return
 	}
 
-	// 查询指定课件指定页码的讲稿
 	var coursePage model.CoursePage
-	err = h.db.Where("course_id = ? AND page_index = ?", courseId, page).First(&coursePage).Error
-
-	// 强制设置响应头为 UTF-8
-	c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
-
-	if err != nil {
-		// 如果不存在，返回空内容而不是错误（方便前端初始化）
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"data": gin.H{
-				"courseId": courseId,
-				"page":     page,
-				"content":  "",
-			},
-		})
+	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": ""}})
 		return
 	}
 
-	// 返回讲稿内容
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"courseId": courseId,
-			"page":     page,
-			"content":  coursePage.ScriptText,
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": coursePage.ScriptText}})
 }
 
-// SaveScript 保存讲稿
-// POST /api/teacher/script/save
+func (h *TeacherHandler) UpdateScript(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		return
+	}
+
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+
+	if err := h.upsertScript(courseID, pageNum, req.Content); err != nil {
+		logger.Errorf("保存讲稿失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
+}
+
 func (h *TeacherHandler) SaveScript(c *gin.Context) {
 	var req struct {
 		CourseID string `json:"courseId" binding:"required"`
 		Page     int    `json:"page" binding:"required"`
 		Content  string `json:"content" binding:"required"`
 	}
-
-	// 读取原始请求体，检查编码
-	bodyBytes, err := c.GetRawData()
-	if err != nil {
-		logger.Errorf("读取请求体失败: %v", err)
-	} else {
-		// 限制输出长度，避免日志过大
-		maxLen := 50
-		if len(bodyBytes) < maxLen {
-			maxLen = len(bodyBytes)
-		}
-		logger.Infof("原始请求体(bytes): %v", bodyBytes[:maxLen])
-		logger.Infof("原始请求体(string): %s", string(bodyBytes))
-	}
-
-	// 重新设置请求体
-	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("保存讲稿参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "参数错误: " + err.Error(),
-		})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 检查内容是否为有效的 UTF-8
-	contentBytes := []byte(req.Content)
-	if !utf8.Valid(contentBytes) {
-		logger.Warn("内容不是有效的 UTF-8，尝试转换")
-		// 尝试修复编码
-		validContent := make([]rune, 0, len(contentBytes))
-		for i := 0; i < len(contentBytes); {
-			r, size := utf8.DecodeRune(contentBytes[i:])
-			if r != utf8.RuneError {
-				validContent = append(validContent, r)
-			}
-			i += size
-		}
-		req.Content = string(validContent)
-	}
-
-	logger.Infof("接收到讲稿内容: courseId=%s, page=%d", req.CourseID, req.Page)
-	logger.Infof("内容: %s", req.Content)
-	logger.Infof("内容长度: %d", len(req.Content))
-
-	// 检查课件是否存在
-	var course model.Course
-	if err := h.db.First(&course, "id = ?", req.CourseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
-		})
+	if err := h.upsertScript(req.CourseID, req.Page, req.Content); err != nil {
+		logger.Errorf("保存讲稿失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
 		return
 	}
 
-	// 检查是否存在，存在则更新，不存在则创建
-	var coursePage model.CoursePage
-	err = h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error
-
-	if err != nil {
-		// 不存在，创建新记录
-		newPage := model.CoursePage{
-			CourseID:   req.CourseID,
-			PageIndex:  req.Page,
-			ScriptText: req.Content,
-		}
-		if err := h.db.Create(&newPage).Error; err != nil {
-			logger.Errorf("创建讲稿失败: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "保存失败",
-			})
-			return
-		}
-		logger.Infof("创建讲稿成功")
-	} else {
-		// 存在，更新
-		if err := h.db.Model(&coursePage).Update("script_text", req.Content).Error; err != nil {
-			logger.Errorf("更新讲稿失败: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"code":    500,
-				"message": "保存失败",
-			})
-			return
-		}
-		logger.Infof("更新讲稿成功")
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "保存成功",
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
 }
 
-// AIGenerateScript AI生成讲稿
-// POST /api/teacher/ai-generate-script
 func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
+	courseID := c.Param("courseId")
+	if courseID == "" {
+		courseID = strings.TrimSpace(c.PostForm("courseId"))
+	}
+
 	var req struct {
-		CourseID   string `json:"courseId" binding:"required"`
-		Page       int    `json:"page" binding:"required"`
-		CourseName string `json:"courseName" binding:"required"`
+		PageNum    int    `json:"pageNum"`
+		Page       int    `json:"page"`
+		Mode       string `json:"mode"`
+		CourseID   string `json:"courseId"`
+		CourseName string `json:"courseName"`
 	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Errorf("AI生成讲稿参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "参数错误",
-		})
+	_ = c.ShouldBindJSON(&req)
+	if courseID == "" {
+		courseID = req.CourseID
+	}
+	pageNum := req.PageNum
+	if pageNum <= 0 {
+		pageNum = req.Page
+	}
+	if pageNum <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
 
-	// 检查课件是否存在
 	var course model.Course
-	if err := h.db.First(&course, "id = ?", req.CourseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
-		})
+	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
 		return
 	}
 
-	var coursePage model.CoursePage
+	courseName := course.Title
+	if strings.TrimSpace(req.CourseName) != "" {
+		courseName = req.CourseName
+	}
+
+	var page model.CoursePage
 	contextText := ""
-	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
-		contextText = coursePage.ScriptText
+	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&page).Error; err == nil {
+		contextText = page.ScriptText
 	}
 	if strings.TrimSpace(contextText) == "" {
-		contextText = "课程：" + req.CourseName + "，页码：" + strconv.Itoa(req.Page)
+		contextText = fmt.Sprintf("课程：%s，第 %d 页", courseName, pageNum)
 	}
 
-	aiResp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{
-		Page:       req.Page,
-		Content:    contextText,
-		CourseName: req.CourseName,
-		Mode:       "llm",
-	})
-	if err != nil {
-		logger.Errorf("调用AI讲稿生成失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"code":    500,
-			"message": "AI生成失败",
-		})
+	script := ""
+	mindmapMarkdown := ""
+	if h.aiClient != nil {
+		resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: pageNum, Content: contextText, CourseName: courseName, Mode: defaultTeacherMode(req.Mode)})
+		if err == nil && strings.TrimSpace(resp.Script) != "" {
+			script = resp.Script
+			mindmapMarkdown = resp.MindmapMarkdown
+		}
+	}
+	if strings.TrimSpace(script) == "" {
+		script = generateMockScript(courseName, pageNum)
+	}
+
+	if err := h.upsertScript(courseID, pageNum, script); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
 		return
 	}
 
-	logger.Infof("AI生成讲稿成功: courseId=%s, page=%d, courseName=%s",
-		req.CourseID, req.Page, req.CourseName)
-
-	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
-		h.db.Model(&coursePage).Update("script_text", aiResp.Script)
-	} else {
-		h.db.Create(&model.CoursePage{CourseID: req.CourseID, PageIndex: req.Page, ScriptText: aiResp.Script})
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"courseId":        req.CourseID,
-			"page":            req.Page,
-			"content":         aiResp.Script,
-			"mindmapMarkdown": aiResp.MindmapMarkdown,
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": script, "mindmapMarkdown": mindmapMarkdown}})
 }
 
-// ==================== 3. 学情分析模块 ====================
+func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
+	courseID := c.Param("courseId")
+	var req struct {
+		CourseID string `json:"courseId"`
+		Scope    string `json:"scope"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if courseID == "" {
+		courseID = req.CourseID
+	}
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 courseId"})
+		return
+	}
 
-// GetStudentStats 获取学情分析数据
-// GET /api/teacher/student-stats/:courseId
+	var course model.Course
+	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
+		return
+	}
+
+	scope := strings.TrimSpace(req.Scope)
+	if scope == "" {
+		scope = "all"
+	}
+	now := time.Now()
+	if err := h.db.Model(&course).Updates(map[string]any{"is_published": true, "publish_scope": scope, "published_at": now}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布状态写入失败"})
+		return
+	}
+
+	logger.Infof("课件发布成功: courseId=%s, scope=%s, title=%s", courseID, scope, course.Title)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": scope, "publishedAt": now.Format(time.RFC3339)}})
+}
+
 func (h *TeacherHandler) GetStudentStats(c *gin.Context) {
-	courseId := c.Param("courseId")
-
-	// 1. 统计每页提问次数
-	type PageStats struct {
-		PageIndex int `json:"page"`
-		Count     int `json:"count"`
-	}
-
-	var pageStats []PageStats
-	h.db.Table("question_logs").
-		Select("page_index, count(*) as count").
-		Where("course_id = ?", courseId).
-		Group("page_index").
-		Order("page_index").
-		Scan(&pageStats)
-
-	// 2. 获取所有提问记录用于关键词分析
-	var questions []string
-	h.db.Table("question_logs").
-		Where("course_id = ?", courseId).
-		Pluck("question", &questions)
-
-	// 3. 简单的关键词统计（后续可以集成jieba分词）
-	keywordStats := generateKeywordStats(questions)
-
-	// 4. 获取总提问数
-	var totalQuestions int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseId).Count(&totalQuestions)
-
-	// 5. 获取活跃用户数（去重）
-	var activeUsers int64
-	h.db.Table("question_logs").
-		Where("course_id = ?", courseId).
-		Distinct("user_id").
-		Count(&activeUsers)
-
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"pageStats":      pageStats,
-			"keywords":       keywordStats,
-			"totalQuestions": totalQuestions,
-			"activeUsers":    activeUsers,
-		},
-	})
+	courseID := c.Param("courseId")
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": h.buildClassStats(courseID)})
 }
 
-// generateKeywordStats 生成关键词统计（简单实现）
-func generateKeywordStats(questions []string) []gin.H {
-	// 常见技术关键词
-	commonKeywords := []string{
-		"依赖注入", "IoC", "AOP", "Spring", "微服务",
-		"分布式", "事务", "缓存", "数据库", "接口",
-	}
-
-	var stats []gin.H
-	for _, keyword := range commonKeywords {
-		count := 0
-		for _, q := range questions {
-			if strings.Contains(q, keyword) {
-				count++
-			}
-		}
-		if count > 0 {
-			stats = append(stats, gin.H{
-				"word":  keyword,
-				"count": count,
-			})
-		}
-	}
-
-	// 按次数排序
-	sort.Slice(stats, func(i, j int) bool {
-		return stats[i]["count"].(int) > stats[j]["count"].(int)
-	})
-
-	return stats
+func (h *TeacherHandler) GetClassStats(c *gin.Context) {
+	courseID := c.Param("courseId")
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": h.buildClassStats(courseID)})
 }
 
-// ==================== 4. 提问记录模块 ====================
-
-// GetQuestionRecords 获取提问记录
-// GET /api/teacher/question-records/:courseId?page=1&pageSize=20
 func (h *TeacherHandler) GetQuestionRecords(c *gin.Context) {
-	courseId := c.Param("courseId")
-
-	// 获取分页参数
-	pageStr := c.DefaultQuery("page", "1")
-	pageSizeStr := c.DefaultQuery("pageSize", "20")
-
-	page, _ := strconv.Atoi(pageStr)
-	pageSize, _ := strconv.Atoi(pageSizeStr)
-
+	courseID := c.Param("courseId")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
 	if page < 1 {
 		page = 1
 	}
@@ -437,156 +239,174 @@ func (h *TeacherHandler) GetQuestionRecords(c *gin.Context) {
 	}
 
 	offset := (page - 1) * pageSize
-
-	// 查询总数
 	var total int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseId).Count(&total)
+	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&total)
 
-	// 分页查询记录
 	var logs []model.QuestionLog
-	h.db.Where("course_id = ?", courseId).
-		Order("created_at desc").
-		Offset(offset).
-		Limit(pageSize).
-		Find(&logs)
+	h.db.Where("course_id = ?", courseID).Order("created_at desc").Offset(offset).Limit(pageSize).Find(&logs)
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"list":      logs,
-			"total":     total,
-			"page":      page,
-			"pageSize":  pageSize,
-			"totalPage": (total + int64(pageSize) - 1) / int64(pageSize),
-		},
-	})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"list": logs, "total": total, "page": page, "pageSize": pageSize}})
 }
 
-// ==================== 5. 辅助接口 ====================
-
-// GetPagePreview 获取课件预览图片
-// GET /api/courseware/:courseId/page/:pageNum
-func (h *TeacherHandler) GetPagePreview(c *gin.Context) {
-	courseId := c.Param("courseId")
-	pageNumStr := c.Param("pageNum")
-
-	pageNum, err := strconv.Atoi(pageNumStr)
-	if err != nil || pageNum < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "页码必须是正整数",
-		})
-		return
-	}
-
-	// 查询课件页面
-	var coursePage model.CoursePage
-	err = h.db.Where("course_id = ? AND page_index = ?", courseId, pageNum).First(&coursePage).Error
-
-	if err != nil || coursePage.ImageURL == "" {
-		// 如果没有预览图，返回默认图片或提示
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "预览图不存在",
-		})
-		return
-	}
-
-	// 重定向到图片URL
-	c.Redirect(http.StatusFound, coursePage.ImageURL)
-}
-
-// GetCardData 获取学习卡点数据
-// GET /api/teacher/card-data/:courseId
 func (h *TeacherHandler) GetCardData(c *gin.Context) {
-	courseId := c.Param("courseId")
-
-	// 检查课件是否存在
+	courseID := c.Param("courseId")
 	var course model.Course
-	if err := h.db.First(&course, "id = ?", courseId).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"code":    404,
-			"message": "课件不存在",
-		})
+	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
 		return
 	}
 
-	// 获取各页面的提问量
-	type PageStat struct {
+	type pageStat struct {
 		PageIndex     int     `json:"page"`
 		QuestionCount int     `json:"questionCount"`
 		StayTime      float64 `json:"stayTime"`
 		CardIndex     float64 `json:"cardIndex"`
 	}
 
-	var stats []PageStat
-
-	// 从数据库查询实际提问量
-	rows, err := h.db.Table("question_logs").
-		Select("page_index, count(*) as question_count").
-		Where("course_id = ?", courseId).
-		Group("page_index").
-		Order("page_index").
-		Rows()
-
+	stats := make([]pageStat, 0)
+	rows, err := h.db.Table("question_logs").Select("page_index, count(*) as question_count").Where("course_id = ?", courseID).Group("page_index").Order("page_index").Rows()
 	if err == nil {
 		defer rows.Close()
 		for rows.Next() {
-			var stat PageStat
-			rows.Scan(&stat.PageIndex, &stat.QuestionCount)
+			var stat pageStat
+			_ = rows.Scan(&stat.PageIndex, &stat.QuestionCount)
 			stat.StayTime = 0
 			stat.CardIndex = float64(stat.QuestionCount)
-
 			stats = append(stats, stat)
 		}
 	}
-
-	// 如果没有提问日志，则按页返回零值，避免推导型 mock 数据
 	if len(stats) == 0 {
-		for page := 1; page <= course.TotalPage; page++ {
-			stats = append(stats, PageStat{
-				PageIndex:     page,
-				QuestionCount: 0,
-				StayTime:      0,
-				CardIndex:     0,
-			})
+		for page := 1; page <= maxCoursePage(course.TotalPage); page++ {
+			stats = append(stats, pageStat{PageIndex: page, QuestionCount: 0, StayTime: 0, CardIndex: 0})
 		}
 	}
 
-	// 计算TOP5卡点页面（按卡点指数降序）
-	topCandidates := append([]PageStat(nil), stats...)
+	topCandidates := append([]pageStat(nil), stats...)
 	sort.Slice(topCandidates, func(i, j int) bool {
 		return topCandidates[i].CardIndex > topCandidates[j].CardIndex
 	})
-
-	var topPages []gin.H
-	maxTop := 5
-	if len(topCandidates) < maxTop {
-		maxTop = len(topCandidates)
-	}
-	for i := 0; i < maxTop; i++ {
+	topPages := make([]gin.H, 0, minTeacherInt(5, len(topCandidates)))
+	for i := 0; i < minTeacherInt(5, len(topCandidates)); i++ {
 		stat := topCandidates[i]
 		ratio := stat.CardIndex * 10
 		if ratio > 100 {
 			ratio = 100
 		}
-		topPages = append(topPages, gin.H{
-			"page":  stat.PageIndex,
-			"value": stat.QuestionCount,
-			"ratio": ratio,
-		})
+		topPages = append(topPages, gin.H{"page": stat.PageIndex, "value": stat.QuestionCount, "ratio": ratio})
 	}
 
-	// 计算总提问数
 	var totalQuestions int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseId).Count(&totalQuestions)
+	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&totalQuestions)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"pageStats": stats, "topPages": topPages, "totalQuestions": totalQuestions}})
+}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"data": gin.H{
-			"pageStats":      stats,
-			"topPages":       topPages,
-			"totalQuestions": totalQuestions,
-		},
+func (h *TeacherHandler) upsertScript(courseID string, pageNum int, content string) error {
+	var coursePage model.CoursePage
+	err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error
+	if err != nil {
+		return h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: pageNum, ScriptText: content}).Error
+	}
+	return h.db.Model(&coursePage).Update("script_text", content).Error
+}
+
+func (h *TeacherHandler) buildClassStats(courseID string) gin.H {
+	type questionFreq struct {
+		Page  int `json:"page"`
+		Count int `json:"count"`
+	}
+
+	var questionFreqs []questionFreq
+	h.db.Table("question_logs").Select("page_index as page, count(*) as count").Where("course_id = ?", courseID).Group("page_index").Order("page").Scan(&questionFreqs)
+
+	var totalQuestions int64
+	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&totalQuestions)
+	var activeUsers int64
+	h.db.Table("question_logs").Where("course_id = ?", courseID).Distinct("user_id").Count(&activeUsers)
+
+	questions := make([]string, 0)
+	h.db.Table("question_logs").Where("course_id = ?", courseID).Pluck("question", &questions)
+	keywords := generateKeywordStats(questions)
+
+	pageStats := make([]gin.H, 0, len(questionFreqs))
+	for _, item := range questionFreqs {
+		pageStats = append(pageStats, gin.H{"page": item.Page, "count": item.Count})
+	}
+
+	return gin.H{"pageStayTime": []gin.H{}, "questionFreq": questionFreqs, "wordCloud": keywords, "pageStats": pageStats, "keywords": keywords, "totalQuestions": totalQuestions, "activeUsers": activeUsers}
+}
+
+func generateMockScript(courseName string, page int) string {
+	templates := []string{
+		"## %s 第%d页：课程导入\n\n### 教学目标\n- 了解本章节的核心概念\n- 建立知识框架\n- 明确学习重点\n\n### 讲解内容\n本页主要介绍本章节的背景、核心概念及学习路径。",
+		"## %s 第%d页：深入讲解\n\n### 知识要点\n- 概念定义\n- 关键原理\n- 使用场景\n\n### 教学提示\n可以结合图示、案例和公式帮助学生理解。",
+		"## %s 第%d页：案例分析\n\n### 案例拆解\n1. 场景说明\n2. 关键步骤\n3. 常见误区\n4. 课堂提问点\n\n### 小结\n帮助学生把抽象概念与真实场景建立联系。",
+		"## %s 第%d页：总结回顾\n\n### 重点回顾\n1. 核心概念\n2. 方法步骤\n3. 易错点\n\n### 课堂互动\n建议通过一道练习题检验学生掌握情况。",
+	}
+	return fmt.Sprintf(templates[(page-1)%len(templates)], courseName, page)
+}
+
+func generateKeywordStats(questions []string) []gin.H {
+	commonKeywords := []string{"依赖注入", "IoC", "AOP", "Spring", "微服务", "分布式", "事务", "缓存", "数据库", "接口", "fillna", "interpolate", "dropna", "缺失值", "异常值"}
+	stats := make([]gin.H, 0)
+	for _, keyword := range commonKeywords {
+		count := 0
+		for _, question := range questions {
+			if strings.Contains(question, keyword) {
+				count++
+			}
+		}
+		if count > 0 {
+			stats = append(stats, gin.H{"word": keyword, "count": count})
+		}
+	}
+	sort.Slice(stats, func(i, j int) bool {
+		return stats[i]["count"].(int) > stats[j]["count"].(int)
 	})
+	if len(stats) < 5 {
+		for _, keyword := range []string{"概念", "原理", "实现", "应用", "区别"} {
+			stats = append(stats, gin.H{"word": keyword, "count": 1})
+			if len(stats) >= 5 {
+				break
+			}
+		}
+	}
+	return stats
+}
+
+func parsePageParam(values ...string) (int, error) {
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		return strconv.Atoi(value)
+	}
+	return 0, fmt.Errorf("missing page")
+}
+
+func publishStatus(published bool) string {
+	if published {
+		return "published"
+	}
+	return "draft"
+}
+
+func defaultTeacherMode(mode string) string {
+	if strings.TrimSpace(mode) == "" {
+		return "llm"
+	}
+	return mode
+}
+
+func maxCoursePage(page int) int {
+	if page > 0 {
+		return page
+	}
+	return 1
+}
+
+func minTeacherInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

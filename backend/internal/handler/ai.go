@@ -1,0 +1,141 @@
+package handler
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
+	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/pkg/logger"
+)
+
+type AIHandler struct {
+	db *gorm.DB
+}
+
+func NewAIHandler(db *gorm.DB) *AIHandler {
+	return &AIHandler{db: db}
+}
+
+// 3.1 获取课件知识图谱
+// GET /api/v1/ai/coursewares/:courseId/knowledge-graph
+func (h *AIHandler) GetKnowledgeGraph(c *gin.Context) {
+	courseId := c.Param("courseId")
+
+	// TODO: 从数据库或 AI 服务获取知识图谱
+	// 这里返回模拟数据
+	data := gin.H{
+		"courseId": courseId,
+		"structure": []gin.H{
+			{
+				"chapter": "第一章：数据清洗基础",
+				"knowledgePoints": []gin.H{
+					{
+						"name":      "缺失值处理",
+						"subPoints": []string{"fillna()", "interpolate()", "dropna()"},
+					},
+					{
+						"name":      "异常值识别",
+						"subPoints": []string{"Z-Score", "IQR"},
+					},
+				},
+			},
+			{
+				"chapter": "第二章：数据转换",
+				"knowledgePoints": []gin.H{
+					{
+						"name":      "数据类型转换",
+						"subPoints": []string{"astype()", "to_numeric()"},
+					},
+					{
+						"name":      "数据标准化",
+						"subPoints": []string{"MinMaxScaler", "StandardScaler"},
+					},
+				},
+			},
+		},
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "请求成功",
+		"data":    data,
+	})
+}
+
+// 3.2 智能多模态答疑
+// POST /api/v1/ai/coursewares/:courseId/ask
+func (h *AIHandler) AskQuestion(c *gin.Context) {
+	courseId := c.Param("courseId")
+
+	var req struct {
+		PageNum    int    `json:"pageNum" binding:"required"`
+		Type       string `json:"type"` // text/audio/image
+		Question   string `json:"question" binding:"required"`
+		TracePoint *struct {
+			X float64 `json:"x"`
+			Y float64 `json:"y"`
+		} `json:"tracePoint,omitempty"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		logger.Errorf("参数错误: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code":    400,
+			"message": "参数错误",
+		})
+		return
+	}
+
+	// 获取当前页讲稿作为上下文
+	var coursePage model.CoursePage
+	context := ""
+	if err := h.db.Where("course_id = ? AND page_index = ?", courseId, req.PageNum).First(&coursePage).Error; err == nil {
+		context = coursePage.ScriptText
+	}
+
+	// TODO: 调用 AI 服务获取答案
+	answer := generateAIAnswer(req.Question, context)
+	if req.TracePoint != nil {
+		answer = "针对坐标(" +
+			strconv.FormatFloat(req.TracePoint.X, 'f', 2, 64) + "," +
+			strconv.FormatFloat(req.TracePoint.Y, 'f', 2, 64) +
+			")的解答：" + req.Question
+	}
+
+	// 记录提问日志
+	log := model.QuestionLog{
+		UserID:    c.GetString("userId"), // 需要从 JWT 获取
+		CourseID:  courseId,
+		PageIndex: req.PageNum,
+		Question:  req.Question,
+		Answer:    answer,
+	}
+	h.db.Create(&log)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    200,
+		"message": "请求成功",
+		"data": gin.H{
+			"answer": answer,
+		},
+	})
+}
+
+// 生成 AI 回答（模拟）
+func generateAIAnswer(question, context string) string {
+	if context != "" {
+		return "根据课件内容，" + question + "的答案是：" + context[:min(50, len(context))] + "..."
+	}
+	return "这是关于'" + question + "'的详细解答。"
+}
+
+// 辅助函数：取最小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

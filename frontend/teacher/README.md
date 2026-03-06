@@ -1,21 +1,21 @@
-# Vue 3 + Vite
+# teacher 前端
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+教师端已切换为 Vue 3 + Vite 结构，当前目录为独立子应用。
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## 主要能力
 
-## Environment
+- 课件上传、删除、发布
+- 讲稿查看、编辑、AI 生成
+- 学情统计、提问记录、卡点分析
 
-Copy `.env.example` to `.env.local` and adjust backend address if needed:
+## 开发说明
 
-```bash
-cp .env.example .env.local
-```
+- 默认接口基址见 [src/config/api.js](src/config/api.js)
+- 统一接口走 `/api/v1/...`
+- 课件预览仍使用 `/api/courseware/:courseId/page/:pageNum`
 
-`VITE_API_BASE` defaults to `http://localhost:18080`.
+## 常用命令
 
-## Project Structure
-
-- `src/config/api.js`: backend base URL config.
-- `src/services/teacherApi.js`: teacher-side API request layer.
-- `src/styles/theme.css`: global theme tokens and base styles.
+- `npm install`
+- `npm run dev`
+- `npm run build`
