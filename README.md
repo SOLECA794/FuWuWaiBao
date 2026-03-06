@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 泛雅 AI 智课系统 (Smart Teaching)
 
 本项目是一个包含 Go 后端、FastAPI AI 引擎以及三个前端应用的综合系统。
@@ -49,3 +50,10 @@ npm run dev
 - [x] 实时对话与案例重讲
 - [ ] 知识点地图展示
 
+=======
+# Vue 3 + Vite
+
+This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+>>>>>>> b79727f64ad1860d8e9dc554eec4fdaef2859d48
