@@ -1,408 +1,141 @@
-# 智能互动讲课系统 - 接口文档（教师端 + 学生端）
+# 智能互动讲课系统后端接口说明
+
+本文档以当前仓库实现为准，目标是保留现有统一接口设计，同时兼容旧版联调接口。
 
 ## 基础信息
-- **基础URL**: `http://localhost:8080/api`
-- **响应格式**: 所有接口返回 JSON 格式
-- **字符编码**: UTF-8
+
+- 服务地址：`http://localhost:18080`
+- 健康检查：`GET /health`
+- 旧版兼容接口前缀：`/api`
+- 统一接口前缀：`/api/v1`
+- 返回编码：UTF-8
 
 ---
 
-## 目录
-1. [课件管理](#1-课件管理)
-2. [讲稿编辑](#2-讲稿编辑)
-3. [学情分析](#3-学情分析)
-4. [提问记录](#4-提问记录)
-5. [课件预览](#5-课件预览)
-6. [学生端接口](#6-学生端接口)
+## 一、教师端统一接口
+
+### 1. 课件管理
+
+- `GET /api/v1/teacher/coursewares`
+- `POST /api/v1/teacher/coursewares/upload`
+- `DELETE /api/v1/teacher/coursewares/:courseId`
+- `POST /api/v1/teacher/coursewares/:courseId/publish`
+
+### 2. 讲稿编辑
+
+- `GET /api/v1/teacher/coursewares/:courseId/scripts/:pageNum`
+- `PUT /api/v1/teacher/coursewares/:courseId/scripts/:pageNum`
+- `POST /api/v1/teacher/coursewares/:courseId/scripts/ai-generate`
+
+### 3. 教学分析
+
+- `GET /api/v1/teacher/coursewares/:courseId/stats`
+- `GET /api/v1/teacher/coursewares/:courseId/questions`
+- `GET /api/v1/teacher/coursewares/:courseId/card-data`
 
 ---
 
-## 1. 课件管理
+## 二、学生端统一接口
 
-### 1.1 获取课件列表
-- **接口**: `GET /teacher/courseware-list`
-- **功能**: 获取所有已上传的课件
-- **请求参数**: 无
+### 1. 学习过程
 
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": [
-    {
-      "id": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-      "title": "测试课件",
-      "file_url": "http://localhost:9000/courses/xxx/test.pdf",
-      "file_type": "pdf",
-      "total_page": 0,
-      "created_at": "2026-03-02T19:29:06+08:00"
-    }
-  ]
-}
-```
+- `GET /api/v1/student/coursewares`
+- `POST /api/v1/student/sessions`
+- `POST /api/v1/student/sessions/progress`
+- `GET /api/v1/student/coursewares/:courseId/scripts/:pageNum`
+- `POST /api/v1/student/qa/stream`
 
-### 1.2 上传课件
-- **接口**: `POST /teacher/upload-courseware`
-- **功能**: 上传并解析课件（支持 PDF/PPT）
-- **Content-Type**: `multipart/form-data`
+### 2. 学习记录
 
-**请求参数**:
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| file | File | 是 | 课件文件（PDF/PPT/PPTX） |
-| title | String | 否 | 课件标题（默认"未命名课件"） |
+- `GET /api/v1/student/coursewares/:courseId/breakpoint`
+- `PUT /api/v1/student/coursewares/:courseId/breakpoint`
+- `POST /api/v1/student/coursewares/:courseId/notes`
+- `GET /api/v1/student/coursewares/:courseId/stats`
 
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "上传成功",
-  "data": {
-    "id": "课件ID",
-    "title": "课件标题",
-    "file_url": "文件访问URL",
-    "file_type": "pdf",
-    "created_at": "2026-03-03T10:00:00+08:00"
-  }
-}
-```
+### 3. 薄弱点与练习
 
-### 1.3 删除课件
-- **接口**: `DELETE /teacher/courseware/{courseId}`
-- **功能**: 删除指定课件
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "删除成功"
-}
-```
-
-### 1.4 发布课件
-- **接口**: `POST /teacher/publish-courseware`
-- **功能**: 发布课件给学生端
-
-**请求体**:
-```json
-{
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "scope": "all"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "发布成功",
-  "data": {
-    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "scope": "all",
-    "publishedAt": "2026-03-03 10:30:00"
-  }
-}
-```
+- `GET /api/v1/student/coursewares/:courseId/weak-points`
+- `GET /api/v1/student/weak-points/:weakPointId/explain`
+- `POST /api/v1/student/weak-points/:weakPointId/generate-test`
+- `POST /api/v1/student/tests/:questionId/check`
 
 ---
 
-## 2. 讲稿编辑
+## 三、AI 统一接口
 
-### 2.1 获取讲稿
-- **接口**: `GET /teacher/script/{courseId}/{page}`
-- **功能**: 获取指定课件指定页码的讲稿
-
-**路径参数**:
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| courseId | String | 课件ID |
-| page | Integer | 页码 |
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "page": 1,
-    "content": "这是第一页的讲稿内容"
-  }
-}
-```
-
-### 2.2 保存讲稿
-- **接口**: `POST /teacher/script/save`
-- **功能**: 保存或更新讲稿
-
-**请求体**:
-```json
-{
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 1,
-  "content": "这是更新后的讲稿内容"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "保存成功"
-}
-```
-
-### 2.3 AI生成讲稿
-- **接口**: `POST /teacher/ai-generate-script`
-- **功能**: AI自动生成讲稿内容
-
-**请求体**:
-```json
-{
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 1,
-  "courseName": "Go语言基础教程"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "page": 1,
-    "content": "## Go语言基础教程 第1页：课程导入\n\n### 教学目标\n- 了解本章节的核心概念\n..."
-  }
-}
-```
+- `POST /api/v1/ai/parse-knowledge`
+- `GET /api/v1/ai/coursewares/:courseId/knowledge-graph`
+- `POST /api/v1/ai/coursewares/:courseId/ask`
 
 ---
 
-## 3. 学情分析
+## 四、旧版兼容接口
 
-### 3.1 获取学情数据
-- **接口**: `GET /teacher/student-stats/{courseId}`
-- **功能**: 获取课件的学情分析数据
+以下接口仍保留，供旧前端或联调脚本继续使用：
 
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "pageStats": [
-      {"page": 1, "count": 3},
-      {"page": 2, "count": 2},
-      {"page": 3, "count": 2}
-    ],
-    "keywords": [
-      {"word": "依赖注入", "count": 3},
-      {"word": "微服务", "count": 2},
-      {"word": "AOP", "count": 1}
-    ],
-    "totalQuestions": 7,
-    "activeUsers": 5
-  }
-}
-```
+### 教师端
 
----
+- `GET /api/teacher/courseware-list`
+- `POST /api/teacher/upload-courseware`
+- `DELETE /api/teacher/courseware/:courseId`
+- `POST /api/teacher/publish-courseware`
+- `GET /api/teacher/script/:courseId/:page`
+- `POST /api/teacher/script/save`
+- `POST /api/teacher/ai-generate-script`
+- `GET /api/teacher/student-stats/:courseId`
+- `GET /api/teacher/question-records/:courseId`
+- `GET /api/teacher/card-data/:courseId`
 
-## 4. 提问记录
+### 学生端
 
-### 4.1 获取提问记录
-- **接口**: `GET /teacher/question-records/{courseId}`
-- **功能**: 分页获取学生的提问记录
+- `GET /api/student/courseware-list`
+- `POST /api/student/session/start`
+- `POST /api/student/progress/update`
+- `GET /api/student/script/:courseId/:page`
+- `POST /api/student/qa/stream`
+- `POST /api/student/courseware/page`
+- `POST /api/student/ai/question`
+- `POST /api/student/ai/traceQuestion`
+- `GET /api/student/studyData`
+- `GET /api/student/breakpoint`
+- `PUT /api/student/breakpoint`
+- `POST /api/student/saveNote`
 
-**查询参数**:
-| 参数名 | 类型 | 必填 | 默认 | 说明 |
-|--------|------|------|------|------|
-| page | Integer | 否 | 1 | 页码 |
-| pageSize | Integer | 否 | 20 | 每页条数（最大100） |
+### 薄弱点与知识点
 
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "list": [
-      {
-        "id": "记录ID",
-        "user_id": "user001",
-        "course_id": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-        "page_index": 1,
-        "question": "什么是依赖注入？",
-        "answer": "依赖注入是一种设计模式...",
-        "created_at": "2026-03-03T10:00:00+08:00"
-      }
-    ],
-    "total": 7,
-    "page": 1,
-    "pageSize": 20,
-    "totalPage": 1
-  }
-}
-```
+- `GET /api/weakPoint/getList`
+- `POST /api/weakPoint/getExplain`
+- `POST /api/weakPoint/getTest`
+- `POST /api/weakPoint/checkAnswer`
+- `POST /api/ai/parseKnowledge`
 
 ---
 
-## 5. 课件预览
+## 五、公开接口
 
-### 5.1 获取预览图片
-- **接口**: `GET /courseware/{courseId}/page/{pageNum}`
-- **功能**: 获取课件指定页码的预览图片
-
-**路径参数**:
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| courseId | String | 课件ID |
-| pageNum | Integer | 页码 |
-
-**响应**:
-- 成功: 302 重定向到图片URL
-- 失败:
-```json
-{
-  "code": 404,
-  "message": "预览图不存在"
-}
-```
+- `GET /api/courseware/:courseId/page/:pageNum`
+- `GET /api/v1/courseware/:courseId/page/:pageNum`
 
 ---
 
-## 错误码说明
+## 六、开放平台接口
 
-| 错误码 | 说明 |
-|--------|------|
-| 200 | 成功 |
-| 400 | 参数错误 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
+以下接口位于 `/api/v1` 下，并带签名校验中间件：
 
----
-
-## 注意事项
-
-1. **文件上传**仅支持 PDF、PPT、PPTX 格式
-2. **分页接口**默认每页20条，最大支持100条
-3. **所有响应**均包含 `code` 字段，`code=200` 表示成功
-4. **中文编码**已统一为 UTF-8
-5. **时间格式**为 ISO8601: `2006-01-02T15:04:05+08:00`
+- `/lesson/parse`
+- `/lesson/generateScript`
+- `/lesson/generateAudio`
+- `/qa/interact`
+- `/qa/voiceToText`
+- `/progress/track`
+- `/progress/adjust`
+- `/platform/syncCourse`
+- `/platform/syncUser`
 
 ---
 
-## 更新记录
+## 七、说明
 
-| 日期 | 版本 | 更新内容 |
-|------|------|----------|
-| 2026-03-03 | v1.0 | 完成所有教师端接口文档 |
-
----
-
-# 6. 学生端接口
-
-> 说明：学生端以“播放 + 问答 + 续接”为核心。问答接口使用 SSE 流式输出（`text/event-stream`）。
-
-## 6.1 开始学习会话（可选）
-- **接口**: `POST /student/session/start`
-- **功能**: 初始化学生在某课件上的学习会话（便于服务端建立 Redis Session）
-
-**请求体**:
-```json
-{
-  "userId": "user001",
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "sessionId": "sess_xxx",
-    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d"
-  }
-}
-```
-
-## 6.2 上报播放进度（用于续接）
-- **接口**: `POST /student/progress/update`
-- **功能**: 上报当前播放游标（页码 + node），用于问答打断与续接
-
-**请求体**:
-```json
-{
-  "sessionId": "sess_xxx",
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 5,
-  "nodeId": "p5_n12"
-}
-```
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "message": "ok"
-}
-```
-
-## 6.3 获取某页讲稿（学生播放用）
-- **接口**: `GET /student/script/{courseId}/{page}`
-- **功能**: 获取指定课件指定页的结构化脚本（nodes[]）
-
-**响应示例**:
-```json
-{
-  "code": 200,
-  "data": {
-    "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-    "page": 5,
-    "nodes": [
-      {"node_id": "p5_n1", "type": "opening", "text": "..."},
-      {"node_id": "p5_n2", "type": "explain", "text": "..."},
-      {"node_id": "p5_n3", "type": "transition", "text": "..."}
-    ],
-    "page_summary": "..."
-  }
-}
-```
-
-## 6.4 问答流式接口（核心）
-- **接口**: `POST /student/qa/stream`
-- **功能**: 学生在讲授过程中打断提问，服务端以 SSE 方式流式返回回答
-- **响应 Content-Type**: `text/event-stream; charset=utf-8`
-
-**请求体**:
-```json
-{
-  "sessionId": "sess_xxx",
-  "courseId": "8abc34a7-4d05-41c5-b3b9-7b629463444d",
-  "page": 5,
-  "nodeId": "p5_n12",
-  "question": "这个公式里的 x 表示什么？"
-}
-```
-
-**SSE 输出示例**（每帧以空行结尾）：
-```text
-event: token
-data: {"text":"x"}
-
-event: token
-data: {"text":"表示"}
-
-event: sentence
-data: {"text":"这里的 x 通常表示……（分句用于触发 TTS）"}
-
-event: final
-data: {"need_reteach":false,"source_page":5,"resume_page":5,"resume_node_id":"p5_n13"}
-
-```
-
-**错误输出示例**:
-```text
-event: error
-data: {"message":"AI 服务暂时不可用","trace_id":"req_xxx"}
-
-```
+1. 当前实现优先保证前后端统一接口可用。
+2. 旧版接口继续保留，便于历史页面与 mock 联调。
+3. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。

@@ -26,10 +26,13 @@ func (b *BaseModel) BeforeCreate(tx *gorm.DB) error {
 // Course 课件表
 type Course struct {
 	BaseModel
-	Title     string `gorm:"size:200;not null;index" json:"title"`
-	FileURL   string `gorm:"size:500" json:"file_url"`
-	FileType  string `gorm:"size:20" json:"file_type"` // ppt, pdf, pptx
-	TotalPage int    `gorm:"default:0" json:"total_page"`
+	Title        string     `gorm:"size:200;not null;index" json:"title"`
+	FileURL      string     `gorm:"size:500" json:"file_url"`
+	FileType     string     `gorm:"size:20" json:"file_type"` // ppt, pdf, pptx
+	TotalPage    int        `gorm:"default:0" json:"total_page"`
+	IsPublished  bool       `gorm:"default:false" json:"is_published"`
+	PublishScope string     `gorm:"size:50;default:'all'" json:"publish_scope"`
+	PublishedAt  *time.Time `json:"published_at,omitempty"`
 
 	// 关联
 	Pages []CoursePage `gorm:"foreignKey:CourseID" json:"pages,omitempty"`

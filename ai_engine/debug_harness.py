@@ -71,8 +71,8 @@ def run_debug() -> dict:
     _check(len(pdf_parsed.get("parsed_pages", [])) >= 1, "PDF 至少解析出 1 页", checks)
     _check(len(pptx_parsed.get("parsed_pages", [])) >= 1, "PPTX 至少解析出 1 页", checks)
 
-    # 2) 讲稿与导图生成验证（mock）
-    generator = LessonGenerator(GenerationConfig(mode="mock", model="qwen-plus", temperature=0.2))
+    # 2) 讲稿与导图生成验证（llm）
+    generator = LessonGenerator(GenerationConfig(mode="llm", model="qwen-plus", temperature=0.2))
     generated_pdf = generator.generate(pdf_parsed)
     _save_json(out_dir / "generated_pdf_mock.json", generated_pdf)
 
@@ -82,8 +82,8 @@ def run_debug() -> dict:
         _check(bool(lessons[0].get("script")), "lesson 包含 script", checks)
         _check(bool(lessons[0].get("mindmap_markdown")), "lesson 包含 mindmap_markdown", checks)
 
-    # 3) 问答溯源 + 重讲验证（mock）
-    responder = QAResponder(parsed_document=pdf_parsed, config=QAConfig(mode="mock", model="qwen-plus", temperature=0.2))
+    # 3) 问答溯源 + 重讲验证（llm）
+    responder = QAResponder(parsed_document=pdf_parsed, config=QAConfig(mode="llm", model="qwen-plus", temperature=0.2))
     qa_normal = responder.answer(question="这页主要在讲什么", current_page=1)
     qa_reteach = responder.answer(question="我听不懂，换个例子", current_page=1)
     _save_json(out_dir / "qa_normal.json", qa_normal)
