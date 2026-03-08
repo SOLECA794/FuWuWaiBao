@@ -82,3 +82,14 @@ go run ./cmd/api
 ---
 更新于：项目结构与文档已同步到 `docs/`，README 已适配最新目录。
 
+## 本地服务地址（默认）
+
+开发时常用的服务地址（如果你使用了 `scripts/start-all.ps1 -SkipDocker` 或按 README 的步骤启动）：
+
+- **后端 API**: http://localhost:18080
+- **AI 引擎**: http://localhost:8000
+- **学生端 (Vue CLI)**: http://localhost:8080
+- **教师端 (Vite)**: http://localhost:5173
+
+如果你在本机上使用不同端口或把服务放到容器中，请以实际运行日志为准（日志目录：`logs/`）。
+

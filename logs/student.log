@@ -1,0 +1,10 @@
+{"level":"INFO","time":"2026-03-08T14:26:07.526+0800","caller":"logger/logger.go:92","msg":"学生端系统启动中...","port":8081}
+{"level":"INFO","time":"2026-03-08T14:26:07.586+0800","caller":"logger/logger.go:92","msg":"学生端服务运行中","port":8081}
+{"level":"INFO","time":"2026-03-08T14:39:13.894+0800","caller":"logger/logger.go:92","msg":"学生端系统启动中...","port":8081}
+{"level":"INFO","time":"2026-03-08T14:39:13.932+0800","caller":"logger/logger.go:92","msg":"学生端服务运行中","port":8081}
+{"level":"INFO","time":"2026-03-08T14:39:58.136+0800","caller":"logger/logger.go:92","msg":"学生端系统启动中...","port":8081}
+{"level":"INFO","time":"2026-03-08T14:39:58.168+0800","caller":"logger/logger.go:92","msg":"学生端服务运行中","port":8081}
+{"level":"INFO","time":"2026-03-08T14:48:40.729+0800","caller":"logger/logger.go:92","msg":"学生端系统启动中...","port":8081}
+{"level":"INFO","time":"2026-03-08T14:48:40.759+0800","caller":"logger/logger.go:92","msg":"学生端服务运行中","port":8081}
+{"level":"INFO","time":"2026-03-08T14:56:00.622+0800","caller":"logger/logger.go:92","msg":"学生端系统启动中...","port":8081}
+{"level":"FATAL","time":"2026-03-08T14:56:00.640+0800","caller":"student/main.go:56","msg":"连接数据库失败: failed to connect to `user=postgres database=teaching`:\n\t127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connectex: No connection could be made because the target machine actively refused it.\n\t[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.","stacktrace":"main.main\n\tD:/Desktop/FuWuWaiBao/backend/cmd/student/main.go:56\nruntime.main\n\tD:/Program Files/Go/src/runtime/proc.go:285"}
