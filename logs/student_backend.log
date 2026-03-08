@@ -1,0 +1,13 @@
+2026-03-08T14:56:00.622+0800	INFO	logger/logger.go:92	学生端系统启动中...	{"port": 8081}
+
+2026/03/08 14:56:00 [35mD:/Desktop/FuWuWaiBao/backend/cmd/student/main.go:52
+[0m[31m[error] [0mfailed to initialize database, got error failed to connect to `user=postgres database=teaching`:
+	127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connectex: No connection could be made because the target machine actively refused it.
+	[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+2026-03-08T14:56:00.640+0800	FATAL	student/main.go:56	连接数据库失败: failed to connect to `user=postgres database=teaching`:
+	127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connectex: No connection could be made because the target machine actively refused it.
+	[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.
+main.main
+	D:/Desktop/FuWuWaiBao/backend/cmd/student/main.go:56
+runtime.main
+	D:/Program Files/Go/src/runtime/proc.go:285

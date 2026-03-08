@@ -1,5 +1,27 @@
 
 services:
+  backend-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: teaching-backend
+    ports:
+      - "18080:18080"
+    environment:
+      - GIN_MODE=release
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - teaching-network
+    restart: unless-stopped
+
   postgres:
     image: postgres:15
     container_name: teaching-postgres

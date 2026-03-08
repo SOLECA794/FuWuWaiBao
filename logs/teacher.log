@@ -1,0 +1,6 @@
+{"level":"INFO","time":"2026-03-08T14:26:07.853+0800","caller":"logger/logger.go:92","msg":"教师端系统启动中...","port":8082}
+{"level":"INFO","time":"2026-03-08T14:26:07.977+0800","caller":"logger/logger.go:92","msg":"教师端服务运行中","port":8082}
+{"level":"INFO","time":"2026-03-08T14:48:42.144+0800","caller":"logger/logger.go:92","msg":"教师端系统启动中...","port":8082}
+{"level":"INFO","time":"2026-03-08T14:48:42.176+0800","caller":"logger/logger.go:92","msg":"教师端服务运行中","port":8082}
+{"level":"INFO","time":"2026-03-08T14:56:01.618+0800","caller":"logger/logger.go:92","msg":"教师端系统启动中...","port":8082}
+{"level":"FATAL","time":"2026-03-08T14:56:01.635+0800","caller":"teacher/main.go:56","msg":"连接数据库失败: failed to connect to `user=postgres database=teaching`:\n\t127.0.0.1:5432 (localhost): dial error: dial tcp 127.0.0.1:5432: connectex: No connection could be made because the target machine actively refused it.\n\t[::1]:5432 (localhost): dial error: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.","stacktrace":"main.main\n\tD:/Desktop/FuWuWaiBao/backend/cmd/teacher/main.go:56\nruntime.main\n\tD:/Program Files/Go/src/runtime/proc.go:285"}
