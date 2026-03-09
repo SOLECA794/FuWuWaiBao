@@ -13,21 +13,29 @@
 ```powershell
 .\scripts\start-all.ps1
 ```
+注意需要先开启docker destop
 
 若想跳过 docker-compose（例如你已经用容器外的服务），可以：
 ```powershell
 .\scripts\start-all.ps1 -SkipDocker
 ```
+---
 
-停止：
+全局停止：
 ```powershell
-.\scripts\stop-all.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\stop-all.ps1
 ```
 
 如果也希望跳过 docker 服务，可以传入 `-SkipDocker`：
 ```powershell
 .\scripts\stop-all.ps1 -SkipDocker
 ```
+
+停止docker容器：
+```
+docker compose -f .\backend\docker-compose.yml down
+```
+
 
 注意：
 - 这些脚本假设系统上已安装并可用的命令：`docker` 或 `docker-compose`、`conda`、`go`、`npm`。请确保将 `conda` 命令加入到 PATH，或在运行脚本前从 Anaconda/Miniconda 的 PowerShell 快捷方式打开。
