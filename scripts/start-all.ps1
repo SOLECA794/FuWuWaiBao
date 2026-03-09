@@ -54,9 +54,16 @@ function Invoke-DockerCompose {
     )
 
     $composeFile = Join-Path $root "backend\docker-compose.yml"
+    $envFile = Join-Path $root ".env"
+    $composeBaseArgs = @("-f", $composeFile)
+
+    if (Test-Path $envFile) {
+        $composeBaseArgs += @("--env-file", $envFile)
+    }
+
     $variants = @(
-        @{ Cmd = "docker"; Args = @("compose","-f",$composeFile) + $ActionArgs },
-        @{ Cmd = "docker-compose"; Args = @("-f",$composeFile) + $ActionArgs }
+        @{ Cmd = "docker"; Args = @("compose") + $composeBaseArgs + $ActionArgs },
+        @{ Cmd = "docker-compose"; Args = $composeBaseArgs + $ActionArgs }
     )
 
     foreach ($variant in $variants) {
