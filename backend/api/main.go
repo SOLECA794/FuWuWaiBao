@@ -214,14 +214,14 @@ func main() {
 				teacherV1.GET("", teacherHandler.GetCoursewareList)
 				teacherV1.GET("/", teacherHandler.GetCoursewareList)
 				teacherV1.POST("/upload", compatHandler.UploadCoursewareV1)
-				teacherV1.DELETE(":courseId", compatHandler.DeleteCoursewareV1)
-				teacherV1.GET(":courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
-				teacherV1.PUT(":courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
-				teacherV1.POST(":courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
-				teacherV1.POST(":courseId/publish", compatHandler.PublishCoursewareV1)
-				teacherV1.GET(":courseId/stats", teacherHandler.GetClassStats)
-				teacherV1.GET(":courseId/questions", teacherHandler.GetQuestionRecords)
-				teacherV1.GET(":courseId/card-data", compatHandler.GetCardDataV1)
+				teacherV1.DELETE("/:courseId", compatHandler.DeleteCoursewareV1)
+				teacherV1.GET("/:courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
+				teacherV1.PUT("/:courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
+				teacherV1.POST("/:courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
+				teacherV1.POST("/:courseId/publish", compatHandler.PublishCoursewareV1)
+				teacherV1.GET("/:courseId/stats", teacherHandler.GetClassStats)
+				teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
+				teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
 			}
 
 			aiV1 := v1.Group("/ai")
@@ -229,8 +229,8 @@ func main() {
 				aiV1.POST("/parse-knowledge", compatHandler.ParseKnowledgeV1)
 				coursewareAI := aiV1.Group("/coursewares")
 				{
-					coursewareAI.GET(":courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
-					coursewareAI.POST(":courseId/ask", compatHandler.AskCoursewareV1)
+					coursewareAI.GET("/:courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
+					coursewareAI.POST("/:courseId/ask", compatHandler.AskCoursewareV1)
 				}
 			}
 

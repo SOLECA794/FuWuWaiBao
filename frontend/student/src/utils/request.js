@@ -2,10 +2,11 @@
  * 统一请求封装，适配 API v2.0 规范
  */
 import { ElMessage } from 'element-plus'
+import { API_BASE } from '../config/api'
 
 // 基础配置
-const BASE_URL = 'http://localhost:3000/api/v1'
-const TOKEN = localStorage.getItem('teacher-token') || 'default-token-2025'
+const BASE_URL = `${API_BASE}/api/v1`
+const TOKEN = localStorage.getItem('student-token') || 'default-token-2025'
 
 /**
  * 通用请求方法
