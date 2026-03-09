@@ -561,3 +561,28 @@
 {"level":"INFO","time":"2026-03-05T23:57:01.258+0800","caller":"logger/logger.go:92","msg":"HTTP请求","method":"GET","path":"/health","status":200,"latency":0,"client_ip":"::1"}
 {"level":"INFO","time":"2026-03-05T23:57:31.265+0800","caller":"logger/logger.go:92","msg":"HTTP请求","method":"GET","path":"/health","status":200,"latency":0,"client_ip":"::1"}
 {"level":"INFO","time":"2026-03-05T23:57:56.102+0800","caller":"logger/logger.go:92","msg":"HTTP请求","method":"GET","path":"/health","status":200,"latency":0,"client_ip":"::1"}
+{"level":"INFO","time":"2026-03-09T15:28:31.400+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:28:31.898+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"FATAL","time":"2026-03-09T15:28:31.972+0800","caller":"api/main.go:82","msg":"连接Redis失败: Redis连接失败: dial tcp [::1]:6379: connectex: No connection could be made because the target machine actively refused it.","stacktrace":"main.main\n\tC:/Users/27968/Desktop/FuWuWaiBao/backend/api/main.go:82\nruntime.main\n\tC:/Users/27968/Downloads/go/src/runtime/proc.go:290"}
+{"level":"INFO","time":"2026-03-09T15:32:06.048+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:32:06.556+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"INFO","time":"2026-03-09T15:32:06.559+0800","caller":"logger/logger.go:92","msg":"Redis连接成功"}
+{"level":"FATAL","time":"2026-03-09T15:32:06.559+0800","caller":"api/main.go:89","msg":"初始化MinIO失败: 初始化MinIO失败: Endpoint url cannot have fully qualified paths.","stacktrace":"main.main\n\tC:/Users/27968/Desktop/FuWuWaiBao/backend/api/main.go:89\nruntime.main\n\tC:/Users/27968/Downloads/go/src/runtime/proc.go:290"}
+{"level":"INFO","time":"2026-03-09T15:44:19.430+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:44:19.861+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"INFO","time":"2026-03-09T15:44:19.863+0800","caller":"logger/logger.go:92","msg":"Redis连接成功"}
+{"level":"FATAL","time":"2026-03-09T15:44:19.863+0800","caller":"api/main.go:89","msg":"初始化MinIO失败: 初始化MinIO失败: Endpoint url cannot have fully qualified paths.","stacktrace":"main.main\n\tC:/Users/27968/Desktop/FuWuWaiBao/backend/api/main.go:89\nruntime.main\n\tC:/Users/27968/Downloads/go/src/runtime/proc.go:290"}
+{"level":"INFO","time":"2026-03-09T15:44:44.261+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:44:44.800+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"INFO","time":"2026-03-09T15:44:44.802+0800","caller":"logger/logger.go:92","msg":"Redis连接成功"}
+{"level":"FATAL","time":"2026-03-09T15:44:44.802+0800","caller":"api/main.go:89","msg":"初始化MinIO失败: 初始化MinIO失败: Endpoint url cannot have fully qualified paths.","stacktrace":"main.main\n\tC:/Users/27968/Desktop/FuWuWaiBao/backend/api/main.go:89\nruntime.main\n\tC:/Users/27968/Downloads/go/src/runtime/proc.go:290"}
+{"level":"INFO","time":"2026-03-09T15:47:34.168+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:47:34.598+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"INFO","time":"2026-03-09T15:47:34.601+0800","caller":"logger/logger.go:92","msg":"Redis连接成功"}
+{"level":"FATAL","time":"2026-03-09T15:47:34.601+0800","caller":"api/main.go:100","msg":"初始化MinIO失败: 初始化MinIO失败: Endpoint url cannot have fully qualified paths.","stacktrace":"main.main\n\tC:/Users/27968/Desktop/FuWuWaiBao/backend/api/main.go:100\nruntime.main\n\tC:/Users/27968/Downloads/go/src/runtime/proc.go:290"}
+{"level":"INFO","time":"2026-03-09T15:55:18.761+0800","caller":"logger/logger.go:92","msg":"系统启动中...","port":"18080","mode":"debug"}
+{"level":"INFO","time":"2026-03-09T15:55:19.194+0800","caller":"logger/logger.go:92","msg":"数据库连接成功","database":"teaching"}
+{"level":"INFO","time":"2026-03-09T15:55:19.196+0800","caller":"logger/logger.go:92","msg":"Redis连接成功"}
+{"level":"INFO","time":"2026-03-09T15:55:19.240+0800","caller":"logger/logger.go:92","msg":"MinIO连接成功"}
+{"level":"INFO","time":"2026-03-09T15:55:19.244+0800","caller":"api/main.go:286","msg":"服务器启动成功，访问地址: http://localhost:18080"}
+{"level":"INFO","time":"2026-03-09T15:55:19.244+0800","caller":"api/main.go:287","msg":"健康检查: http://localhost:18080/health"}
