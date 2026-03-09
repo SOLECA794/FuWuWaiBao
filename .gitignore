@@ -35,6 +35,7 @@ scripts/pids.json
 tmp/
 uploads/
 
+
 # IDE & OS
 .vscode/
 .idea/
