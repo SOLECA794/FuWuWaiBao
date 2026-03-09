@@ -35,6 +35,10 @@ scripts/pids.json
 tmp/
 uploads/
 
+# Config files
+backend/config/config.yaml
+!backend/config/config.yaml.example
+
 
 # IDE & OS
 .vscode/
