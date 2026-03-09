@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -85,7 +86,18 @@ func LoadConfig(path string) (*Config, error) {
 	viper.AddConfigPath("./config")
 	viper.AddConfigPath("../config")
 
+	// Support overriding config values via environment variables.
+	// Map nested keys like "oss.endpoint" -> "OSS_ENDPOINT" (via replacer + AutomaticEnv),
+	// and also bind common MinIO env names for convenience.
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+
+	// Common bindings so developers can set MINIO_* or OSS_* env vars.
+	_ = viper.BindEnv("oss.endpoint", "MINIO_ENDPOINT", "OSS_ENDPOINT")
+	_ = viper.BindEnv("oss.access_key", "MINIO_ACCESS_KEY", "OSS_ACCESS_KEY")
+	_ = viper.BindEnv("oss.secret_key", "MINIO_SECRET_KEY", "OSS_SECRET_KEY")
+	_ = viper.BindEnv("oss.bucket", "MINIO_BUCKET", "OSS_BUCKET")
+	_ = viper.BindEnv("oss.use_ssl", "MINIO_USE_SSL", "OSS_USE_SSL")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, fmt.Errorf("读取配置文件失败: %w", err)
