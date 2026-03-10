@@ -39,7 +39,7 @@
           <button class="tab-btn" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'">学习卡点可视化</button>
         </div>
 
-        <!-- 预览面板：完全移除404接口请求，改为本地状态提示 -->
+        <!-- 预览面板：使用后端课件预览接口 -->
         <div v-if="activeTab === 'preview'" class="preview-panel">
           <div v-if="currentCourseId" class="preview-header">
             <h3>{{ currentCourseName }} - 第{{ currentEditPage }}页</h3>
@@ -57,24 +57,22 @@
             </div>
           </div>
           <div class="preview-content">
-            <!-- 本地加载动画（不发请求） -->
+            <!-- 加载动画 -->
             <div v-if="previewLoading" class="preview-loading">
               <div class="spinner"></div>
               <p>准备预览内容...</p>
             </div>
 
-            <!-- 核心修改：动态绑定图片URL，确保插值生效 -->
+            <!-- 使用真实预览URL（后端302到图片地址） -->
             <div v-else-if="currentCourseId" class="mock-preview">
               <img 
-                :src="mockPreviewUrl" 
+                :src="realPreviewUrl" 
                 class="preview-img"
-                alt="课件预览占位图"
+                alt="课件预览图"
                 @load="onPreviewLoad"
                 @error="handlePreviewError"
               >
               <div class="preview-tip">
-                <p>📌 预览功能说明</p>
-                <p>当前后端预览接口暂未实现（404），此处为模拟预览图。</p>
                 <p>课件ID: {{ currentCourseId }} | 页码: {{ currentEditPage }}</p>
               </div>
             </div>
@@ -257,7 +255,8 @@ const currentScriptNodes = computed(() => {
 // 新增：真实预览URL（假设后端返回图片）
 const realPreviewUrl = computed(() => {
   if (!currentCourseId.value) return ''
-  return `${API_BASE}/courseware/${currentCourseId.value}/page/${currentEditPage.value}?t=${Date.now()}`
+  // 后端统一前缀为 /api，保持与其他接口一致
+  return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}?t=${Date.now()}`
 })
 
 // 新增：模拟预览URL（根据页码动态变化）
