@@ -14,7 +14,9 @@ dist/
 venv/
 .venv/
 env/
-__pycache__/
+ai_engine/__pycache__
+ai_engine/debug_output/
+ai_engine/tests/mocks/_tmp_*
 *.py[cod]
 .pytest_cache/
 *.pyc

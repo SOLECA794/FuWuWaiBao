@@ -28,3 +28,45 @@ def build_document_schema(
             "elapsed_ms": elapsed_ms,
         },
     }
+
+
+def build_reconstruction_schema(
+    parsed_document: dict[str, Any],
+    chapters: list[dict[str, Any]],
+    teaching_nodes: list[dict[str, Any]],
+    started_at: float,
+) -> dict[str, Any]:
+    elapsed_ms = int((time.time() - started_at) * 1000)
+
+    return {
+        "doc_id": parsed_document.get("doc_id"),
+        "doc_name": parsed_document.get("doc_name"),
+        "doc_type": parsed_document.get("doc_type"),
+        "chapters": chapters,
+        "teaching_nodes": teaching_nodes,
+        "stats": {
+            "chapter_count": len(chapters),
+            "node_count": len(teaching_nodes),
+            "elapsed_ms": elapsed_ms,
+        },
+    }
+
+
+def build_node_script_schema(
+    node_id: str,
+    title: str,
+    script: str,
+    mindmap_markdown: str,
+    interactive_questions: list[str],
+    reteach_script: str,
+    transition: str,
+) -> dict[str, Any]:
+    return {
+        "node_id": node_id,
+        "title": title,
+        "script": script,
+        "mindmap_markdown": mindmap_markdown,
+        "interactive_questions": interactive_questions,
+        "reteach_script": reteach_script,
+        "transition": transition,
+    }

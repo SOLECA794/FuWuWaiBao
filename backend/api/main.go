@@ -61,6 +61,7 @@ func main() {
 	err = db.AutoMigrate(
 		&model.Course{},
 		&model.CoursePage{},
+		&model.TeachingNode{},
 		&model.UserProgress{},
 		&model.QuestionLog{},
 		&model.TeacherEdit{},
@@ -87,12 +88,12 @@ func main() {
 	// ========== 关键修改：修复 MinIO Endpoint 配置 ==========
 	// 移除 http:// 前缀，仅保留 域名/IP + 端口
 	tempOSSConfig := &config.OSSConfig{
-		Provider:   "minio",
-		Endpoint:   "localhost:9000", // 核心修改：去掉 http:// 前缀
-		AccessKey:  "minioadmin",     // 默认密钥（确认无误）
-		SecretKey:  "minioadmin",     // 默认密钥（确认无误）
-		Bucket:     "teaching",       // Bucket 名称（会自动创建，无需提前手动创建）
-		UseSSL:     false,            // 本地测试关闭 SSL
+		Provider:  "minio",
+		Endpoint:  "localhost:9000", // 核心修改：去掉 http:// 前缀
+		AccessKey: "minioadmin",     // 默认密钥（确认无误）
+		SecretKey: "minioadmin",     // 默认密钥（确认无误）
+		Bucket:    "teaching",       // Bucket 名称（会自动创建，无需提前手动创建）
+		UseSSL:    false,            // 本地测试关闭 SSL
 	}
 
 	// 使用手动配置初始化MinIO
@@ -103,8 +104,8 @@ func main() {
 	}
 	applogger.Info("MinIO连接成功")
 
-	courseService := service.NewCourseService(db, minioClient)
 	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+	courseService := service.NewCourseService(db, minioClient, aiClient)
 
 	courseHandler := handler.NewCourseHandler(courseService, db)
 	teacherHandler := handler.NewTeacherHandler(db, aiClient)

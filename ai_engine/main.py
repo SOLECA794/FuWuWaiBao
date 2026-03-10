@@ -13,10 +13,12 @@ try:
     from .parser import DocumentParser
     from .generator import LessonGenerator, GenerationConfig
     from .qa import QAResponder, QAConfig
+    from .reconstructor import LessonReconstructor, ReconstructionConfig
 except ImportError:
     from parser import DocumentParser
     from generator import LessonGenerator, GenerationConfig
     from qa import QAResponder, QAConfig
+    from reconstructor import LessonReconstructor, ReconstructionConfig
 
 app = FastAPI(title="泛雅 AI 智课系统后端", description="为前端提供解析、生成、问答、重讲等核心 AI 接口")
 
@@ -63,6 +65,17 @@ class ParseKnowledgeRequest(BaseModel):
     text: str
     mode: str = "llm"
 
+
+class ReconstructDocumentRequest(BaseModel):
+    parsed_document: dict[str, Any]
+    mode: str = "hybrid"
+
+
+class GenerateNodeScriptRequest(BaseModel):
+    teaching_node: dict[str, Any]
+    course_name: Optional[str] = None
+    mode: str = "llm"
+
 # --- 核心接口实现 ---
 
 @app.post("/upload")
@@ -86,6 +99,7 @@ async def upload_document(file: UploadFile = File(...)):
         # 记录到内存（实际开发中这里会存入数据库）
         STORAGE[file_id] = {
             "parsed": parsed_data,
+            "reconstructed": LessonReconstructor().reconstruct(parsed_data),
             "file_path": str(file_path)
         }
         
@@ -97,6 +111,39 @@ async def upload_document(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
+
+
+@app.post("/parse-document")
+async def parse_document(file: UploadFile = File(...)):
+    """直接返回结构化解析结果，供 Go 后端上传后落库。"""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".pdf", ".pptx"}:
+        raise HTTPException(status_code=400, detail="仅支持 PDF/PPTX 文件")
+
+    file_id = f"parse_{uuid.uuid4().hex[:8]}"
+    file_path = UPLOAD_DIR / f"{file_id}{suffix}"
+
+    with file_path.open("wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        parser = DocumentParser(str(file_path))
+        return parser.parse()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
+
+
+@app.post("/reconstruct-document")
+async def reconstruct_document(req: ReconstructDocumentRequest):
+    """将解析后的页文本重构为章节与讲授节点。"""
+    parsed_document = req.parsed_document or {}
+    if not parsed_document.get("parsed_pages"):
+        raise HTTPException(status_code=400, detail="parsed_document.parsed_pages 不能为空")
+    try:
+        reconstructor = LessonReconstructor(ReconstructionConfig(mode=req.mode))
+        return reconstructor.reconstruct(parsed_document)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"内容重构失败: {str(e)}")
 
 
 @app.get("/lessons/{doc_id}")
@@ -172,6 +219,16 @@ async def generate_script(req: GenerateScriptRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"讲稿生成失败: {str(e)}")
+
+
+@app.post("/generate-node-script")
+async def generate_node_script(req: GenerateNodeScriptRequest):
+    """基于讲授节点生成可交互讲稿。"""
+    try:
+        generator = LessonGenerator(GenerationConfig(mode=req.mode))
+        return generator.generate_node_script(req.teaching_node, req.course_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"节点讲稿生成失败: {str(e)}")
 
 
 @app.post("/ask-with-context")

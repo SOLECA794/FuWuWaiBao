@@ -25,6 +25,28 @@
       </el-button>
       <el-button @click="$emit('next-page')" icon="el-icon-arrow-right" size="small">下一页</el-button>
     </div>
+    <div class="page-summary" v-if="pageSummary">
+      <h4>本页摘要</h4>
+      <p>{{ pageSummary }}</p>
+    </div>
+    <div class="node-panel" v-if="playbackNodes.length">
+      <div class="node-panel-header">
+        <h4>讲授节点</h4>
+        <span>{{ playbackNodes.length }} 段</span>
+      </div>
+      <div class="node-list">
+        <button
+          v-for="node in playbackNodes"
+          :key="node.node_id"
+          class="node-chip"
+          :class="{ active: node.node_id === currentNodeId }"
+          @click="$emit('select-node', node.node_id)"
+        >
+          <strong>{{ node.title || node.node_id }}</strong>
+          <span>{{ node.text }}</span>
+        </button>
+      </div>
+    </div>
     <div class="control-tip">支持自动记录断点，切页后将实时同步学习进度</div>
   </div>
 </template>
@@ -48,6 +70,18 @@ defineProps({
     type: String,
     default: ''
   },
+  playbackNodes: {
+    type: Array,
+    default: () => []
+  },
+  currentNodeId: {
+    type: String,
+    default: ''
+  },
+  pageSummary: {
+    type: String,
+    default: ''
+  },
   tracePoint: {
     type: Boolean,
     default: false
@@ -66,7 +100,7 @@ defineProps({
   }
 })
 
-defineEmits(['prev-page', 'toggle-play', 'next-page'])
+defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node'])
 </script>
 
 <style scoped>
@@ -144,5 +178,67 @@ defineEmits(['prev-page', 'toggle-play', 'next-page'])
   text-align: center;
   font-size: 12px;
   color: #64748b;
+}
+.page-summary,
+.node-panel {
+  margin-top: 14px;
+  background: #f8fbff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+}
+.page-summary h4,
+.node-panel-header h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #0f172a;
+}
+.page-summary p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.7;
+}
+.node-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.node-panel-header span {
+  font-size: 12px;
+  color: #64748b;
+}
+.node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.node-chip {
+  border: 1px solid #dbe3ef;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.node-chip strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #2563eb;
+}
+.node-chip span {
+  display: block;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.6;
+}
+.node-chip.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+  background: #eff6ff;
 }
 </style>

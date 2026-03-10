@@ -114,8 +114,16 @@ func (h *CompatibilityHandler) GetStudentScript(c *gin.Context) {
 	}
 	var coursePage model.CoursePage
 	_ = h.db.Where("course_id = ? AND page_index = ?", courseID, page).First(&coursePage).Error
-	nodes := buildScriptNodes(page, coursePage.ScriptText)
-	pageSummary := strings.TrimSpace(coursePage.ScriptText)
+	displayText := pageDisplayText(coursePage)
+	teachingNodes := loadTeachingNodesByPage(h.db, courseID, page)
+	nodes := buildPlaybackNodesFromTeachingNodes(teachingNodes)
+	if len(nodes) == 0 {
+		nodes = buildScriptNodes(page, displayText)
+	}
+	pageSummary := strings.TrimSpace(displayText)
+	if len(teachingNodes) > 0 {
+		pageSummary = buildTeachingNodePageSummary(teachingNodes)
+	}
 	if len(pageSummary) > 80 {
 		pageSummary = pageSummary[:80]
 	}
@@ -137,7 +145,10 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	var coursePage model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
-		contextText = coursePage.ScriptText
+		contextText = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(contextText) == "" {
+		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, req.CourseID, req.Page))
 	}
 	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: req.Page, Context: contextText, Mode: "llm"})
 	if err != nil {

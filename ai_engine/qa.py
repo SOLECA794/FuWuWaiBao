@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Any
 from dotenv import load_dotenv
@@ -80,11 +81,11 @@ class QAResponder:
         try:
             from openai import OpenAI
         except ImportError as error:
-            raise RuntimeError("缺少 openai 依赖，请安装 requirements.txt") from error
+            return self._fallback_answer(question, source_content, need_reteach, f"missing_openai:{error}")
 
         api_key = os.getenv("AI_API_KEY")
         if not api_key:
-            raise RuntimeError("缺少环境变量 AI_API_KEY，无法调用大模型。")
+            return self._fallback_answer(question, source_content, need_reteach, "missing_api_key")
 
         base_url = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
         client = OpenAI(api_key=api_key, base_url=base_url)
@@ -114,7 +115,22 @@ class QAResponder:
             )
             return response.choices[0].message.content
         except Exception as e:
-            raise RuntimeError(f"AI 响应异常: {str(e)}") from e
+            return self._fallback_answer(question, source_content, need_reteach, str(e))
+
+    def _fallback_answer(self, question: str, source_content: str, need_reteach: bool, reason: str) -> str:
+        lines = [line.strip() for line in re.split(r"[\n。；;]", source_content or "") if line.strip()]
+        preview = "；".join(lines[:3]) if lines else "当前页缺少足够上下文，建议教师补充讲稿或原文。"
+        if need_reteach:
+            return (
+                f"我先换一种更容易理解的方式说明。当前这部分主要在讲：{preview}。"
+                "你可以把它理解为先明确核心概念，再看它在例子里是怎么工作的。"
+                f"如果还不清楚，我们可以继续围绕“{question}”拆成更细的步骤。"
+            )
+        return (
+            f"结合当前课件内容，这个问题可以先抓住这些信息：{preview}。"
+            f"如果你想继续追问“{question}”，我可以再展开原理、例子或推导过程。"
+            f"（当前回答使用本地兜底模式，原因：{reason}）"
+        )
 
     def _make_followup_suggestion(self, question: str, need_reteach: bool, source_page: int) -> str:
         """生成更贴近实际的后续操作建议（用于前端展示给学生选择）。"""

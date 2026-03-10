@@ -318,7 +318,16 @@ func (h *StudentHandler) getCoursewarePageV1(c *gin.Context, courseID string) {
 	}
 
 	content, _ := h.loadPageScript(courseID, pageNum)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "page": pageNum, "nodes": buildPlaybackNodes(pageNum, content), "page_summary": content}})
+	teachingNodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
+	nodes := buildPlaybackNodesFromTeachingNodes(teachingNodes)
+	if len(nodes) == 0 {
+		nodes = buildPlaybackNodes(pageNum, content)
+	}
+	pageSummary := content
+	if len(teachingNodes) > 0 {
+		pageSummary = buildTeachingNodePageSummary(teachingNodes)
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "page": pageNum, "nodes": nodes, "page_summary": pageSummary}})
 }
 
 func (h *StudentHandler) updateBreakpointCore(c *gin.Context, courseID string) {
@@ -418,7 +427,12 @@ func (h *StudentHandler) loadPageScript(courseID string, pageNum int) (string, s
 	_ = h.db.First(&course, "id = ?", courseID).Error
 	var coursePage model.CoursePage
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err == nil {
-		return strings.TrimSpace(coursePage.ScriptText), course.Title
+		if text := pageContextText(coursePage); strings.TrimSpace(text) != "" {
+			return text, course.Title
+		}
+	}
+	if text := buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseID, pageNum)); strings.TrimSpace(text) != "" {
+		return text, course.Title
 	}
 	return "", course.Title
 }

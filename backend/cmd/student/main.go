@@ -61,8 +61,8 @@ func main() {
 		applogger.Sugar.Fatalf("初始化MinIO失败: %v", err)
 	}
 
-	courseService := service.NewCourseService(db, minioClient)
 	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+	courseService := service.NewCourseService(db, minioClient, aiClient)
 
 	courseHandler := handler.NewCourseHandler(courseService, db)
 	studentHandler := handler.NewStudentHandler(db, aiClient)

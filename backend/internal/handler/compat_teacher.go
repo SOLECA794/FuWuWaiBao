@@ -78,19 +78,29 @@ func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 	var page model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&page).Error; err == nil {
-		contextText = page.ScriptText
+		contextText = pageContextText(page)
 	}
-	resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: req.PageNum, Content: contextText, CourseName: course.Title, Mode: defaultString(req.Mode, "llm")})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AI生成失败"})
-		return
+	script := ""
+	mindmapMarkdown := ""
+	teachingNodes := loadTeachingNodesByPage(h.db, courseID, req.PageNum)
+	if generatedScript, generatedMindmap, usedNodes, err := generateAndStoreTeachingNodeScripts(c.Request.Context(), h.db, h.aiClient, course.Title, defaultString(req.Mode, "llm"), teachingNodes); usedNodes && err == nil {
+		script = generatedScript
+		mindmapMarkdown = generatedMindmap
+	} else {
+		resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: req.PageNum, Content: contextText, CourseName: course.Title, Mode: defaultString(req.Mode, "llm")})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AI生成失败"})
+			return
+		}
+		script = resp.Script
+		mindmapMarkdown = resp.MindmapMarkdown
 	}
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&page).Error; err == nil {
-		_ = h.db.Model(&page).Update("script_text", resp.Script).Error
+		_ = h.db.Model(&page).Update("script_text", script).Error
 	} else {
-		_ = h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: req.PageNum, ScriptText: resp.Script}).Error
+		_ = h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: req.PageNum, ScriptText: script}).Error
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "pageNum": req.PageNum, "content": resp.Script, "mindmapMarkdown": resp.MindmapMarkdown}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "pageNum": req.PageNum, "content": script, "mindmapMarkdown": mindmapMarkdown}})
 }
 
 func (h *CompatibilityHandler) PublishCoursewareV1(c *gin.Context) {
@@ -183,7 +193,10 @@ func (h *CompatibilityHandler) AskCoursewareV1(c *gin.Context) {
 	var coursePage model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&coursePage).Error; err == nil {
-		contextText = coursePage.ScriptText
+		contextText = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(contextText) == "" {
+		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseID, req.PageNum))
 	}
 	question := req.Question
 	if req.TracePoint != nil {

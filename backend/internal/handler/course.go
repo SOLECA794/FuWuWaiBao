@@ -48,9 +48,9 @@ func (h *CourseHandler) UploadCourse(c *gin.Context) {
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	validExts := map[string]bool{".pdf": true, ".ppt": true, ".pptx": true}
+	validExts := map[string]bool{".pdf": true, ".pptx": true}
 	if !validExts[ext] {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "只支持 PDF/PPT/PPTX 格式"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "只支持 PDF/PPTX 格式"})
 		return
 	}
 

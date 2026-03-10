@@ -72,12 +72,19 @@ func (h *CompatibilityHandler) OpenGenerateScript(c *gin.Context) {
 	if strings.TrimSpace(content) == "" {
 		content = "课程标题：" + course.Title
 	}
-	resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: 1, Content: content, CourseName: course.Title, Mode: "llm"})
-	if err != nil {
-		openAPIError(c, http.StatusInternalServerError, "脚本生成失败")
-		return
+	script := ""
+	teachingNodes := loadTeachingNodesByPage(h.db, req.ParseID, 1)
+	if generatedScript, _, usedNodes, err := generateAndStoreTeachingNodeScripts(c.Request.Context(), h.db, h.aiClient, course.Title, "llm", teachingNodes); usedNodes && err == nil {
+		script = generatedScript
+	} else {
+		resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: 1, Content: content, CourseName: course.Title, Mode: "llm"})
+		if err != nil {
+			openAPIError(c, http.StatusInternalServerError, "脚本生成失败")
+			return
+		}
+		script = resp.Script
 	}
-	sections := buildScriptNodes(1, resp.Script)
+	sections := buildScriptNodes(1, script)
 	openAPISuccess(c, "脚本生成成功", gin.H{"scriptId": "script_" + req.ParseID, "scriptStructure": sections, "editUrl": "/teacher/script/" + req.ParseID + "/1", "audioGenerateUrl": "/api/v1/lesson/generateAudio"})
 }
 
@@ -117,7 +124,10 @@ func (h *CompatibilityHandler) OpenQAInteract(c *gin.Context) {
 	var coursePage model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, page).First(&coursePage).Error; err == nil {
-		contextText = coursePage.ScriptText
+		contextText = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(contextText) == "" {
+		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, req.CourseID, page))
 	}
 	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: page, Context: contextText, Mode: "llm"})
 	if err != nil {

@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -93,7 +94,10 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 	var coursePage model.CoursePage
 	context := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseId, req.PageNum).First(&coursePage).Error; err == nil {
-		context = coursePage.ScriptText
+		context = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(context) == "" {
+		context = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseId, req.PageNum))
 	}
 
 	// TODO: 调用 AI 服务获取答案

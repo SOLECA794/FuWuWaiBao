@@ -35,7 +35,8 @@ type Course struct {
 	PublishedAt  *time.Time `json:"published_at,omitempty"`
 
 	// 关联
-	Pages []CoursePage `gorm:"foreignKey:CourseID" json:"pages,omitempty"`
+	Pages         []CoursePage   `gorm:"foreignKey:CourseID" json:"pages,omitempty"`
+	TeachingNodes []TeachingNode `gorm:"foreignKey:CourseID" json:"teaching_nodes,omitempty"`
 }
 
 // CoursePage 课件页表
@@ -44,8 +45,30 @@ type CoursePage struct {
 	CourseID   string `gorm:"size:36;not null;index:idx_course_page,unique" json:"course_id"`
 	PageIndex  int    `gorm:"not null;index:idx_course_page,unique" json:"page_index"`
 	ImageURL   string `gorm:"size:500" json:"image_url"`
+	SourceText string `gorm:"type:text" json:"source_text"`
 	ScriptText string `gorm:"type:text" json:"script_text"`
 	AudioURL   string `gorm:"size:500" json:"audio_url"`
+}
+
+// TeachingNode 教学节点表
+type TeachingNode struct {
+	BaseModel
+	CourseID             string `gorm:"size:36;not null;index:idx_course_teaching_node,priority:1" json:"course_id"`
+	NodeID               string `gorm:"size:100;not null;index:idx_course_teaching_node,priority:2,unique" json:"node_id"`
+	ChapterTitle         string `gorm:"size:200" json:"chapter_title"`
+	PageIndex            int    `gorm:"default:0;index" json:"page_index"`
+	Title                string `gorm:"size:200;not null" json:"title"`
+	Summary              string `gorm:"type:text" json:"summary"`
+	SourcePages          string `gorm:"type:text" json:"source_pages"`
+	CorePoints           string `gorm:"type:text" json:"core_points"`
+	Examples             string `gorm:"type:text" json:"examples"`
+	CommonConfusions     string `gorm:"type:text" json:"common_confusions"`
+	ScriptText           string `gorm:"type:text" json:"script_text"`
+	ReteachScript        string `gorm:"type:text" json:"reteach_script"`
+	InteractiveQuestions string `gorm:"type:text" json:"interactive_questions"`
+	TransitionText       string `gorm:"type:text" json:"transition_text"`
+	MindmapMarkdown      string `gorm:"type:text" json:"mindmap_markdown"`
+	SortOrder            int    `gorm:"default:0" json:"sort_order"`
 }
 
 // UserProgress 用户进度表
