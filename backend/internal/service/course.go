@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"sort"
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/pkg/logger"
 	"smart-teaching-backend/pkg/oss"
@@ -52,7 +56,7 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 		return nil, fmt.Errorf("创建课件记录失败: %w", err)
 	}
 
-	// 打开上传的文件
+	// 打开上传的文件用于上传
 	src, err := file.Open()
 	if err != nil {
 		tx.Rollback()
@@ -80,6 +84,21 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 			return nil, fmt.Errorf("解析课件失败: %w", err)
 		}
 
+		// 优先尝试基于原始文件生成真实预览图，失败时回退到占位图
+		pagePreviewURLs := map[int]string{}
+		tmpPath, tmpErr := saveUploadedFileToTemp(file)
+		if tmpErr == nil {
+			defer os.Remove(tmpPath)
+			generated, genErr := s.generatePagePreviewImages(ctx, tmpPath, course.ID, strings.ToLower(filepath.Ext(file.Filename)))
+			if genErr == nil {
+				pagePreviewURLs = generated
+			} else {
+				logger.Errorf("生成课件预览图失败，使用占位图: %v", genErr)
+			}
+		} else {
+			logger.Errorf("保存课件临时文件失败，使用占位预览图: %v", tmpErr)
+		}
+
 		course.TotalPage = parsed.TotalPages
 		if err := tx.Save(course).Error; err != nil {
 			tx.Rollback()
@@ -88,9 +107,15 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 
 		pages := make([]model.CoursePage, 0, len(parsed.ParsedPages))
 		for _, page := range parsed.ParsedPages {
+			imageURL := strings.TrimSpace(pagePreviewURLs[page.Page])
+			if imageURL == "" {
+				// 回退：使用占位预览图，确保前端预览可用
+				imageURL = fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, page.Page)
+			}
 			pages = append(pages, model.CoursePage{
 				CourseID:   course.ID,
 				PageIndex:  page.Page,
+				ImageURL:   imageURL,
 				SourceText: strings.TrimSpace(page.Content),
 			})
 		}
@@ -223,4 +248,104 @@ func (s *courseService) saveTeachingNodes(tx *gorm.DB, courseID string, reconstr
 	}
 
 	return tx.Create(&nodes).Error
+}
+
+// saveUploadedFileToTemp 将上传的课件文件保存到本地临时路径，供后续预览图生成使用
+func saveUploadedFileToTemp(file *multipart.FileHeader) (string, error) {
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	ext := filepath.Ext(file.Filename)
+	tmpFile, err := os.CreateTemp("", "course_*"+ext)
+	if err != nil {
+		return "", err
+	}
+	defer tmpFile.Close()
+
+	if _, err := io.Copy(tmpFile, src); err != nil {
+		return "", err
+	}
+	return tmpFile.Name(), nil
+}
+
+// generatePagePreviewImages 使用本地渲染工具生成每页 PNG 预览，并上传到 MinIO，返回 pageIndex 到 URL 的映射
+func (s *courseService) generatePagePreviewImages(ctx context.Context, localPath string, courseID string, ext string) (map[int]string, error) {
+	// 目前仅支持 PDF/PPTX，其它类型直接跳过
+	if ext != ".pdf" && ext != ".pptx" && ext != ".ppt" {
+		return map[int]string{}, nil
+	}
+
+	pdfPath := localPath
+	// PPT/PPTX 先转换为 PDF
+	if ext == ".pptx" || ext == ".ppt" {
+		var err error
+		pdfPath, err = convertPptxToPdf(localPath)
+		if err != nil {
+			return nil, fmt.Errorf("PPT 转 PDF 失败: %w", err)
+		}
+		defer os.Remove(pdfPath)
+	}
+
+	imgDir, err := os.MkdirTemp("", "course_imgs_*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(imgDir)
+
+	base := filepath.Join(imgDir, "page")
+	cmd := exec.CommandContext(ctx, "pdftoppm", "-png", pdfPath, base)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("pdftoppm 生成预览失败: %w, output=%s", err, string(output))
+	}
+
+	files, err := filepath.Glob(filepath.Join(imgDir, "page-*.png"))
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return map[int]string{}, nil
+	}
+	sort.Strings(files)
+
+	result := make(map[int]string, len(files))
+	for idx, imgPath := range files {
+		pageIndex := idx + 1
+
+		f, err := os.Open(imgPath)
+		if err != nil {
+			continue
+		}
+		info, err := f.Stat()
+		if err != nil {
+			f.Close()
+			continue
+		}
+
+		objectName := fmt.Sprintf("courses/%s/previews/page-%d.png", courseID, pageIndex)
+		url, err := s.ossClient.UploadFile(ctx, objectName, f, info.Size(), "image/png")
+		f.Close()
+		if err != nil {
+			logger.Errorf("上传预览图失败: %v", err)
+			continue
+		}
+		result[pageIndex] = url
+	}
+	return result, nil
+}
+
+// convertPptxToPdf 使用本地 LibreOffice 将 PPT/PPTX 转换为 PDF
+func convertPptxToPdf(pptPath string) (string, error) {
+	outDir := filepath.Dir(pptPath)
+	cmd := exec.Command("soffice", "--headless", "--convert-to", "pdf", "--outdir", outDir, pptPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("LibreOffice 转 PDF 失败: %w, output=%s", err, string(output))
+	}
+	pdfPath := strings.TrimSuffix(pptPath, filepath.Ext(pptPath)) + ".pdf"
+	if _, err := os.Stat(pdfPath); err != nil {
+		return "", fmt.Errorf("未找到转换后的 PDF 文件: %s", pdfPath)
+	}
+	return pdfPath, nil
 }
