@@ -6,12 +6,46 @@ $root = Split-Path -Parent $PSScriptRoot
 $logsDir = Join-Path $root "logs"
 $tmpDir = Join-Path $root "tmp"
 $scriptsDir = Join-Path $root "scripts"
+$isWindowsHost = $env:OS -eq 'Windows_NT'
 
 New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 New-Item -ItemType Directory -Force -Path $scriptsDir | Out-Null
 
 Write-Host "Root: $root"
+
+function Resolve-CommandPath {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Command
+    )
+
+    $resolved = Get-Command $Command -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $resolved) {
+        return $Command
+    }
+
+    if ($resolved.Path) {
+        return $resolved.Path
+    }
+
+    if ($resolved.Source) {
+        return $resolved.Source
+    }
+
+    return $Command
+}
+
+function Format-CmdInvokerArguments {
+    param(
+        [Parameter(Mandatory)]
+        [string]$CommandPath,
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList
+    )
+
+    return @('/d', '/c', ('"' + $CommandPath + '"')) + $ArgumentList
+}
 
 function Invoke-DockerCompose {
     param(
@@ -20,9 +54,16 @@ function Invoke-DockerCompose {
     )
 
     $composeFile = Join-Path $root "backend\docker-compose.yml"
+    $envFile = Join-Path $root ".env"
+    $composeBaseArgs = @("-f", $composeFile)
+
+    if (Test-Path $envFile) {
+        $composeBaseArgs += @("--env-file", $envFile)
+    }
+
     $variants = @(
-        @{ Cmd = "docker"; Args = @("compose","-f",$composeFile) + $ActionArgs },
-        @{ Cmd = "docker-compose"; Args = @("-f",$composeFile) + $ActionArgs }
+        @{ Cmd = "docker"; Args = @("compose") + $composeBaseArgs + $ActionArgs },
+        @{ Cmd = "docker-compose"; Args = $composeBaseArgs + $ActionArgs }
     )
 
     foreach ($variant in $variants) {
@@ -40,10 +81,29 @@ function Invoke-DockerCompose {
 }
 
 if (-not $SkipDocker) {
-    Invoke-DockerCompose -ActionArgs @('up','-d')
+    Invoke-DockerCompose -ActionArgs @('up','-d','postgres','redis','minio')
 }
 
 $pids = @{}
+
+function Test-EndpointReady {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [int]$RetryCount = 20,
+        [int]$DelayMilliseconds = 1000
+    )
+
+    for ($attempt = 1; $attempt -le $RetryCount; $attempt++) {
+        try {
+            $null = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 3
+            return $true
+        } catch {
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+
+    return $false
+}
 
 function Start-Background {
     param(
@@ -56,14 +116,44 @@ function Start-Background {
     )
 
     Write-Host "Starting $Name..."
-    $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr
-    Start-Sleep -Milliseconds 500
 
-    if ($proc -and $proc.Id) {
+    $resolvedFilePath = Resolve-CommandPath -Command $FilePath
+    $startFilePath = $resolvedFilePath
+    $startArgumentList = $ArgumentList
+    $extension = [System.IO.Path]::GetExtension($resolvedFilePath).ToLowerInvariant()
+
+    if ($isWindowsHost -and $extension -in @('.cmd', '.bat')) {
+        $startFilePath = $env:ComSpec
+        $startArgumentList = Format-CmdInvokerArguments -CommandPath $resolvedFilePath -ArgumentList $ArgumentList
+    } elseif ($isWindowsHost -and $extension -eq '.ps1') {
+        $batchFilePath = [System.IO.Path]::ChangeExtension($resolvedFilePath, '.cmd')
+
+        if (Test-Path $batchFilePath) {
+            $startFilePath = $env:ComSpec
+            $startArgumentList = Format-CmdInvokerArguments -CommandPath $batchFilePath -ArgumentList $ArgumentList
+        } else {
+            $startFilePath = "powershell.exe"
+            $startArgumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolvedFilePath) + $ArgumentList
+        }
+    }
+
+    $proc = Start-Process -FilePath $startFilePath -ArgumentList $startArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -RedirectStandardOutput $StdOut -RedirectStandardError $StdErr
+    Start-Sleep -Milliseconds 1200
+
+    if ($proc -and -not $proc.HasExited -and $proc.Id) {
         $pids[$Name] = $proc.Id
         Write-Host "$Name started (PID $($proc.Id))"
     } else {
-        Write-Warning "Failed to start $Name"
+        $exitCode = $null
+        if ($proc -and $proc.HasExited) {
+            $exitCode = $proc.ExitCode
+        }
+
+        if ($null -ne $exitCode) {
+            Write-Warning "Failed to start ${Name} (exit code $exitCode)"
+        } else {
+            Write-Warning "Failed to start $Name"
+        }
     }
 }
 
@@ -78,4 +168,31 @@ $pids | ConvertTo-Json | Out-File -Encoding utf8 $pidFile
 Write-Host "Started components. PID file: $pidFile"
 Write-Host "Logs: $logsDir"
 Write-Host "If something fails, check the log files and run scripts/stop-all.ps1 to stop the background processes."
+if (Test-EndpointReady -Url 'http://localhost:18080/health' -RetryCount 25 -DelayMilliseconds 1000) {
+    Write-Host "Backend health check: OK (http://localhost:18080/health)"
+} else {
+    Write-Warning "Backend health check failed. Please inspect logs/backend.log and logs/backend.err.log"
+}
+
+if (Test-EndpointReady -Url 'http://localhost:8080' -RetryCount 25 -DelayMilliseconds 1000) {
+    Write-Host "Student frontend ready: http://localhost:8080"
+} else {
+    Write-Warning "Student frontend readiness check failed. Please inspect logs/student_frontend.log"
+}
+
+if (Test-EndpointReady -Url 'http://localhost:5173' -RetryCount 25 -DelayMilliseconds 1000) {
+    Write-Host "Teacher frontend ready: http://localhost:5173"
+} else {
+    Write-Warning "Teacher frontend readiness check failed. Please inspect logs/teacher_frontend.log"
+}
+
 Write-Host "Done."
+Write-Host ""
+Write-Host "Access URLs (local):"
+Write-Host "- 学生端前端: http://localhost:8080 (vue-cli serve 默认端口)"
+Write-Host "- 教师端前端: http://localhost:5173 (vite 默认端口)"
+Write-Host "- 统一后端: http://localhost:18080 (健康检查: /health, API 根路径: /api)"
+Write-Host ""
+Write-Host "Notes:"
+Write-Host "- 如果使用 Docker 启动，端口映射在 backend/docker-compose.yml 中定义。"
+Write-Host "- 如页面无法访问，请检查对应日志文件（logs/ 目录）或运行 'docker compose ps' 查看容器状态。"

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -20,10 +22,15 @@ type MinioClient struct {
 }
 
 func NewMinioClient(cfg *config.OSSConfig) (*MinioClient, error) {
+	endpoint, useSSL, err := NormalizeEndpoint(cfg.Endpoint, cfg.UseSSL)
+	if err != nil {
+		return nil, err
+	}
+
 	// 初始化MinIO客户端
-	client, err := minio.New(cfg.Endpoint, &minio.Options{
+	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
+		Secure: useSSL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("初始化MinIO失败: %w", err)
@@ -50,9 +57,44 @@ func NewMinioClient(cfg *config.OSSConfig) (*MinioClient, error) {
 	return &MinioClient{
 		client:   client,
 		bucket:   cfg.Bucket,
-		endpoint: cfg.Endpoint,
-		useSSL:   cfg.UseSSL,
+		endpoint: endpoint,
+		useSSL:   useSSL,
 	}, nil
+}
+
+// NormalizeEndpoint converts a MinIO endpoint into the host:port format expected by the client.
+func NormalizeEndpoint(rawEndpoint string, useSSL bool) (string, bool, error) {
+	endpoint := strings.TrimSpace(rawEndpoint)
+	if endpoint == "" {
+		return "", useSSL, fmt.Errorf("初始化MinIO失败: endpoint 不能为空")
+	}
+
+	if strings.Contains(endpoint, "://") {
+		parsed, err := url.Parse(endpoint)
+		if err != nil {
+			return "", useSSL, fmt.Errorf("初始化MinIO失败: endpoint 格式非法: %w", err)
+		}
+		if parsed.Host == "" {
+			return "", useSSL, fmt.Errorf("初始化MinIO失败: endpoint 缺少 host")
+		}
+		if parsed.Path != "" && parsed.Path != "/" {
+			return "", useSSL, fmt.Errorf("初始化MinIO失败: endpoint 不应包含路径")
+		}
+
+		switch strings.ToLower(parsed.Scheme) {
+		case "http":
+			useSSL = false
+		case "https":
+			useSSL = true
+		default:
+			return "", useSSL, fmt.Errorf("初始化MinIO失败: 不支持的 endpoint 协议 %q", parsed.Scheme)
+		}
+
+		endpoint = parsed.Host
+	}
+
+	endpoint = strings.TrimSuffix(endpoint, "/")
+	return endpoint, useSSL, nil
 }
 
 // UploadFile 上传文件

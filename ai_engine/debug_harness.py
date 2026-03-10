@@ -8,10 +8,12 @@ try:
     from .parser import DocumentParser
     from .generator import LessonGenerator, GenerationConfig
     from .qa import QAResponder, QAConfig
+    from .reconstructor import LessonReconstructor
 except ImportError:
     from parser import DocumentParser
     from generator import LessonGenerator, GenerationConfig
     from qa import QAResponder, QAConfig
+    from reconstructor import LessonReconstructor
 
 
 def _ensure_dir(path: Path) -> None:
@@ -21,9 +23,9 @@ def _ensure_dir(path: Path) -> None:
 def _create_test_pdf(path: Path) -> None:
     doc = fitz.open()
     page1 = doc.new_page()
-    page1.insert_text((72, 72), "线性回归用于建模变量之间关系")
+    page1.insert_text((72, 72), "Linear regression models the relation between variables")
     page2 = doc.new_page()
-    page2.insert_text((72, 72), "损失函数用于衡量预测误差")
+    page2.insert_text((72, 72), "Loss functions measure prediction error")
     doc.save(str(path))
     doc.close()
 
@@ -76,11 +78,22 @@ def run_debug() -> dict:
     generated_pdf = generator.generate(pdf_parsed)
     _save_json(out_dir / "generated_pdf_mock.json", generated_pdf)
 
+    reconstructed = LessonReconstructor().reconstruct(pdf_parsed)
+    _save_json(out_dir / "reconstructed_pdf.json", reconstructed)
+
     lessons = generated_pdf.get("lessons", [])
     _check(len(lessons) >= 1, "生成结果包含至少 1 条 lesson", checks)
     if lessons:
         _check(bool(lessons[0].get("script")), "lesson 包含 script", checks)
         _check(bool(lessons[0].get("mindmap_markdown")), "lesson 包含 mindmap_markdown", checks)
+
+    nodes = reconstructed.get("teaching_nodes", [])
+    _check(len(nodes) >= 1, "重构结果包含至少 1 个 teaching_node", checks)
+    if nodes:
+        node_script = generator.generate_node_script(nodes[0], pdf_parsed.get("doc_name"))
+        _save_json(out_dir / "generated_node.json", node_script)
+        _check(bool(node_script.get("script")), "节点讲稿包含 script", checks)
+        _check(bool(node_script.get("interactive_questions")), "节点讲稿包含互动问题", checks)
 
     # 3) 问答溯源 + 重讲验证（llm）
     responder = QAResponder(parsed_document=pdf_parsed, config=QAConfig(mode="llm", model="qwen-plus", temperature=0.2))

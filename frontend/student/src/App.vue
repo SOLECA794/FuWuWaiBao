@@ -17,11 +17,15 @@
           :current-page="currentPage"
           :total-page="totalPage"
           :course-img="courseImg"
+          :playback-nodes="playbackNodes"
+          :current-node-id="currentNodeId"
+          :page-summary="pageSummary"
           :trace-point="tracePoint"
           :trace-top="traceTop"
           :trace-left="traceLeft"
           :is-play="isPlay"
           @prev-page="prevPage"
+          @select-node="selectPlaybackNode"
           @toggle-play="togglePlay"
           @next-page="nextPage"
         />
@@ -114,6 +118,8 @@ const studentId = ref('student001')
 const courseId = ref('')
 const sessionId = ref('')
 const currentNodeId = ref('p1_n1')
+const playbackNodes = ref([])
+const pageSummary = ref('')
 const currentCourseName = ref('')
 const currentPage = ref(1)
 const totalPage = ref(10)
@@ -182,15 +188,26 @@ const updateCourseContent = () => {
 const loadStudentScript = async () => {
   if (!courseId.value) {
     currentNodeId.value = 'p1_n1'
+    playbackNodes.value = []
+    pageSummary.value = ''
     return
   }
   try {
     const data = await studentV1Api.coursewares.getPlaybackScript(courseId.value, currentPage.value)
     const nodes = data?.data?.nodes || []
+    playbackNodes.value = nodes
+    pageSummary.value = data?.data?.page_summary || ''
     currentNodeId.value = nodes[0]?.node_id || `p${currentPage.value}_n1`
   } catch (error) {
+    playbackNodes.value = []
+    pageSummary.value = ''
     currentNodeId.value = `p${currentPage.value}_n1`
   }
+}
+
+const selectPlaybackNode = async (nodeId) => {
+  currentNodeId.value = nodeId
+  await saveBreakpoint()
 }
 
 const refreshCurrentPageData = async () => {

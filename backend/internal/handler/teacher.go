@@ -63,11 +63,16 @@ func (h *TeacherHandler) GetScript(c *gin.Context) {
 
 	var coursePage model.CoursePage
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": ""}})
+		nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
+		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": buildPageContextFromTeachingNodes(nodes)}})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": coursePage.ScriptText}})
+	content := strings.TrimSpace(coursePage.ScriptText)
+	if content == "" {
+		content = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseID, pageNum))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": content}})
 }
 
 func (h *TeacherHandler) UpdateScript(c *gin.Context) {
@@ -155,7 +160,7 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 	var page model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&page).Error; err == nil {
-		contextText = page.ScriptText
+		contextText = pageContextText(page)
 	}
 	if strings.TrimSpace(contextText) == "" {
 		contextText = fmt.Sprintf("课程：%s，第 %d 页", courseName, pageNum)
@@ -163,11 +168,17 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 
 	script := ""
 	mindmapMarkdown := ""
+	teachingNodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
 	if h.aiClient != nil {
-		resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: pageNum, Content: contextText, CourseName: courseName, Mode: defaultTeacherMode(req.Mode)})
-		if err == nil && strings.TrimSpace(resp.Script) != "" {
-			script = resp.Script
-			mindmapMarkdown = resp.MindmapMarkdown
+		if generatedScript, generatedMindmap, usedNodes, err := generateAndStoreTeachingNodeScripts(c.Request.Context(), h.db, h.aiClient, courseName, defaultTeacherMode(req.Mode), teachingNodes); usedNodes && err == nil {
+			script = generatedScript
+			mindmapMarkdown = generatedMindmap
+		} else {
+			resp, genErr := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: pageNum, Content: contextText, CourseName: courseName, Mode: defaultTeacherMode(req.Mode)})
+			if genErr == nil && strings.TrimSpace(resp.Script) != "" {
+				script = resp.Script
+				mindmapMarkdown = resp.MindmapMarkdown
+			}
 		}
 	}
 	if strings.TrimSpace(script) == "" {
