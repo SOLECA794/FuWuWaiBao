@@ -6,6 +6,11 @@ from typing import Any
 from dotenv import load_dotenv
 
 try:
+    from .qa import resolve_llm_base_url
+except ImportError:
+    from qa import resolve_llm_base_url
+
+try:
     from .schema import build_node_script_schema
 except ImportError:
     from schema import build_node_script_schema
@@ -149,7 +154,7 @@ class LessonGenerator:
         if not api_key:
             raise RuntimeError("缺少环境变量 AI_API_KEY，无法调用大模型。")
 
-        base_url = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        base_url, _ = resolve_llm_base_url(self.config.model)
         return OpenAI(api_key=api_key, base_url=base_url)
 
     def _request_llm_payload(self, client: Any, system_prompt: str, user_prompt: str) -> str:

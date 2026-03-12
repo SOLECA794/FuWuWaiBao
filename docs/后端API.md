@@ -129,13 +129,27 @@
 - `/qa/voiceToText`
 - `/progress/track`
 - `/progress/adjust`
+- `/platform/users`
+- `/platform/users/{userId}`
+- `/platform/courses`
+- `/platform/courses/{courseId}`
+- `/platform/classes`
+- `/platform/classes/{classId}`
+- `/platform/enrollments`
+- `/platform/enrollments/{enrollmentId}`
+- `/platform/courses` `POST/PUT/DELETE`
+- `/platform/classes` `POST/PUT/DELETE`
+- `/platform/enrollments` `POST/PUT/DELETE`
+- `/platform/courses/{courseId}`
 - `/platform/syncCourse`
 - `/platform/syncUser`
+- `/platform/overview`
 
 ---
 
 ## 七、说明
 
 1. 当前实现优先保证前后端统一接口可用。
-2. 旧版接口继续保留，便于历史页面与 mock 联调。
+2. 平台接口除了 `syncCourse`、`syncUser` 外，现已增加 `users/courses/classes/enrollments` 列表、详情和基础运营写接口，以及 `overview` 用于查看用户、课程、班级、选课关系的落库总览。
+3. 旧版接口继续保留，便于历史页面与 mock 联调。
 3. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。

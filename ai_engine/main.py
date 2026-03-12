@@ -1,23 +1,31 @@
+from datetime import datetime
+import sys
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 import shutil
 import os
 import uuid
 import json
+import wave
 from pathlib import Path
 from typing import List, Optional, Any
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 # 导入你之前写的 AI 核心逻辑
 try:
     from .parser import DocumentParser
     from .generator import LessonGenerator, GenerationConfig
-    from .qa import QAResponder, QAConfig
+    from .qa import QAResponder, QAConfig, resolve_llm_base_url
     from .reconstructor import LessonReconstructor, ReconstructionConfig
 except ImportError:
     from parser import DocumentParser
     from generator import LessonGenerator, GenerationConfig
-    from qa import QAResponder, QAConfig
+    from qa import QAResponder, QAConfig, resolve_llm_base_url
     from reconstructor import LessonReconstructor, ReconstructionConfig
 
 app = FastAPI(title="泛雅 AI 智课系统后端", description="为前端提供解析、生成、问答、重讲等核心 AI 接口")
@@ -33,6 +41,9 @@ app.add_middleware(
 # 临时文件存放目录
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+AUDIO_DIR = UPLOAD_DIR / "generated_audio"
+AUDIO_DIR.mkdir(exist_ok=True)
+app.mount("/generated-audio", StaticFiles(directory=str(AUDIO_DIR)), name="generated-audio")
 
 # 内存中的简单“状态机”：真实环境下这里会接数据库
 # 存储 key: doc_id, value: { "parsed": ..., "generated": ... }
@@ -59,6 +70,9 @@ class AskWithContextRequest(BaseModel):
     current_page: int
     context: str = ""
     mode: str = "llm"
+    session_id: Optional[str] = None
+    history_summary: str = ""
+    recent_turns: List[dict[str, Any]] = Field(default_factory=list)
 
 
 class ParseKnowledgeRequest(BaseModel):
@@ -75,6 +89,26 @@ class GenerateNodeScriptRequest(BaseModel):
     teaching_node: dict[str, Any]
     course_name: Optional[str] = None
     mode: str = "llm"
+
+
+class GenerateAudioNode(BaseModel):
+    node_id: str
+    title: str = ""
+    text: str = ""
+    duration_sec: int = 0
+    start_sec: int = 0
+    end_sec: int = 0
+    audio_url: str = ""
+
+
+class GenerateAudioRequest(BaseModel):
+    course_id: str
+    page: int
+    voice_type: str = ""
+    format: str = "wav"
+    provider: str = ""
+    nodes: List[GenerateAudioNode] = Field(default_factory=list)
+    playback_id: str = ""
 
 # --- 核心接口实现 ---
 
@@ -231,6 +265,158 @@ async def generate_node_script(req: GenerateNodeScriptRequest):
         raise HTTPException(status_code=500, detail=f"节点讲稿生成失败: {str(e)}")
 
 
+def _audio_base_url() -> str:
+    return os.getenv("AI_PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+def _normalize_audio_provider(provider: str) -> str:
+    value = (provider or os.getenv("TTS_PROVIDER") or "mock-tts").strip().lower()
+    return value or "mock-tts"
+
+
+def _normalize_audio_voice(value: str) -> str:
+    return (value or os.getenv("TTS_VOICE") or "alloy").strip() or "alloy"
+
+
+def _normalize_audio_format(value: str) -> str:
+    normalized = (value or "wav").strip().lower()
+    if normalized not in {"wav", "mp3"}:
+        return "wav"
+    return normalized
+
+
+def _estimate_duration_sec(node: GenerateAudioNode) -> int:
+    if node.duration_sec > 0:
+        return node.duration_sec
+    text = (node.text or "").strip()
+    return max(2, min(90, len(text) // 12 if text else 2))
+
+
+def _write_silent_wav(output_path: Path, duration_sec: int) -> None:
+    sample_rate = 16000
+    chunk_frames = sample_rate
+    total_frames = max(sample_rate, duration_sec * sample_rate)
+    silence_chunk = b"\x00\x00" * chunk_frames
+    with wave.open(str(output_path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        remaining = total_frames
+        while remaining > 0:
+            current = min(chunk_frames, remaining)
+            wav_file.writeframes(silence_chunk[: current * 2])
+            remaining -= current
+
+
+def _generate_mock_tts(req: GenerateAudioRequest, provider: str, voice_type: str) -> dict[str, Any]:
+    sections: List[dict[str, Any]] = []
+    total_duration = 0
+    for index, node in enumerate(req.nodes, start=1):
+        duration_sec = _estimate_duration_sec(node)
+        start_sec = node.start_sec if node.start_sec >= total_duration else total_duration
+        end_sec = start_sec + duration_sec
+        total_duration = end_sec
+
+        file_name = f"{req.course_id}_p{req.page}_{index:02d}_{uuid.uuid4().hex[:8]}.wav"
+        output_path = AUDIO_DIR / file_name
+        _write_silent_wav(output_path, duration_sec)
+        sections.append({
+            "node_id": node.node_id,
+            "title": node.title,
+            "text": node.text,
+            "duration_sec": duration_sec,
+            "start_sec": start_sec,
+            "end_sec": end_sec,
+            "audio_url": f"{_audio_base_url()}/generated-audio/{file_name}",
+        })
+
+    return {
+        "audio_id": req.playback_id or f"audio_{req.course_id}_{req.page}",
+        "audio_url": "",
+        "provider": provider,
+        "voice_type": voice_type,
+        "format": "wav",
+        "status": "ready",
+        "total_duration_sec": total_duration,
+        "playback_mode": "audio_timeline",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sections": sections,
+    }
+
+
+def _generate_openai_tts(req: GenerateAudioRequest, provider: str, voice_type: str) -> dict[str, Any]:
+    from openai import OpenAI
+
+    api_key = os.getenv("AI_API_KEY")
+    if not api_key:
+        raise RuntimeError("缺少 AI_API_KEY，无法调用 OpenAI TTS")
+
+    model = os.getenv("TTS_MODEL", "gpt-4o-mini-tts")
+    base_url, _ = resolve_llm_base_url(model)
+    client = OpenAI(api_key=api_key, base_url=base_url)
+
+    sections: List[dict[str, Any]] = []
+    total_duration = 0
+    for index, node in enumerate(req.nodes, start=1):
+        duration_sec = _estimate_duration_sec(node)
+        text = (node.text or "").strip() or node.title or node.node_id
+        start_sec = node.start_sec if node.start_sec >= total_duration else total_duration
+        end_sec = start_sec + duration_sec
+        total_duration = end_sec
+
+        file_name = f"{req.course_id}_p{req.page}_{index:02d}_{uuid.uuid4().hex[:8]}.mp3"
+        output_path = AUDIO_DIR / file_name
+        speech = client.audio.speech.create(model=model, voice=voice_type, input=text)
+        speech.stream_to_file(output_path)
+        sections.append({
+            "node_id": node.node_id,
+            "title": node.title,
+            "text": node.text,
+            "duration_sec": duration_sec,
+            "start_sec": start_sec,
+            "end_sec": end_sec,
+            "audio_url": f"{_audio_base_url()}/generated-audio/{file_name}",
+        })
+
+    return {
+        "audio_id": req.playback_id or f"audio_{req.course_id}_{req.page}",
+        "audio_url": "",
+        "provider": provider,
+        "voice_type": voice_type,
+        "format": "mp3",
+        "status": "ready",
+        "total_duration_sec": total_duration,
+        "playback_mode": "audio_timeline",
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "sections": sections,
+    }
+
+
+@app.post("/generate-audio")
+async def generate_audio(req: GenerateAudioRequest):
+    if not req.course_id.strip():
+        raise HTTPException(status_code=400, detail="course_id 不能为空")
+    if req.page < 1:
+        raise HTTPException(status_code=400, detail="page 必须大于 0")
+    if not req.nodes:
+        raise HTTPException(status_code=400, detail="nodes 不能为空")
+
+    provider = _normalize_audio_provider(req.provider)
+    voice_type = _normalize_audio_voice(req.voice_type)
+    _ = _normalize_audio_format(req.format)
+    try:
+        if provider == "openai-tts":
+            return _generate_openai_tts(req, provider, voice_type)
+        return _generate_mock_tts(req, provider, voice_type)
+    except Exception as exc:
+        if provider != "mock-tts":
+            fallback = _generate_mock_tts(req, "mock-tts", voice_type)
+            fallback["status"] = "fallback_ready"
+            fallback["fallback_reason"] = str(exc)
+            return fallback
+        raise HTTPException(status_code=500, detail=f"音频生成失败: {str(exc)}")
+
+
 @app.post("/ask-with-context")
 async def ask_with_context(req: AskWithContextRequest):
     """基于上下文直接问答（供 Go 后端调用）。"""
@@ -247,7 +433,7 @@ async def ask_with_context(req: AskWithContextRequest):
             ],
         }
         responder = QAResponder(parsed_document, config=QAConfig(mode=req.mode))
-        return responder.answer(req.question, req.current_page)
+        return responder.answer(req.question, req.current_page, history_summary=req.history_summary, recent_turns=req.recent_turns)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"问答失败: {str(e)}")
 
@@ -265,8 +451,8 @@ def _llm_parse_knowledge(text: str, mode: str) -> dict[str, Any]:
     if not api_key:
         raise RuntimeError("缺少环境变量 AI_API_KEY，无法调用大模型")
 
-    base_url = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     model = os.getenv("AI_MODEL", "qwen-plus")
+    base_url, _ = resolve_llm_base_url(model)
     client = OpenAI(api_key=api_key, base_url=base_url)
 
     prompt = (
@@ -303,10 +489,24 @@ async def parse_knowledge(req: ParseKnowledgeRequest):
         raise HTTPException(status_code=500, detail=f"知识点解析失败: {e}")
 
 
+def _llm_health_payload() -> dict[str, Any]:
+    api_key = (os.getenv("AI_API_KEY") or "").strip()
+    model = (os.getenv("AI_MODEL") or "qwen-plus").strip()
+    base_url, normalize_reason = resolve_llm_base_url(model)
+    return {
+        "configured": bool(api_key),
+        "mode": (os.getenv("AI_GEN_MODE") or "llm").strip() or "llm",
+        "provider_base_url": base_url,
+        "model": model,
+        "degraded": not bool(api_key),
+        "reason": "missing_api_key" if not api_key else normalize_reason,
+    }
+
+
 @app.get("/health")
 def health_check():
     """健康检查接口，供前端联调测试"""
-    return {"status": "running", "version": "v1.0.0"}
+    return {"status": "running", "version": "v1.0.0", "llm": _llm_health_payload()}
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,10 +9,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/pkg/logger"
 	"smart-teaching-backend/pkg/oss"
+	"sort"
 	"strings"
 
 	"gorm.io/gorm"
@@ -233,17 +233,18 @@ func (s *courseService) saveTeachingNodes(tx *gorm.DB, courseID string, reconstr
 		}
 
 		nodes = append(nodes, model.TeachingNode{
-			CourseID:         courseID,
-			NodeID:           node.NodeID,
-			ChapterTitle:     chapterByNodeID[node.NodeID],
-			PageIndex:        pageIndex,
-			Title:            node.Title,
-			Summary:          node.Summary,
-			SourcePages:      string(sourcePages),
-			CorePoints:       string(corePoints),
-			Examples:         string(examples),
-			CommonConfusions: string(commonConfusions),
-			SortOrder:        index,
+			CourseID:          courseID,
+			NodeID:            node.NodeID,
+			ChapterTitle:      chapterByNodeID[node.NodeID],
+			PageIndex:         pageIndex,
+			EstimatedDuration: node.EstimatedDuration,
+			Title:             node.Title,
+			Summary:           node.Summary,
+			SourcePages:       string(sourcePages),
+			CorePoints:        string(corePoints),
+			Examples:          string(examples),
+			CommonConfusions:  string(commonConfusions),
+			SortOrder:         index,
 		})
 	}
 

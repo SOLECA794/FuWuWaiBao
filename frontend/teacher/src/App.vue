@@ -5,15 +5,17 @@
       :backend-status-text="backendStatusText"
     />
     <TeacherOverviewStrip
+      :mode="activeTab === 'platform' ? 'platform' : 'course'"
       :current-course-name="currentCourseName"
       :current-edit-page="currentEditPage"
       :current-course-total-pages="currentCourseTotalPages"
       :current-course-published="currentCoursePublished"
+      :platform-summary="platformSummary"
     />
 
     <div class="main-content">
       <TeacherCoursewareSidebar
-        v-show="isSidebarVisible"
+        v-show="isSidebarVisible && activeTab !== 'platform'"
         :courseware-list="coursewareList"
         :current-course-id="currentCourseId"
         :current-course-name="currentCourseName"
@@ -29,7 +31,7 @@
 
       <div class="editor-section">
         <div class="tabs">
-          <button class="toggle-sidebar-btn" @click="isSidebarVisible = !isSidebarVisible" :title="isSidebarVisible ? '收起侧边栏' : '展开侧边栏'">
+          <button v-if="activeTab !== 'platform'" class="toggle-sidebar-btn" @click="isSidebarVisible = !isSidebarVisible" :title="isSidebarVisible ? '收起侧边栏' : '展开侧边栏'">
             {{ isSidebarVisible ? '◀' : '▶' }}
           </button>
           <button class="tab-btn" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'">讲稿编辑</button>
@@ -37,10 +39,15 @@
           <button class="tab-btn" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">学情分析</button>
           <button class="tab-btn" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'">提问统计</button>
           <button class="tab-btn" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'">学习卡点可视化</button>
+          <button class="tab-btn" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'">平台管理</button>
+        </div>
+
+        <div v-if="activeTab === 'platform'" class="tab-container">
+          <PlatformManagementPanel @summary-change="handlePlatformSummaryChange" />
         </div>
 
         <!-- 预览面板：使用后端课件预览接口 -->
-        <div v-if="activeTab === 'preview'" class="preview-panel">
+        <div v-else-if="activeTab === 'preview'" class="preview-panel">
           <div v-if="currentCourseId" class="preview-header">
             <h3>{{ currentCourseName }} - 第{{ currentEditPage }}页</h3>
             <div class="preview-controls">
@@ -100,7 +107,8 @@
             :script-saving="scriptSaving"
             @generate-ai-script="generateAIScript"
             @save-script="saveScript"
-            @update:current-script="currentScript = $event"
+            @update:current-script="updateCurrentScript"
+            @update:current-script-nodes="updateCurrentScriptNodes"
           ></TeacherScriptPanel>
         </div>
 
@@ -182,6 +190,7 @@ import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vu
 import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
+import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
 
 // --- 状态管理 ---
 const coursewareList = ref([])
@@ -190,6 +199,7 @@ const currentCourseName = ref('')
 const currentCourseTotalPages = ref(0)
 const currentEditPage = ref(1)
 const currentScript = ref('')
+const currentScriptNodes = ref([])
 
 const showUploadModal = ref(false)
 const fileInput = ref(null)
@@ -205,10 +215,14 @@ const scriptSaving = ref(false)
 
 const activeTab = ref('script')
 const isSidebarVisible = ref(window.innerWidth > 1024)
+const platformSummary = ref({ users: 0, courses: 0, classes: 0, enrollments: 0 })
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
-  keyDifficulties: '暂无'
+  keyDifficulties: '暂无',
+  activeSessions: 0,
+  reteachCount: 0,
+  avgTurnsPerSession: 0
 })
 
 const cardData = ref([])
@@ -235,21 +249,6 @@ const backendStatusText = computed(() => {
 
 const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
-})
-
-const currentScriptNodes = computed(() => {
-  const raw = String(currentScript.value || '').trim()
-  if (!raw) return []
-
-  return raw
-    .split(/\n+|(?<=[。！？])/)
-    .map(item => item.trim())
-    .filter(Boolean)
-    .map((text, index, list) => ({
-      nodeId: `p${currentEditPage.value}_n${index + 1}`,
-      type: index === 0 ? 'opening' : index === list.length - 1 ? 'transition' : 'explain',
-      text
-    }))
 })
 
 // 新增：真实预览URL（假设后端返回图片）
@@ -365,6 +364,7 @@ const deleteCourse = async (courseId) => {
       currentCourseName.value = ''
       currentCourseTotalPages.value = 0
       currentScript.value = ''
+      currentScriptNodes.value = []
       questionRecords.value = []
       cardData.value = []
     }
@@ -389,8 +389,10 @@ const loadScript = async (courseId, page) => {
   try {
     const data = await teacherV1Api.coursewares.getScript(courseId, page)
     currentScript.value = data?.data?.content || ''
+    currentScriptNodes.value = normalizeNodeDrafts(data?.data?.nodes || [], currentScript.value, page)
   } catch (err) {
     currentScript.value = ''
+    currentScriptNodes.value = []
   }
 }
 
@@ -398,11 +400,24 @@ const saveScript = async () => {
   if (!currentScript.value.trim()) return alert('请输入讲稿内容！')
   scriptSaving.value = true
   try {
-    await teacherV1Api.coursewares.saveScript({
+    const nodesPayload = normalizeNodeDrafts(currentScriptNodes.value, currentScript.value, currentEditPage.value)
+    const nodeResult = await teacherV1Api.coursewares.saveNodes({
       courseId: currentCourseId.value,
       pageNum: currentEditPage.value,
-      content: currentScript.value
+      nodes: nodesPayload.map((node, index) => ({
+        id: node.id,
+        nodeId: node.nodeId,
+        title: node.title,
+        summary: node.summary,
+        scriptText: node.scriptText,
+        reteachScript: node.reteachScript,
+        transitionText: node.transitionText,
+        estimatedDuration: Number(node.estimatedDuration) || 0,
+        sortOrder: index + 1
+      }))
     })
+    currentScript.value = nodeResult?.data?.content || currentScript.value
+    currentScriptNodes.value = normalizeNodeDrafts(nodeResult?.data?.nodes || [], currentScript.value, currentEditPage.value)
     alert('讲稿保存成功！')
   } catch (err) {
     alert('保存讲稿失败：' + err.message)
@@ -420,8 +435,10 @@ const generateAIScript = async () => {
       pageNum: currentEditPage.value
     })
     currentScript.value = data?.data?.content || 'AI生成失败，请重试'
+    currentScriptNodes.value = normalizeNodeDrafts(data?.data?.nodes || [], currentScript.value, currentEditPage.value)
   } catch (err) {
     currentScript.value = '生成失败：' + err.message
+    currentScriptNodes.value = normalizeNodeDrafts([], currentScript.value, currentEditPage.value)
   } finally {
     scriptGenerating.value = false
   }
@@ -480,11 +497,14 @@ const loadStudentStats = async (courseId) => {
     const payload = data?.data || {}
     studentStats.value = {
       totalQuestions: payload.totalQuestions || 0,
-      hotPages: (payload.pageStats || []).map(item => item.page).slice(0, 3),
-      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无'
+      hotPages: (payload.hotPages || payload.pageStats || []).map(item => item.page).slice(0, 3),
+      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无',
+      activeSessions: payload.activeSessions || 0,
+      reteachCount: payload.reteachCount || 0,
+      avgTurnsPerSession: payload.avgTurnsPerSession || 0
     }
   } catch (err) {
-    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败' }
+    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败', activeSessions: 0, reteachCount: 0, avgTurnsPerSession: 0 }
   }
 }
 
@@ -496,7 +516,9 @@ const loadCardData = async (courseId) => {
       page: item.page,
       提问量: item.questionCount,
       停留时长: item.stayTime,
-      卡点指数: item.cardIndex
+      卡点指数: item.cardIndex,
+      追问会话: item.sessionCount,
+      需重讲: item.needReteachCount
     }))
   } catch (err) {
     cardData.value = []
@@ -513,25 +535,110 @@ const loadQuestionRecords = async (courseId) => {
       page: item.page_index || item.pageIndex || 1,
       content: item.question || '',
       answer: item.answer || '',
+      needReteach: !!item.need_reteach,
       time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
     }))
   } catch (err) {
     questionRecords.value = []
   }
 }
+
+const updateCurrentScript = (value) => {
+  currentScript.value = value
+  currentScriptNodes.value = normalizeNodeDrafts(currentScriptNodes.value, value, currentEditPage.value)
+}
+
+const updateCurrentScriptNodes = (nodes) => {
+  currentScriptNodes.value = normalizeNodeDrafts(nodes, currentScript.value, currentEditPage.value)
+  currentScript.value = buildScriptFromNodes(currentScriptNodes.value, currentScript.value)
+}
+
+const handlePlatformSummaryChange = (summary) => {
+  platformSummary.value = {
+    users: Number(summary?.users || 0),
+    courses: Number(summary?.courses || 0),
+    classes: Number(summary?.classes || 0),
+    enrollments: Number(summary?.enrollments || 0)
+  }
+}
+
+function normalizeNodeDrafts(nodes, fallbackScript, page) {
+  if (Array.isArray(nodes) && nodes.length > 0) {
+    return nodes.map((node, index, list) => ({
+      id: node.id || '',
+      nodeId: node.nodeId || `p${page}_n${index + 1}`,
+      type: node.type || inferNodeType(index, list.length),
+      title: node.title || `第${page}页节点${index + 1}`,
+      summary: node.summary || '',
+      scriptText: node.scriptText || '',
+      reteachScript: node.reteachScript || '',
+      transitionText: node.transitionText || '',
+      estimatedDuration: Number(node.estimatedDuration) || estimateDuration(node.scriptText || node.summary || ''),
+      sortOrder: Number(node.sortOrder) || index + 1
+    }))
+  }
+
+  return splitScriptToNodes(fallbackScript, page)
+}
+
+function splitScriptToNodes(script, page) {
+  const raw = String(script || '').trim()
+  if (!raw) return []
+  return raw
+    .split(/\n{2,}|(?<=[。！？])\s*/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map((text, index, list) => ({
+      id: '',
+      nodeId: `p${page}_n${index + 1}`,
+      type: inferNodeType(index, list.length),
+      title: `第${page}页节点${index + 1}`,
+      summary: text.length > 48 ? `${text.slice(0, 48)}...` : text,
+      scriptText: text,
+      reteachScript: '',
+      transitionText: '',
+      estimatedDuration: estimateDuration(text),
+      sortOrder: index + 1
+    }))
+}
+
+function buildScriptFromNodes(nodes, fallback) {
+  const content = (nodes || [])
+    .map(node => String(node.scriptText || node.summary || '').trim())
+    .filter(Boolean)
+    .join('\n\n')
+  return content || fallback || ''
+}
+
+function inferNodeType(index, total) {
+  if (total <= 1 || index === 0) return 'opening'
+  if (index === total - 1) return 'transition'
+  return 'explain'
+}
+
+function estimateDuration(text) {
+  const size = Math.ceil(String(text || '').trim().length / 14)
+  return Math.max(20, Math.min(90, size || 20))
+}
 </script>
 
 <style scoped>
 .teacher-app {
   width: 100%;
+  min-height: 100vh;
   height: 100vh;
   overflow: hidden;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+  background:
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.11), transparent 30%),
+    radial-gradient(circle at right top, rgba(2, 132, 199, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.92) 0%, rgba(244, 248, 252, 0.96) 48%, rgba(237, 243, 249, 0.98) 100%);
 }
 .main-content {
   display: flex;
   height: calc(100vh - 108px);
+  padding: 16px;
+  gap: 16px;
+  box-sizing: border-box;
 }
 .editor-section {
   flex: 1;
@@ -539,62 +646,70 @@ const loadQuestionRecords = async (courseId) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.72) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(16px);
 }
 .tabs {
   display: flex;
-  gap: 0;
+  gap: 8px;
   flex-shrink: 0;
-  padding: 0 10px;
-  background: #fff;
-  border-bottom: 1px solid #e6ecf5;
-  height: 52px;
+  padding: 16px 18px 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.54) 0%, rgba(255, 255, 255, 0.18) 100%);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+  min-height: 68px;
   align-items: center;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .toggle-sidebar-btn {
   border: none;
-  background: #f1f5f9;
-  color: #64748b;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #334155;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   margin-right: 10px;
   flex-shrink: 0;
   transition: all 0.2s;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 .toggle-sidebar-btn:hover {
-  background: #e2e8f0;
-  color: #1e293b;
+  background: rgba(224, 242, 254, 0.9);
+  color: #075985;
 }
 .tab-btn {
   border: none;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
-  padding: 0 14px;
-  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.82);
   color: #64748b;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 700;
   font-size: 13px;
-  transition: color 0.2s, border-color 0.2s, background 0.15s;
-  margin-bottom: -1px;
-  height: 100%;
+  transition: color 0.2s, border-color 0.2s, background 0.15s, box-shadow 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
 }
 .tab-btn.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
+  color: #ffffff;
+  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
+  box-shadow: 0 14px 24px rgba(2, 132, 199, 0.22);
+  border-color: transparent;
 }
 .tab-btn:hover:not(.active) {
-  color: #334155;
-  background: #f8faff;
+  color: #0f172a;
+  background: rgba(240, 249, 255, 0.92);
 }
 
 .tab-container {
@@ -610,7 +725,7 @@ const loadQuestionRecords = async (courseId) => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 22px;
   overflow: auto;
 }
 .preview-header {
@@ -619,11 +734,11 @@ const loadQuestionRecords = async (courseId) => {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
 }
 .preview-header h3 {
   margin: 0;
-  color: #1e3a8a;
+  color: #0f172a;
   font-size: 18px;
 }
 .preview-controls {
@@ -631,27 +746,29 @@ const loadQuestionRecords = async (courseId) => {
   gap: 8px;
 }
 .preview-btn {
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  background: #2563eb;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
   color: #fff;
   cursor: pointer;
-  border: 1px solid transparent;
+  box-shadow: 0 12px 22px rgba(2, 132, 199, 0.18);
 }
 .preview-btn:disabled {
-  background: #94a3b8;
+  background: rgba(148, 163, 184, 0.9);
   cursor: not-allowed;
+  box-shadow: none;
 }
 .preview-content {
   flex: 1;
   width: 100%;
   height: 100%;
   position: relative;
-  border-radius: 8px;
+  border-radius: 18px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 /* 本地加载动画 */
@@ -700,9 +817,9 @@ const loadQuestionRecords = async (courseId) => {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.6);
-  border-radius: 14px;
-  border: 1px dashed #cbd5e1;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76) 0%, rgba(248, 250, 252, 0.88) 100%);
+  border-radius: 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
   margin: 20px;
 }
 
@@ -710,5 +827,33 @@ const loadQuestionRecords = async (courseId) => {
   color: #94a3b8;
   font-size: 15px;
   text-align: center;
+}
+
+@media (max-width: 1080px) {
+  .main-content {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .editor-section {
+    border-radius: 24px;
+  }
+}
+
+@media (max-width: 860px) {
+  .teacher-app {
+    height: auto;
+    overflow: auto;
+  }
+
+  .main-content {
+    height: auto;
+    min-height: calc(100vh - 108px);
+    flex-direction: column;
+  }
+
+  .editor-section {
+    min-height: 70vh;
+  }
 }
 </style>

@@ -69,10 +69,11 @@ func (h *TeacherHandler) GetScript(c *gin.Context) {
 	}
 
 	content := strings.TrimSpace(coursePage.ScriptText)
+	nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
 	if content == "" {
-		content = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseID, pageNum))
+		content = buildPageContextFromTeachingNodes(nodes)
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": content}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": content, "nodes": buildTeacherNodePayload(nodes)}})
 }
 
 func (h *TeacherHandler) UpdateScript(c *gin.Context) {
@@ -98,6 +99,44 @@ func (h *TeacherHandler) UpdateScript(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
+}
+
+func (h *TeacherHandler) GetTeachingNodes(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		return
+	}
+
+	nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "nodes": buildTeacherNodePayload(nodes)}})
+}
+
+func (h *TeacherHandler) UpdateTeachingNodes(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		return
+	}
+
+	var req struct {
+		Nodes []teacherNodeUpsertRequest `json:"nodes" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+
+	content, savedNodes, err := h.replaceTeachingNodes(courseID, pageNum, req.Nodes)
+	if err != nil {
+		logger.Errorf("保存节点讲稿失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "节点保存失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "content": content, "nodes": buildTeacherNodePayload(savedNodes)}})
 }
 
 func (h *TeacherHandler) SaveScript(c *gin.Context) {
@@ -193,6 +232,30 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": script, "mindmapMarkdown": mindmapMarkdown}})
 }
 
+func (h *TeacherHandler) GeneratePageAudio(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		return
+	}
+
+	var req struct {
+		VoiceType string `json:"voiceType"`
+		Format    string `json:"audioFormat"`
+		Provider  string `json:"provider"`
+	}
+	_ = c.ShouldBindJSON(&req)
+
+	payload, err := ensurePlaybackAudioAssets(c.Request.Context(), h.db, h.aiClient, courseID, pageNum, req.VoiceType, req.Format, req.Provider)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "音频元数据已生成", "data": payload})
+}
+
 func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
@@ -250,13 +313,40 @@ func (h *TeacherHandler) GetQuestionRecords(c *gin.Context) {
 	}
 
 	offset := (page - 1) * pageSize
+	type questionRecord struct {
+		ID          string    `json:"id"`
+		UserID      string    `json:"user_id"`
+		PageIndex   int       `json:"page_index"`
+		Question    string    `json:"question"`
+		Answer      string    `json:"answer"`
+		NeedReteach bool      `json:"need_reteach"`
+		CreatedAt   time.Time `json:"created_at"`
+	}
+
 	var total int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&total)
+	h.db.Model(&model.DialogueTurn{}).Where("course_id = ?", courseID).Count(&total)
 
-	var logs []model.QuestionLog
-	h.db.Where("course_id = ?", courseID).Order("created_at desc").Offset(offset).Limit(pageSize).Find(&logs)
+	list := make([]questionRecord, 0)
+	if total > 0 {
+		_ = h.db.Model(&model.DialogueTurn{}).
+			Select("id, user_id, page_index, question, answer, need_reteach, created_at").
+			Where("course_id = ?", courseID).
+			Order("created_at desc").
+			Offset(offset).
+			Limit(pageSize).
+			Scan(&list).Error
+	} else {
+		h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&total)
+		_ = h.db.Model(&model.QuestionLog{}).
+			Select("id, user_id, page_index, question, answer, created_at").
+			Where("course_id = ?", courseID).
+			Order("created_at desc").
+			Offset(offset).
+			Limit(pageSize).
+			Scan(&list).Error
+	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"list": logs, "total": total, "page": page, "pageSize": pageSize}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"list": list, "total": total, "page": page, "pageSize": pageSize}})
 }
 
 func (h *TeacherHandler) GetCardData(c *gin.Context) {
@@ -267,32 +357,9 @@ func (h *TeacherHandler) GetCardData(c *gin.Context) {
 		return
 	}
 
-	type pageStat struct {
-		PageIndex     int     `json:"page"`
-		QuestionCount int     `json:"questionCount"`
-		StayTime      float64 `json:"stayTime"`
-		CardIndex     float64 `json:"cardIndex"`
-	}
+	stats := h.buildTeacherPageStats(courseID, course.TotalPage)
 
-	stats := make([]pageStat, 0)
-	rows, err := h.db.Table("question_logs").Select("page_index, count(*) as question_count").Where("course_id = ?", courseID).Group("page_index").Order("page_index").Rows()
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var stat pageStat
-			_ = rows.Scan(&stat.PageIndex, &stat.QuestionCount)
-			stat.StayTime = 0
-			stat.CardIndex = float64(stat.QuestionCount)
-			stats = append(stats, stat)
-		}
-	}
-	if len(stats) == 0 {
-		for page := 1; page <= maxCoursePage(course.TotalPage); page++ {
-			stats = append(stats, pageStat{PageIndex: page, QuestionCount: 0, StayTime: 0, CardIndex: 0})
-		}
-	}
-
-	topCandidates := append([]pageStat(nil), stats...)
+	topCandidates := append([]teacherPageStat(nil), stats...)
 	sort.Slice(topCandidates, func(i, j int) bool {
 		return topCandidates[i].CardIndex > topCandidates[j].CardIndex
 	})
@@ -303,47 +370,450 @@ func (h *TeacherHandler) GetCardData(c *gin.Context) {
 		if ratio > 100 {
 			ratio = 100
 		}
-		topPages = append(topPages, gin.H{"page": stat.PageIndex, "value": stat.QuestionCount, "ratio": ratio})
+		topPages = append(topPages, gin.H{"page": stat.PageIndex, "value": stat.QuestionCount, "ratio": ratio, "needReteachCount": stat.NeedReteachCount, "sessionCount": stat.SessionCount})
 	}
 
-	var totalQuestions int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&totalQuestions)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"pageStats": stats, "topPages": topPages, "totalQuestions": totalQuestions}})
+	classStats := h.buildClassStats(courseID)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"pageStats": stats, "topPages": topPages, "totalQuestions": classStats["totalQuestions"], "reteachCount": classStats["reteachCount"], "activeSessions": classStats["activeSessions"]}})
 }
 
 func (h *TeacherHandler) upsertScript(courseID string, pageNum int, content string) error {
+	return upsertTeacherScriptWithDB(h.db, courseID, pageNum, content)
+}
+
+func upsertTeacherScriptWithDB(db *gorm.DB, courseID string, pageNum int, content string) error {
 	var coursePage model.CoursePage
-	err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error
+	err := db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error
 	if err != nil {
-		return h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: pageNum, ScriptText: content}).Error
+		return db.Create(&model.CoursePage{CourseID: courseID, PageIndex: pageNum, ScriptText: content}).Error
 	}
-	return h.db.Model(&coursePage).Update("script_text", content).Error
+	return db.Model(&coursePage).Update("script_text", content).Error
 }
 
 func (h *TeacherHandler) buildClassStats(courseID string) gin.H {
+	var course model.Course
+	_ = h.db.Select("id", "total_page").First(&course, "id = ?", courseID).Error
+	stats := h.buildTeacherPageStats(courseID, course.TotalPage)
+
 	type questionFreq struct {
 		Page  int `json:"page"`
 		Count int `json:"count"`
 	}
 
-	var questionFreqs []questionFreq
-	h.db.Table("question_logs").Select("page_index as page, count(*) as count").Where("course_id = ?", courseID).Group("page_index").Order("page").Scan(&questionFreqs)
-
-	var totalQuestions int64
-	h.db.Model(&model.QuestionLog{}).Where("course_id = ?", courseID).Count(&totalQuestions)
-	var activeUsers int64
-	h.db.Table("question_logs").Where("course_id = ?", courseID).Distinct("user_id").Count(&activeUsers)
-
-	questions := make([]string, 0)
-	h.db.Table("question_logs").Where("course_id = ?", courseID).Pluck("question", &questions)
-	keywords := generateKeywordStats(questions)
-
-	pageStats := make([]gin.H, 0, len(questionFreqs))
-	for _, item := range questionFreqs {
-		pageStats = append(pageStats, gin.H{"page": item.Page, "count": item.Count})
+	questionFreqs := make([]questionFreq, 0, len(stats))
+	pageStats := make([]gin.H, 0, len(stats))
+	pageStayTime := make([]gin.H, 0, len(stats))
+	hotPages := make([]gin.H, 0)
+	totalQuestions := 0
+	totalReteach := 0
+	activeSessions := 0
+	for _, item := range stats {
+		questionFreqs = append(questionFreqs, questionFreq{Page: item.PageIndex, Count: item.QuestionCount})
+		pageStats = append(pageStats, gin.H{
+			"page":              item.PageIndex,
+			"count":             item.QuestionCount,
+			"questionCount":     item.QuestionCount,
+			"dialogueCount":     item.DialogueCount,
+			"sessionCount":      item.SessionCount,
+			"needReteachCount":  item.NeedReteachCount,
+			"stayTime":          item.StayTime,
+			"cardIndex":         item.CardIndex,
+			"avgTurns":          item.AvgTurns,
+			"estimatedDuration": item.BaseDuration,
+		})
+		pageStayTime = append(pageStayTime, gin.H{"page": item.PageIndex, "seconds": item.StayTime})
+		totalQuestions += item.QuestionCount
+		totalReteach += item.NeedReteachCount
+		activeSessions += item.SessionCount
 	}
 
-	return gin.H{"pageStayTime": []gin.H{}, "questionFreq": questionFreqs, "wordCloud": keywords, "pageStats": pageStats, "keywords": keywords, "totalQuestions": totalQuestions, "activeUsers": activeUsers}
+	topCandidates := append([]teacherPageStat(nil), stats...)
+	sort.Slice(topCandidates, func(i, j int) bool {
+		if topCandidates[i].QuestionCount == topCandidates[j].QuestionCount {
+			return topCandidates[i].CardIndex > topCandidates[j].CardIndex
+		}
+		return topCandidates[i].QuestionCount > topCandidates[j].QuestionCount
+	})
+	for i := 0; i < minTeacherInt(3, len(topCandidates)); i++ {
+		if topCandidates[i].QuestionCount == 0 && topCandidates[i].SessionCount == 0 {
+			continue
+		}
+		hotPages = append(hotPages, gin.H{"page": topCandidates[i].PageIndex, "count": topCandidates[i].QuestionCount, "cardIndex": topCandidates[i].CardIndex})
+	}
+
+	questions := h.collectTeacherQuestions(courseID)
+	keywords := generateKeywordStats(questions)
+	activeUsers := h.countDistinctUsers(courseID)
+	avgTurnsPerSession := 0.0
+	if activeSessions > 0 {
+		avgTurnsPerSession = roundTeacherFloat(float64(totalQuestions) / float64(activeSessions))
+	}
+
+	return gin.H{
+		"pageStayTime":       pageStayTime,
+		"questionFreq":       questionFreqs,
+		"wordCloud":          keywords,
+		"pageStats":          pageStats,
+		"keywords":           keywords,
+		"hotPages":           hotPages,
+		"totalQuestions":     totalQuestions,
+		"totalDialogueTurns": totalQuestions,
+		"reteachCount":       totalReteach,
+		"activeSessions":     activeSessions,
+		"activeUsers":        activeUsers,
+		"avgTurnsPerSession": avgTurnsPerSession,
+	}
+}
+
+type teacherNodeUpsertRequest struct {
+	ID                string `json:"id"`
+	NodeID            string `json:"nodeId"`
+	Title             string `json:"title"`
+	Summary           string `json:"summary"`
+	ScriptText        string `json:"scriptText"`
+	ReteachScript     string `json:"reteachScript"`
+	TransitionText    string `json:"transitionText"`
+	EstimatedDuration int    `json:"estimatedDuration"`
+	SortOrder         int    `json:"sortOrder"`
+}
+
+type teacherPageStat struct {
+	PageIndex        int     `json:"page"`
+	QuestionCount    int     `json:"questionCount"`
+	DialogueCount    int     `json:"dialogueCount"`
+	NeedReteachCount int     `json:"needReteachCount"`
+	SessionCount     int     `json:"sessionCount"`
+	BaseDuration     int     `json:"estimatedDuration"`
+	StayTime         float64 `json:"stayTime"`
+	CardIndex        float64 `json:"cardIndex"`
+	AvgTurns         float64 `json:"avgTurns"`
+}
+
+type teacherQuestionStat struct {
+	PageIndex     int `gorm:"column:page_index"`
+	QuestionCount int `gorm:"column:question_count"`
+}
+
+type teacherDialogueStat struct {
+	PageIndex        int `gorm:"column:page_index"`
+	DialogueCount    int `gorm:"column:dialogue_count"`
+	NeedReteachCount int `gorm:"column:need_reteach_count"`
+	SessionCount     int `gorm:"column:session_count"`
+}
+
+type teacherDurationStat struct {
+	PageIndex    int `gorm:"column:page_index"`
+	BaseDuration int `gorm:"column:base_duration"`
+}
+
+func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawNodes []teacherNodeUpsertRequest) (string, []model.TeachingNode, error) {
+	trimmed := make([]teacherNodeUpsertRequest, 0, len(rawNodes))
+	for index, node := range rawNodes {
+		text := strings.TrimSpace(node.ScriptText)
+		title := strings.TrimSpace(node.Title)
+		summary := strings.TrimSpace(node.Summary)
+		if text == "" && title == "" && summary == "" {
+			continue
+		}
+		node.SortOrder = index + 1
+		node.ScriptText = text
+		node.Title = title
+		node.Summary = summary
+		trimmed = append(trimmed, node)
+	}
+
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		var existing []model.TeachingNode
+		if err := tx.Where("course_id = ? AND page_index = ?", courseID, pageNum).Find(&existing).Error; err != nil {
+			return err
+		}
+		existingByID := make(map[string]model.TeachingNode, len(existing))
+		existingByNodeID := make(map[string]model.TeachingNode, len(existing))
+		keepIDs := make(map[string]struct{}, len(trimmed))
+		for _, item := range existing {
+			existingByID[item.ID] = item
+			existingByNodeID[item.NodeID] = item
+		}
+
+		for index, item := range trimmed {
+			persisted := model.TeachingNode{}
+			if item.ID != "" {
+				persisted = existingByID[item.ID]
+			}
+			if persisted.ID == "" && item.NodeID != "" {
+				persisted = existingByNodeID[item.NodeID]
+			}
+			if persisted.ID == "" {
+				persisted = model.TeachingNode{
+					CourseID:     courseID,
+					PageIndex:    pageNum,
+					NodeID:       buildTeacherNodeID(pageNum, index+1, item.NodeID),
+					Title:        defaultTeacherNodeTitle(pageNum, index+1, item.Title),
+					ChapterTitle: "第" + strconv.Itoa(pageNum) + "页",
+				}
+			}
+			persisted.CourseID = courseID
+			persisted.PageIndex = pageNum
+			persisted.NodeID = buildTeacherNodeID(pageNum, index+1, firstTeacherNonEmpty(item.NodeID, persisted.NodeID))
+			persisted.Title = defaultTeacherNodeTitle(pageNum, index+1, firstTeacherNonEmpty(item.Title, persisted.Title))
+			persisted.Summary = item.Summary
+			persisted.ScriptText = item.ScriptText
+			persisted.ReteachScript = strings.TrimSpace(item.ReteachScript)
+			persisted.TransitionText = strings.TrimSpace(item.TransitionText)
+			persisted.EstimatedDuration = normalizeTeacherDuration(item.EstimatedDuration, persisted.ScriptText, persisted.Summary)
+			persisted.SortOrder = index + 1
+
+			if persisted.ID == "" {
+				if err := tx.Create(&persisted).Error; err != nil {
+					return err
+				}
+			} else {
+				if err := tx.Model(&model.TeachingNode{}).Where("id = ?", persisted.ID).Updates(map[string]any{
+					"course_id":          persisted.CourseID,
+					"page_index":         persisted.PageIndex,
+					"node_id":            persisted.NodeID,
+					"title":              persisted.Title,
+					"summary":            persisted.Summary,
+					"script_text":        persisted.ScriptText,
+					"reteach_script":     persisted.ReteachScript,
+					"transition_text":    persisted.TransitionText,
+					"estimated_duration": persisted.EstimatedDuration,
+					"sort_order":         persisted.SortOrder,
+					"chapter_title":      persisted.ChapterTitle,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			keepIDs[persisted.ID] = struct{}{}
+		}
+
+		deleteIDs := make([]string, 0)
+		for _, item := range existing {
+			if _, ok := keepIDs[item.ID]; !ok {
+				deleteIDs = append(deleteIDs, item.ID)
+			}
+		}
+		if len(deleteIDs) > 0 {
+			if err := tx.Where("id IN ?", deleteIDs).Delete(&model.TeachingNode{}).Error; err != nil {
+				return err
+			}
+		}
+
+		content := buildTeacherPageScriptFromNodes(trimmed)
+		if err := upsertTeacherScriptWithDB(tx, courseID, pageNum, content); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return "", nil, err
+	}
+
+	savedNodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
+	return buildPageContextFromTeachingNodes(savedNodes), savedNodes, nil
+}
+
+func buildTeacherNodePayload(nodes []model.TeachingNode) []gin.H {
+	result := make([]gin.H, 0, len(nodes))
+	for index, node := range nodes {
+		result = append(result, gin.H{
+			"id":                node.ID,
+			"nodeId":            node.NodeID,
+			"page":              node.PageIndex,
+			"type":              teacherNodeType(index, len(nodes)),
+			"title":             node.Title,
+			"summary":           node.Summary,
+			"scriptText":        node.ScriptText,
+			"reteachScript":     node.ReteachScript,
+			"transitionText":    node.TransitionText,
+			"estimatedDuration": playbackDurationSec(node),
+			"sortOrder":         node.SortOrder,
+		})
+	}
+	return result
+}
+
+func (h *TeacherHandler) buildTeacherPageStats(courseID string, totalPages int) []teacherPageStat {
+	pageStats := make(map[int]*teacherPageStat)
+	for page := 1; page <= maxCoursePage(totalPages); page++ {
+		pageStats[page] = &teacherPageStat{PageIndex: page}
+	}
+
+	var questionStats []teacherQuestionStat
+	_ = h.db.Table("question_logs").Select("page_index, count(*) as question_count").Where("course_id = ?", courseID).Group("page_index").Scan(&questionStats).Error
+	for _, item := range questionStats {
+		stat := ensureTeacherPageStat(pageStats, item.PageIndex)
+		stat.QuestionCount = item.QuestionCount
+	}
+
+	var dialogueStats []teacherDialogueStat
+	_ = h.db.Table("dialogue_turns").Select("page_index, count(*) as dialogue_count, sum(case when need_reteach then 1 else 0 end) as need_reteach_count, count(distinct session_id) as session_count").Where("course_id = ?", courseID).Group("page_index").Scan(&dialogueStats).Error
+	for _, item := range dialogueStats {
+		stat := ensureTeacherPageStat(pageStats, item.PageIndex)
+		stat.DialogueCount = item.DialogueCount
+		stat.NeedReteachCount = item.NeedReteachCount
+		stat.SessionCount = item.SessionCount
+		if stat.QuestionCount < item.DialogueCount {
+			stat.QuestionCount = item.DialogueCount
+		}
+	}
+
+	var durationStats []teacherDurationStat
+	_ = h.db.Table("teaching_nodes").Select("page_index, coalesce(sum(case when estimated_duration > 0 then estimated_duration else 0 end), 0) as base_duration").Where("course_id = ?", courseID).Group("page_index").Scan(&durationStats).Error
+	for _, item := range durationStats {
+		stat := ensureTeacherPageStat(pageStats, item.PageIndex)
+		stat.BaseDuration = item.BaseDuration
+	}
+
+	result := make([]teacherPageStat, 0, len(pageStats))
+	for _, item := range pageStats {
+		base := item.BaseDuration
+		if base <= 0 {
+			base = 30
+		}
+		sessionCount := item.SessionCount
+		if sessionCount <= 0 {
+			sessionCount = 1
+		}
+		engagementBoost := float64(item.DialogueCount*18+item.NeedReteachCount*35+item.QuestionCount*12) / float64(sessionCount)
+		item.StayTime = roundTeacherFloat(float64(base) + engagementBoost)
+		item.AvgTurns = roundTeacherFloat(float64(item.DialogueCount) / float64(sessionCount))
+		item.CardIndex = roundTeacherCardIndex(item)
+		result = append(result, *item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].PageIndex < result[j].PageIndex
+	})
+	return result
+}
+
+func ensureTeacherPageStat(pageStats map[int]*teacherPageStat, page int) *teacherPageStat {
+	if page <= 0 {
+		page = 1
+	}
+	if stat, ok := pageStats[page]; ok {
+		return stat
+	}
+	stat := &teacherPageStat{PageIndex: page}
+	pageStats[page] = stat
+	return stat
+}
+
+func (h *TeacherHandler) collectTeacherQuestions(courseID string) []string {
+	questions := make([]string, 0)
+	logged := make([]string, 0)
+	fromDialogue := make([]string, 0)
+	_ = h.db.Table("question_logs").Where("course_id = ?", courseID).Pluck("question", &logged).Error
+	_ = h.db.Table("dialogue_turns").Where("course_id = ?", courseID).Pluck("question", &fromDialogue).Error
+	questions = append(questions, logged...)
+	questions = append(questions, fromDialogue...)
+	return questions
+}
+
+func (h *TeacherHandler) countDistinctUsers(courseID string) int64 {
+	userSet := make(map[string]struct{})
+	ids := make([]string, 0)
+	_ = h.db.Table("question_logs").Where("course_id = ?", courseID).Distinct().Pluck("user_id", &ids).Error
+	for _, item := range ids {
+		if strings.TrimSpace(item) != "" {
+			userSet[item] = struct{}{}
+		}
+	}
+	ids = ids[:0]
+	_ = h.db.Table("dialogue_turns").Where("course_id = ?", courseID).Distinct().Pluck("user_id", &ids).Error
+	for _, item := range ids {
+		if strings.TrimSpace(item) != "" {
+			userSet[item] = struct{}{}
+		}
+	}
+	return int64(len(userSet))
+}
+
+func buildTeacherPageScriptFromNodes(nodes []teacherNodeUpsertRequest) string {
+	parts := make([]string, 0, len(nodes))
+	for _, item := range nodes {
+		text := strings.TrimSpace(item.ScriptText)
+		if text == "" {
+			text = strings.TrimSpace(item.Summary)
+		}
+		if text != "" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+func teacherNodeType(index, total int) string {
+	if total <= 1 || index == 0 {
+		return "opening"
+	}
+	if index == total-1 {
+		return "transition"
+	}
+	return "explain"
+}
+
+func buildTeacherNodeID(pageNum, index int, raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw != "" {
+		return raw
+	}
+	return fmt.Sprintf("p%d_n%d", pageNum, index)
+}
+
+func defaultTeacherNodeTitle(pageNum, index int, title string) string {
+	title = strings.TrimSpace(title)
+	if title != "" {
+		return title
+	}
+	return fmt.Sprintf("第%d页节点%d", pageNum, index)
+}
+
+func normalizeTeacherDuration(duration int, content ...string) int {
+	if duration > 0 {
+		return duration
+	}
+	text := strings.Join(content, " ")
+	base := len([]rune(strings.TrimSpace(text))) / 14
+	if base < 20 {
+		return 20
+	}
+	if base > 90 {
+		return 90
+	}
+	return base
+}
+
+func firstTeacherNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func roundTeacherFloat(value float64) float64 {
+	return mathRound(value*10) / 10
+}
+
+func roundTeacherCardIndex(stat *teacherPageStat) float64 {
+	baseDuration := stat.BaseDuration
+	if baseDuration <= 0 {
+		baseDuration = 30
+	}
+	score := float64(stat.QuestionCount)*1.4 + float64(stat.NeedReteachCount)*2.3 + float64(stat.SessionCount)*0.8 + (stat.StayTime/float64(baseDuration))*1.5
+	if score > 10 {
+		score = 10
+	}
+	return roundTeacherFloat(score)
+}
+
+func mathRound(value float64) float64 {
+	if value < 0 {
+		return float64(int64(value - 0.5))
+	}
+	return float64(int64(value + 0.5))
 }
 
 func generateMockScript(courseName string, page int) string {

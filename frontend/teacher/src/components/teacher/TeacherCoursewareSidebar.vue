@@ -1,7 +1,10 @@
 <template>
   <div class="courseware-manage-section">
     <div class="section-header">
-      <h3>课件管理</h3>
+      <div>
+        <div class="header-caption">课程工作台</div>
+        <h3>课件管理</h3>
+      </div>
       <div class="header-actions">
         <button @click="$emit('open-publish')" class="publish-btn" :disabled="!currentCourseId">发布课件</button>
         <button @click="$emit('open-upload')" class="upload-btn">+ 上传课件</button>
@@ -84,31 +87,42 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
 .courseware-manage-section {
   flex: 0 0 280px;
   width: 280px;
-  background: #fff;
-  border-right: 1px solid #e6ecf5;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(247, 250, 252, 0.98) 100%);
+  border-right: 1px solid rgba(226, 232, 240, 0.92);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 14px 0 30px rgba(15, 23, 42, 0.05);
 }
 
 .section-header {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e6ecf5;
+  padding: 18px 18px 16px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(180deg, rgba(240, 249, 255, 0.9) 0%, rgba(255, 255, 255, 0.72) 100%);
 }
 
 .section-header h3 {
-  font-size: 16px;
+  font-size: 18px;
   color: #0f172a;
-  margin: 0;
+  margin: 4px 0 0;
+}
+
+.header-caption {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #0f766e;
 }
 
 .header-actions {
   display: flex;
   gap: 6px;
+  flex-direction: column;
 }
 
 .publish-btn,
@@ -128,10 +142,12 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
 
 .publish-btn,
 .upload-btn {
-  padding: 6px 11px;
-  font-size: 13px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
   color: #fff;
-  background: #2563eb;
+  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
+  box-shadow: 0 10px 20px rgba(2, 132, 199, 0.18);
 }
 
 .publish-btn:disabled {
@@ -140,7 +156,7 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
 }
 
 .upload-btn {
-  background: #0ea5e9;
+  background: linear-gradient(90deg, #0ea5e9 0%, #2563eb 100%);
 }
 
 /* 课件列表：占满剩余高度，独立滚动 */
@@ -148,50 +164,55 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .course-item {
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
   cursor: pointer;
-  background: #f8fbff;
-  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, rgba(255, 255, 255, 0.98) 100%);
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.18s;
 }
 
 .course-item:hover {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(180deg, rgba(240, 249, 255, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%);
+  transform: translateY(-1px);
 }
 
 .course-item.active {
-  border-color: #2563eb;
-  background: #eff6ff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+  border-color: #0ea5e9;
+  background: linear-gradient(180deg, rgba(224, 242, 254, 0.98) 0%, rgba(255, 255, 255, 0.98) 100%);
+  box-shadow: 0 14px 28px rgba(14, 165, 233, 0.14);
 }
 
 .course-name {
-  font-size: 13px;
+  font-size: 14px;
   color: #0f172a;
-  font-weight: 500;
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 140px;
+  max-width: 100%;
 }
 
 .course-actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
   flex-shrink: 0;
+  width: 100%;
 }
 
 .published-tag {
@@ -209,7 +230,7 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
   font-size: 12px;
   background: #fee2e2;
   color: #dc2626;
-  border-radius: 6px;
+  border-radius: 999px;
 }
 
 .del-btn:hover:not(:disabled) {
@@ -253,9 +274,9 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
 /* 页码选择器：固定展示在底部 */
 .page-selector {
   flex-shrink: 0;
-  padding: 12px 14px;
-  border-top: 1px solid #e6ecf5;
-  background: #f8fbff;
+  padding: 14px;
+  border-top: 1px solid rgba(226, 232, 240, 0.92);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98) 0%, rgba(239, 246, 255, 0.95) 100%);
 }
 
 .page-selector h4 {
@@ -279,15 +300,15 @@ defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 's
 }
 
 .page-btn {
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: 12px;
   background: #e2e8f0;
   color: #334155;
-  border-radius: 6px;
+  border-radius: 999px;
 }
 
 .page-btn.active {
-  background: #2563eb;
+  background: linear-gradient(90deg, #0284c7 0%, #2563eb 100%);
   color: #fff;
 }
 

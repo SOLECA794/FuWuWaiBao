@@ -12,7 +12,20 @@ New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 New-Item -ItemType Directory -Force -Path $scriptsDir | Out-Null
 
+if ([string]::IsNullOrWhiteSpace($env:AI_BASE_URL) -or $env:AI_BASE_URL -match 'example\.com') {
+    $env:AI_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+}
+
+if ([string]::IsNullOrWhiteSpace($env:AI_MODEL) -or $env:AI_MODEL -match '^gpt-4o') {
+    $env:AI_MODEL = 'qwen-plus'
+}
+
+if ([string]::IsNullOrWhiteSpace($env:AI_GEN_MODE)) {
+    $env:AI_GEN_MODE = 'llm'
+}
+
 Write-Host "Root: $root"
+Write-Host "AI provider: $($env:AI_BASE_URL) | model: $($env:AI_MODEL)"
 
 function Resolve-CommandPath {
     param(
@@ -157,9 +170,77 @@ function Start-Background {
     }
 }
 
+function Invoke-ProcessAndWait {
+    param(
+        [Parameter(Mandatory)][string]$FilePath,
+        [Parameter(Mandatory)][string[]]$ArgumentList,
+        [Parameter(Mandatory)][string]$WorkingDirectory
+    )
+
+    $resolvedFilePath = Resolve-CommandPath -Command $FilePath
+    $startFilePath = $resolvedFilePath
+    $startArgumentList = $ArgumentList
+    $extension = [System.IO.Path]::GetExtension($resolvedFilePath).ToLowerInvariant()
+
+    if ($isWindowsHost -and $extension -in @('.cmd', '.bat')) {
+        $startFilePath = $env:ComSpec
+        $startArgumentList = Format-CmdInvokerArguments -CommandPath $resolvedFilePath -ArgumentList $ArgumentList
+    } elseif ($isWindowsHost -and $extension -eq '.ps1') {
+        $batchFilePath = [System.IO.Path]::ChangeExtension($resolvedFilePath, '.cmd')
+
+        if (Test-Path $batchFilePath) {
+            $startFilePath = $env:ComSpec
+            $startArgumentList = Format-CmdInvokerArguments -CommandPath $batchFilePath -ArgumentList $ArgumentList
+        } else {
+            $startFilePath = 'powershell.exe'
+            $startArgumentList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $resolvedFilePath) + $ArgumentList
+        }
+    }
+
+    $proc = Start-Process -FilePath $startFilePath -ArgumentList $startArgumentList -WorkingDirectory $WorkingDirectory -NoNewWindow -PassThru -Wait
+    return $proc.ExitCode
+}
+
+function Ensure-NodeDependencies {
+    param(
+        [Parameter(Mandatory)][string]$ProjectName,
+        [Parameter(Mandatory)][string]$WorkingDirectory
+    )
+
+    $packageJson = Join-Path $WorkingDirectory 'package.json'
+    if (-not (Test-Path $packageJson)) {
+        return
+    }
+
+    $nodeModules = Join-Path $WorkingDirectory 'node_modules'
+    if (Test-Path $nodeModules) {
+        return
+    }
+
+    $attempts = @()
+    if (Test-Path (Join-Path $WorkingDirectory 'package-lock.json')) {
+        $attempts += ,@('ci')
+    }
+    $attempts += ,@('install')
+
+    foreach ($installArgs in $attempts) {
+        Write-Host "$ProjectName dependencies missing. Running npm $($installArgs -join ' ')..."
+        $exitCode = Invoke-ProcessAndWait -FilePath 'npm' -ArgumentList $installArgs -WorkingDirectory $WorkingDirectory
+        if ($exitCode -eq 0) {
+            return
+        }
+
+        Write-Warning "npm $($installArgs -join ' ') failed for ${ProjectName} (exit code $exitCode)."
+    }
+
+    throw "Unable to install dependencies for $ProjectName."
+}
+
 Start-Background -Name "ai_engine" -FilePath "conda" -ArgumentList @('run','-n','fuww_ai','python','ai_engine/main.py') -WorkingDirectory $root -StdOut "$logsDir\ai_engine.log" -StdErr "$logsDir\ai_engine.err.log"
 Start-Background -Name "backend" -FilePath "go" -ArgumentList @('run','./api/main.go') -WorkingDirectory (Join-Path $root "backend") -StdOut "$logsDir\backend.log" -StdErr "$logsDir\backend.err.log"
+Ensure-NodeDependencies -ProjectName "student_frontend" -WorkingDirectory (Join-Path $root "frontend\student")
 Start-Background -Name "student_frontend" -FilePath "npm" -ArgumentList @('run','serve') -WorkingDirectory (Join-Path $root "frontend\student") -StdOut "$logsDir\student_frontend.log" -StdErr "$logsDir\student_frontend.err.log"
+Ensure-NodeDependencies -ProjectName "teacher_frontend" -WorkingDirectory (Join-Path $root "frontend\teacher")
 Start-Background -Name "teacher_frontend" -FilePath "npm" -ArgumentList @('run','dev','--','--host','0.0.0.0','--port','5173') -WorkingDirectory (Join-Path $root "frontend\teacher") -StdOut "$logsDir\teacher_frontend.log" -StdErr "$logsDir\teacher_frontend.err.log"
 
 $pidFile = Join-Path $scriptsDir "pids.json"

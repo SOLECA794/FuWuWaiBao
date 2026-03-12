@@ -1,19 +1,25 @@
 <template>
   <div class="top-nav">
     <div class="nav-left">
-      <span class="app-icon">🎓</span>
-      <span class="app-title">智能互动教学平台 · 教师端</span>
+      <div class="brand-mark">T</div>
+      <div class="brand-copy">
+        <span class="app-title">智能互动教学平台</span>
+        <span class="app-subtitle">教师编排台</span>
+      </div>
     </div>
     <div class="nav-right">
       <div class="backend-status" :class="backendStatusClass">
         <span class="status-dot"></span>
-        后端：{{ backendStatusText }}
+        服务 {{ backendStatusText }}
       </div>
       <div class="teacher-info">
         <div class="avatar">
           <span>教</span>
         </div>
-        <span class="teacher-name">教师 2025T001</span>
+        <div class="teacher-copy">
+          <span class="teacher-name">教师 2025T001</span>
+          <span class="teacher-role">课程编排与发布</span>
+        </div>
       </div>
     </div>
   </div>
@@ -34,31 +40,56 @@ defineProps({
 
 <style scoped>
 .top-nav {
-  height: 56px;
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%);
+  min-height: 72px;
+  background:
+    radial-gradient(circle at left top, rgba(255, 255, 255, 0.18), transparent 30%),
+    linear-gradient(105deg, #0f766e 0%, #0369a1 42%, #1d4ed8 100%);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 24px;
   color: white;
-  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 18px 40px rgba(14, 116, 144, 0.2);
   flex-shrink: 0;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.app-icon {
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 18px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .app-title {
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.app-subtitle {
+  font-size: 12px;
+  opacity: 0.78;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .nav-right {
@@ -72,9 +103,12 @@ defineProps({
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.15);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
 }
 
 .status-dot {
@@ -123,13 +157,17 @@ defineProps({
 .teacher-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
@@ -138,8 +176,19 @@ defineProps({
   font-weight: 600;
 }
 
+.teacher-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .teacher-name {
   font-size: 13px;
-  opacity: 0.9;
+  font-weight: 700;
+}
+
+.teacher-role {
+  font-size: 11px;
+  opacity: 0.78;
 }
 </style>

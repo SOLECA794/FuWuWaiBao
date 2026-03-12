@@ -93,13 +93,54 @@ func (h *CompatibilityHandler) OpenGenerateAudio(c *gin.Context) {
 		ScriptID    string   `json:"scriptId" binding:"required"`
 		VoiceType   string   `json:"voiceType"`
 		AudioFormat string   `json:"audioFormat"`
+		Provider    string   `json:"provider"`
 		SectionIDs  []string `json:"sectionIds"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	openAPISuccess(c, "语音合成成功", gin.H{"audioId": "audio_" + strings.TrimPrefix(req.ScriptID, "script_"), "audioUrl": "", "audioInfo": gin.H{"totalDuration": 0, "fileSize": 0, "format": defaultString(req.AudioFormat, "mp3"), "bitRate": 0}, "sectionAudios": []gin.H{}})
+	courseID := strings.TrimSpace(strings.TrimPrefix(req.ScriptID, "script_"))
+	if courseID == "" {
+		openAPIError(c, http.StatusBadRequest, "scriptId 无效")
+		return
+	}
+
+	audioPackage, err := ensurePlaybackAudioAssets(c.Request.Context(), h.db, h.aiClient, courseID, 1, req.VoiceType, req.AudioFormat, req.Provider)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	sections, _ := audioPackage["sections"].([]gin.H)
+	if len(req.SectionIDs) > 0 {
+		filtered := make([]gin.H, 0, len(req.SectionIDs))
+		allowed := make(map[string]struct{}, len(req.SectionIDs))
+		for _, sectionID := range req.SectionIDs {
+			allowed[strings.TrimSpace(sectionID)] = struct{}{}
+		}
+		for _, section := range sections {
+			nodeID, _ := section["node_id"].(string)
+			if _, ok := allowed[nodeID]; ok {
+				filtered = append(filtered, section)
+			}
+		}
+		sections = filtered
+	}
+
+	openAPISuccess(c, "语音合成成功", gin.H{
+		"audioId":  audioPackage["audio_id"],
+		"audioUrl": audioPackage["audio_url"],
+		"audioInfo": gin.H{
+			"totalDuration": audioPackage["total_duration_sec"],
+			"fileSize":      0,
+			"format":        audioPackage["format"],
+			"bitRate":       0,
+			"provider":      audioPackage["provider"],
+			"status":        audioPackage["status"],
+			"playbackMode":  audioPackage["playback_mode"],
+		},
+		"sectionAudios": sections,
+	})
 }
 
 func (h *CompatibilityHandler) OpenQAInteract(c *gin.Context) {
@@ -205,7 +246,12 @@ func (h *CompatibilityHandler) OpenSyncCourse(c *gin.Context) {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	openAPISuccess(c, "课程同步成功", gin.H{"received": req})
+	data, err := syncCourseFromPlatform(h.db, req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "课程同步成功", data)
 }
 
 func (h *CompatibilityHandler) OpenSyncUser(c *gin.Context) {
@@ -214,7 +260,237 @@ func (h *CompatibilityHandler) OpenSyncUser(c *gin.Context) {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	openAPISuccess(c, "用户同步成功", gin.H{"received": req})
+	data, err := syncUserFromPlatform(h.db, req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "用户同步成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformOverview(c *gin.Context) {
+	data, err := platformOverview(h.db)
+	if err != nil {
+		openAPIError(c, http.StatusInternalServerError, "平台总览获取失败")
+		return
+	}
+	openAPISuccess(c, "平台总览获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformUsers(c *gin.Context) {
+	data, err := listPlatformUsers(h.db, platformListOptions{
+		Page:       intValue(c.Query("page")),
+		PageSize:   intValue(c.Query("pageSize")),
+		PlatformID: c.Query("platformId"),
+		Role:       c.Query("role"),
+		OrgCode:    c.Query("orgCode"),
+		Keyword:    c.Query("keyword"),
+	})
+	if err != nil {
+		openAPIError(c, http.StatusInternalServerError, "平台用户列表获取失败")
+		return
+	}
+	openAPISuccess(c, "平台用户列表获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformCourses(c *gin.Context) {
+	data, err := listPlatformCourses(h.db, platformListOptions{
+		Page:       intValue(c.Query("page")),
+		PageSize:   intValue(c.Query("pageSize")),
+		PlatformID: c.Query("platformId"),
+		Status:     c.Query("status"),
+		OrgCode:    c.Query("orgCode"),
+		UserID:     c.Query("teacherId"),
+		Keyword:    c.Query("keyword"),
+	})
+	if err != nil {
+		openAPIError(c, http.StatusInternalServerError, "平台课程列表获取失败")
+		return
+	}
+	openAPISuccess(c, "平台课程列表获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformClasses(c *gin.Context) {
+	data, err := listPlatformClasses(h.db, platformListOptions{
+		Page:       intValue(c.Query("page")),
+		PageSize:   intValue(c.Query("pageSize")),
+		PlatformID: c.Query("platformId"),
+		Status:     c.Query("status"),
+		CourseID:   c.Query("courseId"),
+		UserID:     c.Query("teacherId"),
+		Keyword:    c.Query("keyword"),
+	})
+	if err != nil {
+		openAPIError(c, http.StatusInternalServerError, "平台班级列表获取失败")
+		return
+	}
+	openAPISuccess(c, "平台班级列表获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformEnrollments(c *gin.Context) {
+	data, err := listPlatformEnrollments(h.db, platformListOptions{
+		Page:       intValue(c.Query("page")),
+		PageSize:   intValue(c.Query("pageSize")),
+		PlatformID: c.Query("platformId"),
+		Role:       c.Query("role"),
+		Status:     c.Query("status"),
+		CourseID:   c.Query("courseId"),
+		ClassID:    c.Query("classId"),
+		UserID:     c.Query("userId"),
+		Keyword:    c.Query("keyword"),
+	})
+	if err != nil {
+		openAPIError(c, http.StatusInternalServerError, "平台选课列表获取失败")
+		return
+	}
+	openAPISuccess(c, "平台选课列表获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformUserDetail(c *gin.Context) {
+	data, err := platformUserDetail(h.db, c.Param("userId"))
+	if err != nil {
+		openAPIError(c, http.StatusNotFound, "平台用户详情获取失败")
+		return
+	}
+	openAPISuccess(c, "平台用户详情获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformCourseDetail(c *gin.Context) {
+	data, err := platformCourseDetail(h.db, c.Param("courseId"))
+	if err != nil {
+		openAPIError(c, http.StatusNotFound, "平台课程详情获取失败")
+		return
+	}
+	openAPISuccess(c, "平台课程详情获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformClassDetail(c *gin.Context) {
+	data, err := platformClassDetail(h.db, c.Param("classId"))
+	if err != nil {
+		openAPIError(c, http.StatusNotFound, "平台班级详情获取失败")
+		return
+	}
+	openAPISuccess(c, "平台班级详情获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenPlatformEnrollmentDetail(c *gin.Context) {
+	data, err := platformEnrollmentDetail(h.db, c.Param("enrollmentId"))
+	if err != nil {
+		openAPIError(c, http.StatusNotFound, "平台选课详情获取失败")
+		return
+	}
+	openAPISuccess(c, "平台选课详情获取成功", data)
+}
+
+func (h *CompatibilityHandler) OpenCreatePlatformCourse(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := createPlatformCourse(h.db, req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台课程创建成功", data)
+}
+
+func (h *CompatibilityHandler) OpenUpdatePlatformCourse(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := updatePlatformCourse(h.db, c.Param("courseId"), req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台课程更新成功", data)
+}
+
+func (h *CompatibilityHandler) OpenDeletePlatformCourse(c *gin.Context) {
+	data, err := deletePlatformCourse(h.db, c.Param("courseId"))
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台课程删除成功", data)
+}
+
+func (h *CompatibilityHandler) OpenCreatePlatformClass(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := createPlatformClass(h.db, req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台班级创建成功", data)
+}
+
+func (h *CompatibilityHandler) OpenUpdatePlatformClass(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := updatePlatformClass(h.db, c.Param("classId"), req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台班级更新成功", data)
+}
+
+func (h *CompatibilityHandler) OpenDeletePlatformClass(c *gin.Context) {
+	data, err := deletePlatformClass(h.db, c.Param("classId"))
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台班级删除成功", data)
+}
+
+func (h *CompatibilityHandler) OpenCreatePlatformEnrollment(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := createPlatformEnrollment(h.db, req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台选课创建成功", data)
+}
+
+func (h *CompatibilityHandler) OpenUpdatePlatformEnrollment(c *gin.Context) {
+	var req map[string]any
+	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	data, err := updatePlatformEnrollment(h.db, c.Param("enrollmentId"), req)
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台选课更新成功", data)
+}
+
+func (h *CompatibilityHandler) OpenDeletePlatformEnrollment(c *gin.Context) {
+	data, err := deletePlatformEnrollment(h.db, c.Param("enrollmentId"))
+	if err != nil {
+		openAPIError(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	openAPISuccess(c, "平台选课删除成功", data)
 }
 
 func fileHeaderFromMultipart(file *multipart.FileHeader) *multipart.FileHeader {

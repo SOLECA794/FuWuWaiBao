@@ -3,6 +3,7 @@ import os
 import re
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,6 +19,25 @@ RETEACH_KEYWORDS = [
     "举例",
     "不太会",
 ]
+
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+
+def resolve_llm_base_url(model: str) -> tuple[str, str]:
+    raw_base_url = (os.getenv("AI_BASE_URL") or "").strip()
+    if raw_base_url:
+        parsed = urlparse(raw_base_url)
+        host = (parsed.netloc or parsed.path).lower()
+        if "example.com" not in host:
+            return raw_base_url, ""
+        reason = "placeholder_base_url"
+    else:
+        reason = ""
+
+    if (model or "").strip().lower().startswith("gpt-"):
+        return DEFAULT_OPENAI_BASE_URL, reason
+    return DEFAULT_COMPAT_BASE_URL, reason
 
 
 @dataclass
@@ -43,13 +63,14 @@ class QAResponder:
             if "page" in item
         }
 
-    def answer(self, question: str, current_page: int) -> dict[str, Any]:
+    def answer(self, question: str, current_page: int, history_summary: str = "", recent_turns: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         source_page = self._resolve_source_page(current_page)
         source_content = self.page_map.get(source_page, "")
         need_reteach = self._need_reteach(question)
+        recent_turns = recent_turns or []
 
         # 始终使用 LLM 进行回答
-        answer_text = self._llm_answer(question, source_page, source_content, need_reteach)
+        answer_text, used_fallback, fallback_reason = self._llm_answer(question, source_page, source_content, need_reteach, history_summary, recent_turns)
 
         return {
             "question": question,
@@ -60,6 +81,8 @@ class QAResponder:
                 "reason": "keyword_trigger" if need_reteach else "normal_qa",
             },
             "answer": answer_text,
+            "used_fallback": used_fallback,
+            "fallback_reason": fallback_reason,
             "resume_page": source_page,
             "follow_up_suggestion": self._make_followup_suggestion(question, need_reteach, source_page),
         }
@@ -77,17 +100,19 @@ class QAResponder:
         q = question.strip().lower()
         return any(keyword in q for keyword in RETEACH_KEYWORDS)
 
-    def _llm_answer(self, question: str, source_page: int, source_content: str, need_reteach: bool) -> str:
+    def _llm_answer(self, question: str, source_page: int, source_content: str, need_reteach: bool, history_summary: str, recent_turns: list[dict[str, Any]]) -> tuple[str, bool, str]:
         try:
             from openai import OpenAI
         except ImportError as error:
-            return self._fallback_answer(question, source_content, need_reteach, f"missing_openai:{error}")
+            reason = f"missing_openai:{error}"
+            return self._fallback_answer(question, source_content, need_reteach, reason), True, reason
 
         api_key = os.getenv("AI_API_KEY")
         if not api_key:
-            return self._fallback_answer(question, source_content, need_reteach, "missing_api_key")
+            reason = "missing_api_key"
+            return self._fallback_answer(question, source_content, need_reteach, reason), True, reason
 
-        base_url = os.getenv("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        base_url, _ = resolve_llm_base_url(self.config.model)
         client = OpenAI(api_key=api_key, base_url=base_url)
 
         role_desc = "高校专业课老师" if not need_reteach else "善于举例的耐心导师"
@@ -101,7 +126,9 @@ class QAResponder:
             f"学生问题: {question}\n"
             f"当前文档第 {source_page} 页参考内容: {source_content}\n"
             f"是否需要重讲(Reteach): {need_reteach}\n"
-            "请给出专业且易懂的回答。"
+            f"历史对话摘要: {history_summary or '无'}\n"
+            f"最近几轮问答: {self._format_recent_turns(recent_turns)}\n"
+            "请给出专业且易懂的回答。如果学生的问题明显承接上一轮，请主动沿用历史上下文，不要把它当作全新问题。"
         )
 
         try:
@@ -113,9 +140,10 @@ class QAResponder:
                 ],
                 temperature=self.config.temperature
             )
-            return response.choices[0].message.content
+            return response.choices[0].message.content, False, ""
         except Exception as e:
-            return self._fallback_answer(question, source_content, need_reteach, str(e))
+            reason = str(e)
+            return self._fallback_answer(question, source_content, need_reteach, reason), True, reason
 
     def _fallback_answer(self, question: str, source_content: str, need_reteach: bool, reason: str) -> str:
         lines = [line.strip() for line in re.split(r"[\n。；;]", source_content or "") if line.strip()]
@@ -147,6 +175,22 @@ class QAResponder:
             "2) 给出一个相关的真实例子或应用场景；"
             "3) 把相关页的要点串成一份简短笔记。请选择你想要的方式。"
         )
+
+    @staticmethod
+    def _format_recent_turns(recent_turns: list[dict[str, Any]]) -> str:
+        if not recent_turns:
+            return "无"
+
+        parts = []
+        for index, turn in enumerate(recent_turns[-4:], start=1):
+            question = str(turn.get("question", "")).strip()
+            answer = str(turn.get("answer", "")).strip()
+            page = turn.get("page")
+            prefix = f"第{index}轮"
+            if page:
+                prefix += f"(第{page}页)"
+            parts.append(f"{prefix} 学生：{question} AI：{answer}")
+        return "\n".join(parts)
         
 
     @staticmethod

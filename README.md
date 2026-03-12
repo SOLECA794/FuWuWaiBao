@@ -20,6 +20,14 @@
 
 后端启动时会自动读取这些本地环境文件（若存在）：项目根目录 `.env`、项目根目录 `.env.local`。
 
+当前仓库默认 LLM 配置已切为千问兼容模式：
+
+```bash
+AI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+AI_MODEL=qwen-plus
+AI_GEN_MODE=llm
+```
+
 1. 启动基础服务（Postgres/Redis/MinIO）
 
 ```bash

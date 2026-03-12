@@ -6,9 +6,9 @@ export const studentSessionApi = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, courseId })
   }),
-  updateProgress: ({ sessionId, userId, courseId, currentPage, currentNodeId }) => requestJson('/api/v1/student/sessions/progress', {
+  updateProgress: ({ sessionId, userId, courseId, currentPage, currentNodeId, currentTimeSec = 0 }) => requestJson('/api/v1/student/sessions/progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, userId, courseId, currentPage, currentNodeId })
+    body: JSON.stringify({ sessionId, userId, courseId, currentPage, currentNodeId, currentTimeSec })
   })
 }

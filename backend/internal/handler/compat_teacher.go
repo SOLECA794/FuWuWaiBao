@@ -60,6 +60,30 @@ func (h *CompatibilityHandler) UpdateTeacherScriptV1(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
 }
 
+func (h *CompatibilityHandler) GetTeacherNodesV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).GetTeachingNodes(c)
+}
+
+func (h *CompatibilityHandler) UpdateTeacherNodesV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).UpdateTeachingNodes(c)
+}
+
+func (h *CompatibilityHandler) GenerateTeacherAudioV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).GeneratePageAudio(c)
+}
+
 func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
