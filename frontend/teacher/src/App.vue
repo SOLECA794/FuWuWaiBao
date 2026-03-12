@@ -1,8 +1,11 @@
 <template>
-  <div class="teacher-app">
+  <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+  <div v-else class="teacher-app">
     <TeacherTopBar
       :backend-status-class="backendStatusClass"
       :backend-status-text="backendStatusText"
+      :username="loggedInUsername"
+      @logout="isLoggedIn = false"
     />
     <TeacherOverviewStrip
       :current-course-name="currentCourseName"
@@ -12,88 +15,46 @@
     />
 
     <div class="main-content">
-      <TeacherCoursewareSidebar
-        v-show="isSidebarVisible"
-        :courseware-list="coursewareList"
-        :current-course-id="currentCourseId"
-        :current-course-name="currentCourseName"
-        :current-course-total-pages="currentCourseTotalPages"
-        :current-edit-page="currentEditPage"
-        :course-list-loading="courseListLoading"
-        @open-publish="showPublishModal = true"
-        @open-upload="showUploadModal = true"
-        @select-course="selectCourse"
-        @delete-course="deleteCourse"
-        @select-page="selectEditPage"
-      />
-
-      <div class="editor-section">
-        <div class="tabs">
-          <button class="toggle-sidebar-btn" @click="isSidebarVisible = !isSidebarVisible" :title="isSidebarVisible ? '收起侧边栏' : '展开侧边栏'">
-            {{ isSidebarVisible ? '◀' : '▶' }}
+      <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
+      <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
+        <div class="menu-header">
+          <span v-show="!isLeftMenuCollapsed">MENU</span>
+          <button class="menu-toggle-btn" @click="isLeftMenuCollapsed = !isLeftMenuCollapsed" :title="isLeftMenuCollapsed ? '展开菜单' : '收起菜单'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path></svg>
           </button>
-          <button class="tab-btn" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'">讲稿编辑</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">课件预览</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">学情分析</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'">提问统计</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'">学习卡点可视化</button>
         </div>
-
-        <!-- 预览面板：使用后端课件预览接口 -->
-        <div v-if="activeTab === 'preview'" class="preview-panel">
-          <div v-if="currentCourseId" class="preview-header">
-            <h3>{{ currentCourseName }} - 第{{ currentEditPage }}页</h3>
-            <div class="preview-controls">
-              <button 
-                class="preview-btn" 
-                @click="prevPage" 
-                :disabled="currentEditPage <= 1"
-              >上一页</button>
-              <button 
-                class="preview-btn" 
-                @click="nextPage"
-                :disabled="currentEditPage >= currentCourseTotalPages"
-              >下一页</button>
-            </div>
+        <div class="menu-list">
+          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="讲稿编辑">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <span v-show="!isLeftMenuCollapsed">讲稿编辑</span>
           </div>
-          <div class="preview-content">
-            <!-- 加载动画 -->
-            <div v-if="previewLoading" class="preview-loading">
-              <div class="spinner"></div>
-              <p>准备预览内容...</p>
-            </div>
-
-            <!-- 使用真实预览URL（后端302到图片地址） -->
-            <div v-else-if="currentCourseId" class="mock-preview">
-              <img 
-                :src="realPreviewUrl" 
-                class="preview-img"
-                alt="课件预览图"
-                @load="onPreviewLoad"
-                @error="handlePreviewError"
-              >
-              <div class="preview-tip">
-                <p>课件ID: {{ currentCourseId }} | 页码: {{ currentEditPage }}</p>
-              </div>
-            </div>
-
-            <!-- 无课件提示 -->
-            <div v-else class="preview-empty">
-              请先在左侧选择或上传一个课件
-            </div>
+          <div class="menu-item" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'" title="学情分析">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">学情分析</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'" title="提问统计">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">提问统计</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="学习卡点可视化">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span v-show="!isLeftMenuCollapsed">学习卡点可视化</span>
           </div>
         </div>
+      </div>
 
-        <!-- 修复：补全闭合标签 + 移除属性行注释 -->
-        <div v-else-if="activeTab === 'script'" class="tab-container">
+      <!-- 中间内容编辑区 -->
+      <div class="editor-section">
+        <div v-if="activeTab === 'script'" class="tab-container script-mode">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件以编辑讲稿</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件以编辑讲稿</div>
           </div>
           <TeacherScriptPanel
             v-else
             :preview-url="realPreviewUrl"
             :current-course-id="currentCourseId"
             :current-edit-page="currentEditPage"
+            :total-pages="currentCourseTotalPages"
             :current-script="currentScript"
             :current-script-nodes="currentScriptNodes"
             :script-generating="scriptGenerating"
@@ -101,12 +62,14 @@
             @generate-ai-script="generateAIScript"
             @save-script="saveScript"
             @update:current-script="currentScript = $event"
+            @prev-page="prevPage"
+            @next-page="nextPage"
           ></TeacherScriptPanel>
         </div>
 
         <div v-else-if="activeTab === 'stats'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看学情数据</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看学情数据</div>
           </div>
           <TeacherStatsPanel
             v-else
@@ -118,7 +81,7 @@
 
         <div v-else-if="activeTab === 'questions'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看提问统计</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看提问统计</div>
           </div>
           <TeacherQuestionsPanel
             v-else
@@ -133,7 +96,7 @@
 
         <div v-else class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看卡点分析</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看卡点分析</div>
           </div>
           <TeacherCardAnalysisPanel
             v-else
@@ -145,6 +108,23 @@
           ></TeacherCardAnalysisPanel>
         </div>
       </div>
+
+      <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
+      <TeacherCoursewareSidebar
+        v-show="isSidebarVisible"
+        :courseware-list="coursewareList"
+        :current-course-id="currentCourseId"
+        :current-course-name="currentCourseName"
+        :current-course-total-pages="currentCourseTotalPages"
+        :current-edit-page="currentEditPage"
+        :course-list-loading="courseListLoading"
+        @open-publish="showPublishModal = true"
+        @open-upload="showUploadModal = true"
+        @select-course="selectCourse"
+        @delete-course="deleteCourse"
+        @select-page="selectEditPage"
+        style="border-right: none; border-left: 1px solid #e2e8f0;"
+      />
     </div>
 
     <TeacherUploadModal
@@ -182,8 +162,21 @@ import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vu
 import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
+import HomeLogin from './components/HomeLogin.vue'
 
 // --- 状态管理 ---
+const isLoggedIn = ref(false)
+const loggedInUsername = ref('')
+
+const handleLoginSuccess = (user) => {
+  if (user.role === 'student') {
+    window.location.href = 'http://localhost:8080'
+  } else {
+    loggedInUsername.value = user.username
+    isLoggedIn.value = true
+  }
+}
+
 const coursewareList = ref([])
 const currentCourseId = ref('')
 const currentCourseName = ref('')
@@ -205,6 +198,7 @@ const scriptSaving = ref(false)
 
 const activeTab = ref('script')
 const isSidebarVisible = ref(window.innerWidth > 1024)
+const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
@@ -444,13 +438,13 @@ const uploadCourseware = async () => {
 
   try {
     await teacherV1Api.coursewares.upload(formData)
-    alert('课件上传成功！（预览接口待后端实现）')
+    alert('课件上传成功！AI 解析已在后台执行，稍后可查看讲稿内容。')
     showUploadModal.value = false
     selectedFileName.value = ''
     await loadCoursewareList()
     activeTab.value = 'preview' // 上传后切到预览页
   } catch (err) {
-    alert('上传失败：' + err.message)
+    alert('上传失败：' + (err.message || '未知错误，请检查后端服务是否正常'))
   } finally {
     uploadLoading.value = false
     if (fileInput.value) fileInput.value.value = ''
@@ -526,8 +520,8 @@ const loadQuestionRecords = async (courseId) => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+  font-family: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #F4F7F7;
 }
 .main-content {
   display: flex;
@@ -540,61 +534,96 @@ const loadQuestionRecords = async (courseId) => {
   display: flex;
   flex-direction: column;
 }
-.tabs {
+/* 左侧菜单导航栏 */
+.left-sidebar-menu {
+  flex: 0 0 180px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   display: flex;
-  gap: 0;
-  flex-shrink: 0;
-  padding: 0 10px;
-  background: #fff;
-  border-bottom: 1px solid #e6ecf5;
-  height: 52px;
-  align-items: center;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-direction: column;
+  transition: flex-basis 0.3s ease;
 }
-.toggle-sidebar-btn {
-  border: none;
-  background: #f1f5f9;
+
+.left-sidebar-menu.collapsed {
+  flex-basis: 64px;
+}
+
+.menu-header {
+  padding: 20px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
   color: #64748b;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  letter-spacing: 1.5px;
+  font-family: monospace;
+}
+
+.left-sidebar-menu.collapsed .menu-header {
+  padding: 20px 0 10px;
+  justify-content: center;
+}
+
+.menu-toggle-btn {
+  background: transparent;
+  border: none;
   cursor: pointer;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  margin-right: 10px;
-  flex-shrink: 0;
-  transition: all 0.2s;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
 }
-.toggle-sidebar-btn:hover {
-  background: #e2e8f0;
+
+.menu-toggle-btn:hover {
+  background: #f1f5f9;
   color: #1e293b;
 }
-.tab-btn {
-  border: none;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
-  padding: 0 14px;
-  background: transparent;
-  color: #64748b;
+
+.menu-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
   cursor: pointer;
-  font-weight: 500;
-  font-size: 13px;
-  transition: color 0.2s, border-color 0.2s, background 0.15s;
-  margin-bottom: -1px;
-  height: 100%;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.tab-btn.active {
-  color: #2563eb;
-  border-bottom-color: #2563eb;
-}
-.tab-btn:hover:not(.active) {
   color: #334155;
-  background: #f8faff;
+  transition: all 0.2s;
+  border-right: 3px solid transparent;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.left-sidebar-menu.collapsed .menu-item {
+  padding: 16px 0;
+  justify-content: center;
+}
+
+.menu-item.active {
+  color: #2F605A;
+  background: #F4F7F7;
+  border-right-color: #2F605A;
+  font-weight: 600;
+}
+
+.ins-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: currentColor;
 }
 
 .tab-container {
@@ -604,94 +633,7 @@ const loadQuestionRecords = async (courseId) => {
   display: flex;
   flex-direction: column;
 }
-/* --- 预览面板样式优化 --- */
-.preview-panel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 20px;
-  overflow: auto;
-}
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
-}
-.preview-header h3 {
-  margin: 0;
-  color: #1e3a8a;
-  font-size: 18px;
-}
-.preview-controls {
-  display: flex;
-  gap: 8px;
-}
-.preview-btn {
-  border: none;
-  border-radius: 6px;
-  padding: 6px 12px;
-  background: #2563eb;
-  color: #fff;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.preview-btn:disabled {
-  background: #94a3b8;
-  cursor: not-allowed;
-}
-.preview-content {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-}
 
-/* 本地加载动画 */
-.preview-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: #f8fafc;
-  color: #64748b;
-}
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #2563eb;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 12px;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* 空状态 */
-.preview-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #94a3b8;
-  font-size: 16px;
-  text-align: center;
-}
 
 .empty-tip-container {
   flex: 1;

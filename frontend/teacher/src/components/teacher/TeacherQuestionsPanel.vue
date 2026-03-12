@@ -61,11 +61,11 @@ defineEmits(['update:filterPage'])
 
 <style scoped>
 .tab-content {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e6ecf5;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 18px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 .questions-header {
   display: flex;
@@ -90,8 +90,8 @@ defineEmits(['update:filterPage'])
   gap: 12px;
 }
 .question-item {
-  background: #f8fbff;
-  border: 1px solid #e6ecf5;
+  background: #F4F7F7;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 14px;
 }
@@ -112,7 +112,7 @@ defineEmits(['update:filterPage'])
   line-height: 1.6;
 }
 .answer-label {
-  color: #2563eb;
+  color: #2F605A;
   font-weight: 600;
 }
 .empty-tip {

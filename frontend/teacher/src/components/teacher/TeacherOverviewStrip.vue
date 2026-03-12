@@ -106,11 +106,11 @@ defineProps({
 }
 
 .overview-value.success {
-  color: #16a34a;
+  color: #2F605A;
 }
 
 .overview-value.success .status-dot {
-  background: #16a34a;
+  background: #2F605A;
 }
 
 .overview-value.pending {

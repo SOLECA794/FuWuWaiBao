@@ -13,7 +13,10 @@
         <div class="avatar">
           <span>教</span>
         </div>
-        <span class="teacher-name">教师 2025T001</span>
+        <div class="account-actions">
+          <span class="teacher-name">{{ username }}</span>
+          <button class="logout-btn" @click="$emit('logout')">退出登录</button>
+        </div>
       </div>
     </div>
   </div>
@@ -28,20 +31,26 @@ defineProps({
   backendStatusText: {
     type: String,
     default: '检测中'
+  },
+  username: {
+    type: String,
+    default: '教师'
   }
 })
+
+defineEmits(['logout'])
 </script>
 
 <style scoped>
 .top-nav {
   height: 56px;
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 60%, #3b82f6 100%);
+  background: #ffffff;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  color: white;
-  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.3);
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
 }
 
@@ -74,7 +83,7 @@ defineProps({
   font-size: 12px;
   padding: 4px 10px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.15);
+  background: #F4F7F7;
 }
 
 .status-dot {
@@ -85,33 +94,33 @@ defineProps({
 }
 
 .backend-status.online {
-  color: #bbf7d0;
+  color: #166534;
 }
 
 .backend-status.online .status-dot {
-  background: #4ade80;
+  background: #22c55e;
   animation: pulse-green 2s ease-in-out infinite;
 }
 
 @keyframes pulse-green {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
-  50% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
 }
 
 .backend-status.offline {
-  color: #fecaca;
+  color: #991b1b;
 }
 
 .backend-status.offline .status-dot {
-  background: #f87171;
+  background: #ef4444;
 }
 
 .backend-status.checking {
-  color: #fde68a;
+  color: #854d0e;
 }
 
 .backend-status.checking .status-dot {
-  background: #fbbf24;
+  background: #eab308;
   animation: blink 1.4s ease-in-out infinite;
 }
 
@@ -130,7 +139,8 @@ defineProps({
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: #F4F7F7;
+  color: #2F605A;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -138,8 +148,32 @@ defineProps({
   font-weight: 600;
 }
 
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 .teacher-name {
   font-size: 13px;
-  opacity: 0.9;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.logout-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #64748b;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.logout-btn:hover {
+  color: #ef4444;
+  text-decoration: underline;
 }
 </style>

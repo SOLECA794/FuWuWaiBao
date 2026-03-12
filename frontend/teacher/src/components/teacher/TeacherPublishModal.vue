@@ -106,7 +106,7 @@ defineEmits(['close', 'submit', 'update:publishScope'])
   cursor: pointer;
 }
 .confirm-btn {
-  background: #2563eb;
+  background: #2F605A;
   color: #fff;
 }
 .cancel-btn {
