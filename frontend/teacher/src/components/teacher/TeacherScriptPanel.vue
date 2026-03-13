@@ -309,16 +309,17 @@ function estimateDuration(text) {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
   background: #f4f8ff;
 }
 
 .course-preview {
-  flex: 0 0 240px;
+  flex: 0 0 auto;
   min-width: 180px;
-  overflow-y: auto;
+  overflow: visible;
   padding: 20px 16px;
-  border-right: 1px solid #e6ecf5;
+  border-bottom: 1px solid #e6ecf5;
   background: #fff;
   display: flex;
   flex-direction: column;
@@ -349,7 +350,7 @@ function estimateDuration(text) {
   border: 1px solid #e2e8f0;
   object-fit: contain;
   display: block;
-  max-height: 360px;
+  height: auto;
 }
 
 .preview-placeholder {
@@ -400,7 +401,7 @@ function estimateDuration(text) {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y:auto;
 }
 
 .editor-actions {
@@ -526,7 +527,15 @@ function estimateDuration(text) {
   color: #334155;
   font-size: 13px;
 }
-
+.script-panel-container {
+  width: 100%;
+  margin-top: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 18px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
 .script-textarea {
   flex: 1;
   min-width: 0;
@@ -747,4 +756,5 @@ function estimateDuration(text) {
     display: none;
   }
 }
+
 </style>
