@@ -9,20 +9,8 @@
         <div class="stat-label">总提问数</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{{ studentStats.activeSessions || 0 }}</div>
-        <div class="stat-label">活跃追问会话</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-value">{{ studentStats.hotPages.join('、') || '暂无' }}</div>
         <div class="stat-label">高频提问页码</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ studentStats.reteachCount || 0 }}</div>
-        <div class="stat-label">触发重讲次数</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ studentStats.avgTurnsPerSession || 0 }}</div>
-        <div class="stat-label">会话平均轮次</div>
       </div>
       <div class="stat-card full-width">
         <div class="stat-value">{{ studentStats.keyDifficulties }}</div>
@@ -45,60 +33,44 @@ defineProps({
   },
   studentStats: {
     type: Object,
-    default: () => ({ totalQuestions: 0, hotPages: [], keyDifficulties: '暂无', activeSessions: 0, reteachCount: 0, avgTurnsPerSession: 0 })
+    default: () => ({ totalQuestions: 0, hotPages: [], keyDifficulties: '暂无' })
   }
 })
 </script>
 
 <style scoped>
 .tab-content {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.92) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 .stats-header {
   margin-bottom: 16px;
 }
-.stats-header h4 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 18px;
-}
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 .stat-card {
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.84) 0%, rgba(240, 249, 255, 0.82) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   padding: 20px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
 }
 .stat-card.full-width {
-  grid-column: span 3;
+  grid-column: span 2;
 }
 .stat-value {
   font-size: 24px;
   color: #0f172a;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 8px;
 }
 .stat-label,
 .empty-tip {
   color: #64748b;
-}
-
-@media (max-width: 960px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .stat-card.full-width {
-    grid-column: span 2;
-  }
 }
 </style>

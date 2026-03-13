@@ -159,11 +159,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .tab-content {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e6ecf5;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 18px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 .chart-header {
   display: flex;
@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .chart-btn.active {
-  background: #2563eb;
+  background: #2F605A;
   color: #fff;
 }
 .chart-container {
@@ -198,8 +198,8 @@ onBeforeUnmount(() => {
   height: 400px;
 }
 .chart-tip {
-  background: #f8fbff;
-  border: 1px solid #e6ecf5;
+  background: #F4F7F7;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 12px 14px;
   color: #475569;

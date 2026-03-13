@@ -429,8 +429,8 @@ function estimateDuration(text) {
 .page-badge {
   font-size: 12px;
   font-weight: 600;
-  color: #2563eb;
-  background: #eff6ff;
+  color: #2F605A;
+  background: #E8F0EF;
   padding: 3px 10px;
   border-radius: 6px;
   border: 1px solid #bfdbfe;
@@ -470,16 +470,16 @@ function estimateDuration(text) {
 }
 
 .ai-btn {
-  background: #0ea5e9;
+  background: #356F68;
 }
 
 .save-btn {
-  background: #2563eb;
+  background: #2F605A;
 }
 
 .ghost-btn,
 .mini-btn {
-  background: #eff6ff;
+  background: #E8F0EF;
   color: #1d4ed8;
   border: 1px solid #bfdbfe;
 }
@@ -602,7 +602,7 @@ function estimateDuration(text) {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
-  background: #2563eb;
+  background: #2F605A;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -627,11 +627,11 @@ function estimateDuration(text) {
 }
 
 .node-opening {
-  border-left: 3px solid #0ea5e9;
+  border-left: 3px solid #356F68;
 }
 
 .node-explain {
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid #2F605A;
 }
 
 .node-transition {
@@ -655,9 +655,9 @@ function estimateDuration(text) {
   font-size: 11px;
   font-weight: 600;
   padding: 1px 7px;
-  border-radius: 999px;
+  border-radius: 8px;
   color: #1d4ed8;
-  background: #eff6ff;
+  background: #E8F0EF;
 }
 
 .node-opening .node-type-tag {

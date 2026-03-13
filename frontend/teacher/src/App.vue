@@ -1,120 +1,75 @@
 <template>
-  <div class="teacher-app">
+  <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+  <div v-else class="teacher-app">
     <TeacherTopBar
       :backend-status-class="backendStatusClass"
       :backend-status-text="backendStatusText"
+      :username="loggedInUsername"
+      @logout="isLoggedIn = false"
     />
     <TeacherOverviewStrip
-      :mode="activeTab === 'platform' ? 'platform' : 'course'"
       :current-course-name="currentCourseName"
       :current-edit-page="currentEditPage"
       :current-course-total-pages="currentCourseTotalPages"
       :current-course-published="currentCoursePublished"
-      :platform-summary="platformSummary"
     />
 
     <div class="main-content">
-      <TeacherCoursewareSidebar
-        v-show="isSidebarVisible && activeTab !== 'platform'"
-        :courseware-list="coursewareList"
-        :current-course-id="currentCourseId"
-        :current-course-name="currentCourseName"
-        :current-course-total-pages="currentCourseTotalPages"
-        :current-edit-page="currentEditPage"
-        :course-list-loading="courseListLoading"
-        @open-publish="showPublishModal = true"
-        @open-upload="showUploadModal = true"
-        @select-course="selectCourse"
-        @delete-course="deleteCourse"
-        @select-page="selectEditPage"
-      />
-
-      <div class="editor-section">
-        <div class="tabs">
-          <button v-if="activeTab !== 'platform'" class="toggle-sidebar-btn" @click="isSidebarVisible = !isSidebarVisible" :title="isSidebarVisible ? '收起侧边栏' : '展开侧边栏'">
-            {{ isSidebarVisible ? '◀' : '▶' }}
+      <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
+      <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
+        <div class="menu-header">
+          <span v-show="!isLeftMenuCollapsed">MENU</span>
+          <button class="menu-toggle-btn" @click="isLeftMenuCollapsed = !isLeftMenuCollapsed" :title="isLeftMenuCollapsed ? '展开菜单' : '收起菜单'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path></svg>
           </button>
-          <button class="tab-btn" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'">讲稿编辑</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'preview' }" @click="activeTab = 'preview'">课件预览</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">学情分析</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'">提问统计</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'">学习卡点可视化</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'">平台管理</button>
         </div>
-
-        <div v-if="activeTab === 'platform'" class="tab-container">
-          <PlatformManagementPanel @summary-change="handlePlatformSummaryChange" />
-        </div>
-
-        <!-- 预览面板：使用后端课件预览接口 -->
-        <div v-else-if="activeTab === 'preview'" class="preview-panel">
-          <div v-if="currentCourseId" class="preview-header">
-            <h3>{{ currentCourseName }} - 第{{ currentEditPage }}页</h3>
-            <div class="preview-controls">
-              <button 
-                class="preview-btn" 
-                @click="prevPage" 
-                :disabled="currentEditPage <= 1"
-              >上一页</button>
-              <button 
-                class="preview-btn" 
-                @click="nextPage"
-                :disabled="currentEditPage >= currentCourseTotalPages"
-              >下一页</button>
-            </div>
+        <div class="menu-list">
+          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="讲稿编辑">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <span v-show="!isLeftMenuCollapsed">讲稿编辑</span>
           </div>
-          <div class="preview-content">
-            <!-- 加载动画 -->
-            <div v-if="previewLoading" class="preview-loading">
-              <div class="spinner"></div>
-              <p>准备预览内容...</p>
-            </div>
-
-            <!-- 使用真实预览URL（后端302到图片地址） -->
-            <div v-else-if="currentCourseId" class="mock-preview">
-              <img 
-                :src="realPreviewUrl" 
-                class="preview-img"
-                alt="课件预览图"
-                @load="onPreviewLoad"
-                @error="handlePreviewError"
-              >
-              <div class="preview-tip">
-                <p>课件ID: {{ currentCourseId }} | 页码: {{ currentEditPage }}</p>
-              </div>
-            </div>
-
-            <!-- 无课件提示 -->
-            <div v-else class="preview-empty">
-              请先在左侧选择或上传一个课件
-            </div>
+          <div class="menu-item" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'" title="学情分析">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">学情分析</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'" title="提问统计">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">提问统计</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="学习卡点可视化">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span v-show="!isLeftMenuCollapsed">学习卡点可视化</span>
           </div>
         </div>
+      </div>
 
-        <!-- 修复：补全闭合标签 + 移除属性行注释 -->
-        <div v-else-if="activeTab === 'script'" class="tab-container">
+      <!-- 中间内容编辑区 -->
+      <div class="editor-section">
+        <div v-if="activeTab === 'script'" class="tab-container script-mode">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件以编辑讲稿</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件以编辑讲稿</div>
           </div>
           <TeacherScriptPanel
             v-else
             :preview-url="realPreviewUrl"
             :current-course-id="currentCourseId"
             :current-edit-page="currentEditPage"
+            :total-pages="currentCourseTotalPages"
             :current-script="currentScript"
             :current-script-nodes="currentScriptNodes"
             :script-generating="scriptGenerating"
             :script-saving="scriptSaving"
             @generate-ai-script="generateAIScript"
             @save-script="saveScript"
-            @update:current-script="updateCurrentScript"
-            @update:current-script-nodes="updateCurrentScriptNodes"
+            @update:current-script="currentScript = $event"
+            @prev-page="prevPage"
+            @next-page="nextPage"
           ></TeacherScriptPanel>
         </div>
 
         <div v-else-if="activeTab === 'stats'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看学情数据</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看学情数据</div>
           </div>
           <TeacherStatsPanel
             v-else
@@ -126,7 +81,7 @@
 
         <div v-else-if="activeTab === 'questions'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看提问统计</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看提问统计</div>
           </div>
           <TeacherQuestionsPanel
             v-else
@@ -141,7 +96,7 @@
 
         <div v-else class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
-            <div class="empty-tip">请先在左侧选择或上传一个课件查看卡点分析</div>
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看卡点分析</div>
           </div>
           <TeacherCardAnalysisPanel
             v-else
@@ -153,6 +108,23 @@
           ></TeacherCardAnalysisPanel>
         </div>
       </div>
+
+      <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
+      <TeacherCoursewareSidebar
+        v-show="isSidebarVisible"
+        :courseware-list="coursewareList"
+        :current-course-id="currentCourseId"
+        :current-course-name="currentCourseName"
+        :current-course-total-pages="currentCourseTotalPages"
+        :current-edit-page="currentEditPage"
+        :course-list-loading="courseListLoading"
+        @open-publish="showPublishModal = true"
+        @open-upload="showUploadModal = true"
+        @select-course="selectCourse"
+        @delete-course="deleteCourse"
+        @select-page="selectEditPage"
+        style="border-right: none; border-left: 1px solid #e2e8f0;"
+      />
     </div>
 
     <TeacherUploadModal
@@ -190,16 +162,27 @@ import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vu
 import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
-import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
+import HomeLogin from './components/HomeLogin.vue'
 
 // --- 状态管理 ---
+const isLoggedIn = ref(false)
+const loggedInUsername = ref('')
+
+const handleLoginSuccess = (user) => {
+  if (user.role === 'student') {
+    window.location.href = 'http://localhost:8080'
+  } else {
+    loggedInUsername.value = user.username
+    isLoggedIn.value = true
+  }
+}
+
 const coursewareList = ref([])
 const currentCourseId = ref('')
 const currentCourseName = ref('')
 const currentCourseTotalPages = ref(0)
 const currentEditPage = ref(1)
 const currentScript = ref('')
-const currentScriptNodes = ref([])
 
 const showUploadModal = ref(false)
 const fileInput = ref(null)
@@ -215,14 +198,11 @@ const scriptSaving = ref(false)
 
 const activeTab = ref('script')
 const isSidebarVisible = ref(window.innerWidth > 1024)
-const platformSummary = ref({ users: 0, courses: 0, classes: 0, enrollments: 0 })
+const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
-  keyDifficulties: '暂无',
-  activeSessions: 0,
-  reteachCount: 0,
-  avgTurnsPerSession: 0
+  keyDifficulties: '暂无'
 })
 
 const cardData = ref([])
@@ -249,6 +229,21 @@ const backendStatusText = computed(() => {
 
 const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
+})
+
+const currentScriptNodes = computed(() => {
+  const raw = String(currentScript.value || '').trim()
+  if (!raw) return []
+
+  return raw
+    .split(/\n+|(?<=[。！？])/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map((text, index, list) => ({
+      nodeId: `p${currentEditPage.value}_n${index + 1}`,
+      type: index === 0 ? 'opening' : index === list.length - 1 ? 'transition' : 'explain',
+      text
+    }))
 })
 
 // 新增：真实预览URL（假设后端返回图片）
@@ -364,7 +359,6 @@ const deleteCourse = async (courseId) => {
       currentCourseName.value = ''
       currentCourseTotalPages.value = 0
       currentScript.value = ''
-      currentScriptNodes.value = []
       questionRecords.value = []
       cardData.value = []
     }
@@ -389,10 +383,8 @@ const loadScript = async (courseId, page) => {
   try {
     const data = await teacherV1Api.coursewares.getScript(courseId, page)
     currentScript.value = data?.data?.content || ''
-    currentScriptNodes.value = normalizeNodeDrafts(data?.data?.nodes || [], currentScript.value, page)
   } catch (err) {
     currentScript.value = ''
-    currentScriptNodes.value = []
   }
 }
 
@@ -400,24 +392,11 @@ const saveScript = async () => {
   if (!currentScript.value.trim()) return alert('请输入讲稿内容！')
   scriptSaving.value = true
   try {
-    const nodesPayload = normalizeNodeDrafts(currentScriptNodes.value, currentScript.value, currentEditPage.value)
-    const nodeResult = await teacherV1Api.coursewares.saveNodes({
+    await teacherV1Api.coursewares.saveScript({
       courseId: currentCourseId.value,
       pageNum: currentEditPage.value,
-      nodes: nodesPayload.map((node, index) => ({
-        id: node.id,
-        nodeId: node.nodeId,
-        title: node.title,
-        summary: node.summary,
-        scriptText: node.scriptText,
-        reteachScript: node.reteachScript,
-        transitionText: node.transitionText,
-        estimatedDuration: Number(node.estimatedDuration) || 0,
-        sortOrder: index + 1
-      }))
+      content: currentScript.value
     })
-    currentScript.value = nodeResult?.data?.content || currentScript.value
-    currentScriptNodes.value = normalizeNodeDrafts(nodeResult?.data?.nodes || [], currentScript.value, currentEditPage.value)
     alert('讲稿保存成功！')
   } catch (err) {
     alert('保存讲稿失败：' + err.message)
@@ -435,10 +414,8 @@ const generateAIScript = async () => {
       pageNum: currentEditPage.value
     })
     currentScript.value = data?.data?.content || 'AI生成失败，请重试'
-    currentScriptNodes.value = normalizeNodeDrafts(data?.data?.nodes || [], currentScript.value, currentEditPage.value)
   } catch (err) {
     currentScript.value = '生成失败：' + err.message
-    currentScriptNodes.value = normalizeNodeDrafts([], currentScript.value, currentEditPage.value)
   } finally {
     scriptGenerating.value = false
   }
@@ -461,13 +438,13 @@ const uploadCourseware = async () => {
 
   try {
     await teacherV1Api.coursewares.upload(formData)
-    alert('课件上传成功！（预览接口待后端实现）')
+    alert('课件上传成功！AI 解析已在后台执行，稍后可查看讲稿内容。')
     showUploadModal.value = false
     selectedFileName.value = ''
     await loadCoursewareList()
     activeTab.value = 'preview' // 上传后切到预览页
   } catch (err) {
-    alert('上传失败：' + err.message)
+    alert('上传失败：' + (err.message || '未知错误，请检查后端服务是否正常'))
   } finally {
     uploadLoading.value = false
     if (fileInput.value) fileInput.value.value = ''
@@ -497,14 +474,11 @@ const loadStudentStats = async (courseId) => {
     const payload = data?.data || {}
     studentStats.value = {
       totalQuestions: payload.totalQuestions || 0,
-      hotPages: (payload.hotPages || payload.pageStats || []).map(item => item.page).slice(0, 3),
-      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无',
-      activeSessions: payload.activeSessions || 0,
-      reteachCount: payload.reteachCount || 0,
-      avgTurnsPerSession: payload.avgTurnsPerSession || 0
+      hotPages: (payload.pageStats || []).map(item => item.page).slice(0, 3),
+      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无'
     }
   } catch (err) {
-    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败', activeSessions: 0, reteachCount: 0, avgTurnsPerSession: 0 }
+    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败' }
   }
 }
 
@@ -516,9 +490,7 @@ const loadCardData = async (courseId) => {
       page: item.page,
       提问量: item.questionCount,
       停留时长: item.stayTime,
-      卡点指数: item.cardIndex,
-      追问会话: item.sessionCount,
-      需重讲: item.needReteachCount
+      卡点指数: item.cardIndex
     }))
   } catch (err) {
     cardData.value = []
@@ -535,110 +507,25 @@ const loadQuestionRecords = async (courseId) => {
       page: item.page_index || item.pageIndex || 1,
       content: item.question || '',
       answer: item.answer || '',
-      needReteach: !!item.need_reteach,
       time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
     }))
   } catch (err) {
     questionRecords.value = []
   }
 }
-
-const updateCurrentScript = (value) => {
-  currentScript.value = value
-  currentScriptNodes.value = normalizeNodeDrafts(currentScriptNodes.value, value, currentEditPage.value)
-}
-
-const updateCurrentScriptNodes = (nodes) => {
-  currentScriptNodes.value = normalizeNodeDrafts(nodes, currentScript.value, currentEditPage.value)
-  currentScript.value = buildScriptFromNodes(currentScriptNodes.value, currentScript.value)
-}
-
-const handlePlatformSummaryChange = (summary) => {
-  platformSummary.value = {
-    users: Number(summary?.users || 0),
-    courses: Number(summary?.courses || 0),
-    classes: Number(summary?.classes || 0),
-    enrollments: Number(summary?.enrollments || 0)
-  }
-}
-
-function normalizeNodeDrafts(nodes, fallbackScript, page) {
-  if (Array.isArray(nodes) && nodes.length > 0) {
-    return nodes.map((node, index, list) => ({
-      id: node.id || '',
-      nodeId: node.nodeId || `p${page}_n${index + 1}`,
-      type: node.type || inferNodeType(index, list.length),
-      title: node.title || `第${page}页节点${index + 1}`,
-      summary: node.summary || '',
-      scriptText: node.scriptText || '',
-      reteachScript: node.reteachScript || '',
-      transitionText: node.transitionText || '',
-      estimatedDuration: Number(node.estimatedDuration) || estimateDuration(node.scriptText || node.summary || ''),
-      sortOrder: Number(node.sortOrder) || index + 1
-    }))
-  }
-
-  return splitScriptToNodes(fallbackScript, page)
-}
-
-function splitScriptToNodes(script, page) {
-  const raw = String(script || '').trim()
-  if (!raw) return []
-  return raw
-    .split(/\n{2,}|(?<=[。！？])\s*/)
-    .map(item => item.trim())
-    .filter(Boolean)
-    .map((text, index, list) => ({
-      id: '',
-      nodeId: `p${page}_n${index + 1}`,
-      type: inferNodeType(index, list.length),
-      title: `第${page}页节点${index + 1}`,
-      summary: text.length > 48 ? `${text.slice(0, 48)}...` : text,
-      scriptText: text,
-      reteachScript: '',
-      transitionText: '',
-      estimatedDuration: estimateDuration(text),
-      sortOrder: index + 1
-    }))
-}
-
-function buildScriptFromNodes(nodes, fallback) {
-  const content = (nodes || [])
-    .map(node => String(node.scriptText || node.summary || '').trim())
-    .filter(Boolean)
-    .join('\n\n')
-  return content || fallback || ''
-}
-
-function inferNodeType(index, total) {
-  if (total <= 1 || index === 0) return 'opening'
-  if (index === total - 1) return 'transition'
-  return 'explain'
-}
-
-function estimateDuration(text) {
-  const size = Math.ceil(String(text || '').trim().length / 14)
-  return Math.max(20, Math.min(90, size || 20))
-}
 </script>
 
 <style scoped>
 .teacher-app {
   width: 100%;
-  min-height: 100vh;
   height: 100vh;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top left, rgba(245, 158, 11, 0.11), transparent 30%),
-    radial-gradient(circle at right top, rgba(2, 132, 199, 0.12), transparent 26%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.92) 0%, rgba(244, 248, 252, 0.96) 48%, rgba(237, 243, 249, 0.98) 100%);
+  font-family: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #F4F7F7;
 }
 .main-content {
   display: flex;
   height: calc(100vh - 108px);
-  padding: 16px;
-  gap: 16px;
-  box-sizing: border-box;
 }
 .editor-section {
   flex: 1;
@@ -646,70 +533,97 @@ function estimateDuration(text) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border-radius: 30px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84) 0%, rgba(255, 255, 255, 0.72) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(16px);
 }
-.tabs {
+/* 左侧菜单导航栏 */
+.left-sidebar-menu {
+  flex: 0 0 180px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
   display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 16px 18px 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.54) 0%, rgba(255, 255, 255, 0.18) 100%);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  min-height: 68px;
-  align-items: center;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-direction: column;
+  transition: flex-basis 0.3s ease;
 }
-.toggle-sidebar-btn {
+
+.left-sidebar-menu.collapsed {
+  flex-basis: 64px;
+}
+
+.menu-header {
+  padding: 20px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 1.5px;
+  font-family: monospace;
+}
+
+.left-sidebar-menu.collapsed .menu-header {
+  padding: 20px 0 10px;
+  justify-content: center;
+}
+
+.menu-toggle-btn {
+  background: transparent;
   border: none;
-  background: rgba(255, 255, 255, 0.7);
-  color: #334155;
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
   cursor: pointer;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  margin-right: 10px;
-  flex-shrink: 0;
-  transition: all 0.2s;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
 }
-.toggle-sidebar-btn:hover {
-  background: rgba(224, 242, 254, 0.9);
-  color: #075985;
+
+.menu-toggle-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
 }
-.tab-btn {
-  border: none;
-  border-radius: 999px;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.82);
-  color: #64748b;
+
+.menu-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
   cursor: pointer;
-  font-weight: 700;
-  font-size: 13px;
-  transition: color 0.2s, border-color 0.2s, background 0.15s, box-shadow 0.15s;
+  color: #334155;
+  transition: all 0.2s;
+  border-right: 3px solid transparent;
+  font-size: 15px;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.left-sidebar-menu.collapsed .menu-item {
+  padding: 16px 0;
+  justify-content: center;
+}
+
+.menu-item.active {
+  color: #2F605A;
+  background: #F4F7F7;
+  border-right-color: #2F605A;
+  font-weight: 600;
+}
+
+.ins-icon {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.04);
-}
-.tab-btn.active {
-  color: #ffffff;
-  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
-  box-shadow: 0 14px 24px rgba(2, 132, 199, 0.22);
-  border-color: transparent;
-}
-.tab-btn:hover:not(.active) {
-  color: #0f172a;
-  background: rgba(240, 249, 255, 0.92);
+  stroke: currentColor;
 }
 
 .tab-container {
@@ -719,96 +633,7 @@ function estimateDuration(text) {
   display: flex;
   flex-direction: column;
 }
-/* --- 预览面板样式优化 --- */
-.preview-panel {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 22px;
-  overflow: auto;
-}
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-}
-.preview-header h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 18px;
-}
-.preview-controls {
-  display: flex;
-  gap: 8px;
-}
-.preview-btn {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 999px;
-  padding: 8px 14px;
-  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 12px 22px rgba(2, 132, 199, 0.18);
-}
-.preview-btn:disabled {
-  background: rgba(148, 163, 184, 0.9);
-  cursor: not-allowed;
-  box-shadow: none;
-}
-.preview-content {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  border-radius: 18px;
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
 
-/* 本地加载动画 */
-.preview-loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: #f8fafc;
-  color: #64748b;
-}
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #2563eb;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 12px;
-}
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* 空状态 */
-.preview-empty {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: #94a3b8;
-  font-size: 16px;
-  text-align: center;
-}
 
 .empty-tip-container {
   flex: 1;
@@ -817,9 +642,9 @@ function estimateDuration(text) {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76) 0%, rgba(248, 250, 252, 0.88) 100%);
-  border-radius: 20px;
-  border: 1px dashed rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
+  border: 1px dashed #cbd5e1;
   margin: 20px;
 }
 
@@ -827,33 +652,5 @@ function estimateDuration(text) {
   color: #94a3b8;
   font-size: 15px;
   text-align: center;
-}
-
-@media (max-width: 1080px) {
-  .main-content {
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .editor-section {
-    border-radius: 24px;
-  }
-}
-
-@media (max-width: 860px) {
-  .teacher-app {
-    height: auto;
-    overflow: auto;
-  }
-
-  .main-content {
-    height: auto;
-    min-height: calc(100vh - 108px);
-    flex-direction: column;
-  }
-
-  .editor-section {
-    min-height: 70vh;
-  }
 }
 </style>
