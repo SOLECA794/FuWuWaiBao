@@ -61,13 +61,16 @@
         </div>
       </div>
 
-      <!-- 右侧登录卡片 -->
+      <!-- 右侧登录 / 注册卡片 -->
       <div class="login-card">
         <div class="card-inner">
-          <h2 class="card-title">欢迎回来</h2>
-          <p class="card-sub">请登录您的账号继续使用</p>
+          <h2 class="card-title">{{ isRegisterMode ? '注册新账号' : '欢迎回来' }}</h2>
+          <p class="card-sub">
+            {{ isRegisterMode ? '创建一个教师或学生账号' : '请登录您的账号继续使用' }}
+          </p>
 
-          <form @submit.prevent="handleLogin" class="form">
+          <!-- 登录表单 -->
+          <form v-if="!isRegisterMode" @submit.prevent="handleLogin" class="form">
             <div class="field">
               <label>账号</label>
               <div class="input-wrap">
@@ -100,8 +103,57 @@
             </button>
           </form>
 
+          <!-- 注册表单 -->
+          <form v-else @submit.prevent="handleRegister" class="form">
+            <div class="field">
+              <label>账号</label>
+              <div class="input-wrap">
+                <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <input type="text" v-model="username" placeholder="设置登录账号（推荐英文）" autocomplete="username" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>密码</label>
+              <div class="input-wrap">
+                <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <input type="password" v-model="password" placeholder="至少 4 位密码" autocomplete="new-password" required />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>角色</label>
+              <div class="role-radio-group">
+                <label class="radio-item">
+                  <input type="radio" value="teacher" v-model="role" />
+                  <span>教师</span>
+                </label>
+                <label class="radio-item">
+                  <input type="radio" value="student" v-model="role" />
+                  <span>学生</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="submit" :disabled="loading">
+              <span v-if="!loading">注 册</span>
+              <span v-else class="loading-dots">
+                <span></span><span></span><span></span>
+              </span>
+            </button>
+          </form>
+
+          <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
+
           <p class="login-hint">
-            账号含「学生」或「student」将进入学生端，其他进入教师端
+            <span v-if="!isRegisterMode">
+              没有账号？
+              <a href="#" class="link" @click.prevent="switchMode">去注册</a>
+            </span>
+            <span v-else>
+              已有账号？
+              <a href="#" class="link" @click.prevent="switchMode">去登录</a>
+            </span>
           </p>
         </div>
       </div>
@@ -111,23 +163,75 @@
 
 <script setup>
 import { ref } from 'vue'
+import { API_BASE } from '../config/api'
 
 const emit = defineEmits(['login-success'])
 const username = ref('')
 const password = ref('')
 const remember = ref(false)
 const loading = ref(false)
+const isRegisterMode = ref(false)
+const role = ref('teacher')
+const errorMessage = ref('')
 
-const handleLogin = () => {
+const switchMode = () => {
+  errorMessage.value = ''
+  password.value = ''
+  isRegisterMode.value = !isRegisterMode.value
+}
+
+const handleLogin = async () => {
   if (!username.value || !password.value) return
   loading.value = true
-  setTimeout(() => {
+  errorMessage.value = ''
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value
+      })
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok || payload.code !== 200) {
+      throw new Error(payload.message || `登录失败 (${res.status})`)
+    }
+    const data = payload.data || {}
+    emit('login-success', { username: data.username || username.value, role: data.role || 'teacher' })
+  } catch (err) {
+    errorMessage.value = err.message || '登录失败，请稍后重试'
+  } finally {
     loading.value = false
-    const role = (username.value.includes('学生') || username.value.toLowerCase().includes('student'))
-      ? 'student'
-      : 'teacher'
-    emit('login-success', { username: username.value, role })
-  }, 700)
+  }
+}
+
+const handleRegister = async () => {
+  if (!username.value || !password.value) return
+  loading.value = true
+  errorMessage.value = ''
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value,
+        role: role.value
+      })
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok || payload.code !== 200) {
+      throw new Error(payload.message || `注册失败 (${res.status})`)
+    }
+    isRegisterMode.value = false
+    password.value = ''
+    errorMessage.value = '注册成功，请使用该账号登录'
+  } catch (err) {
+    errorMessage.value = err.message || '注册失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -519,5 +623,26 @@ const handleLogin = () => {
   color: #94a3b8;
   text-align: center;
   line-height: 1.6;
+}
+
+.error-text {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #ef4444;
+  text-align: center;
+}
+
+.role-radio-group {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.radio-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
 }
 </style>

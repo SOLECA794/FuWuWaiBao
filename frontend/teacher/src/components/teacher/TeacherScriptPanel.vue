@@ -12,13 +12,12 @@
           </div>
         </div>
         <div class="preview-img-wrap" v-if="currentCourseId">
-          <img
-            v-if="!imgError"
+          <iframe
+            v-if="previewUrl"
             :src="previewUrl"
-            alt="课件预览"
-            class="preview-img"
-            @error="imgError = true"
-          />
+            title="课件预览"
+            class="preview-iframe"
+          ></iframe>
           <div class="preview-placeholder" v-else>
             <span class="placeholder-icon">📄</span>
             <p>第 {{ currentEditPage }} 页</p>
@@ -52,8 +51,6 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
-
 const props = defineProps({
   previewUrl: {
     type: String,
@@ -88,10 +85,6 @@ const props = defineProps({
     default: false
   }
 })
-
-const imgError = ref(false)
-watch(() => props.currentEditPage, () => { imgError.value = false })
-watch(() => props.currentCourseId, () => { imgError.value = false })
 
 defineEmits(['generate-ai-script', 'save-script', 'update:currentScript', 'prev-page', 'next-page'])
 </script>
@@ -178,13 +171,13 @@ defineEmits(['generate-ai-script', 'save-script', 'update:currentScript', 'prev-
   background: #f8fafc;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
-
-.preview-img {
+ 
+.preview-iframe {
   width: 100%;
-  object-fit: contain;
+  height: 420px;
+  border: none;
   border-radius: 8px;
-  max-height: 400px;
-  display: block;
+  background: #ffffff;
 }
 
 .preview-placeholder {
