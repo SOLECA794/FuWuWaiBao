@@ -16,6 +16,15 @@
           :current-course-name="currentCourseName"
           :current-page="currentPage"
           :total-page="totalPage"
+          :page-timeline-duration="pageTimelineDuration"
+          :current-timeline-sec="currentTimelineSec"
+          :active-node-elapsed-sec="activeNodeElapsedSec"
+          :active-node-duration="activeNodeDuration"
+          :current-node-title="currentNodeMeta?.title || ''"
+          :active-node-type-label="activeNodeTypeLabel"
+          :playback-mode="playbackMode"
+          :playback-audio-meta="playbackAudioMeta"
+          :progress-percent="progressPercent"
           :course-img="courseImg"
           :playback-nodes="playbackNodes"
           :current-node-id="currentNodeId"
@@ -39,6 +48,7 @@
               :ask-loading="askLoading"
               :ai-reply="aiReply"
               :qa-history="qaHistory"
+              :latest-answer-meta="latestAnswerMeta"
               @update:question="question = $event"
               @open-upload="openUpload"
               @send-question="sendMultiModalQuestion"
@@ -94,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { studentV1Api } from './services/v1'
 import { API_BASE } from './config/api'
@@ -120,6 +130,8 @@ const sessionId = ref('')
 const currentNodeId = ref('p1_n1')
 const playbackNodes = ref([])
 const pageSummary = ref('')
+const playbackMode = ref('duration_timeline')
+const playbackAudioMeta = ref(null)
 const currentCourseName = ref('')
 const currentPage = ref(1)
 const totalPage = ref(10)
@@ -127,11 +139,19 @@ const isPlay = ref(false)
 const courseImg = ref('')
 const activeTab = ref('ask')
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
+const currentTimelineSec = ref(0)
+let playbackTimer = null
 
 const question = ref('')
 const aiReply = ref('')
 const askLoading = ref(false)
 const qaHistory = ref([])
+const latestAnswerMeta = ref({
+  sourcePage: 0,
+  needReteach: false,
+  followUpSuggestion: '',
+  sessionId: ''
+})
 
 const tracePoint = ref(false)
 const traceTop = ref(0)
@@ -163,17 +183,120 @@ const learningStats = ref({
   masteryRate: 100
 })
 
+const pageTimelineDuration = computed(() => {
+  const lastNode = playbackNodes.value[playbackNodes.value.length - 1]
+  return Number(lastNode?.end_sec || 0)
+})
+
+const currentNodeMeta = computed(() => {
+  return playbackNodes.value.find(node => node.node_id === currentNodeId.value) || null
+})
+
+const activeNodeDuration = computed(() => Number(currentNodeMeta.value?.duration_sec || 0))
+
+const activeNodeElapsedSec = computed(() => {
+  const node = currentNodeMeta.value
+  if (!node) return 0
+  return Math.max(0, Math.min(activeNodeDuration.value, currentTimelineSec.value - Number(node.start_sec || 0)))
+})
+
+const activeNodeTypeLabel = computed(() => {
+  const type = currentNodeMeta.value?.type
+  if (type === 'opening') return '开场讲解'
+  if (type === 'transition') return '过渡收束'
+  return '核心讲解'
+})
+
+const normalizeTimeSec = (value, fallback = 0) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.max(0, Math.floor(numeric))
+}
+
+const clampTimelineSec = (value) => {
+  const normalized = normalizeTimeSec(value)
+  if (pageTimelineDuration.value <= 0) return normalized
+  return Math.min(pageTimelineDuration.value, normalized)
+}
+
+const normalizeTimelineForNode = (nodeId) => {
+  const node = playbackNodes.value.find(item => item.node_id === nodeId)
+  currentTimelineSec.value = node ? Number(node.start_sec || 0) : 0
+}
+
+const applyPlaybackPosition = ({ nodeId = '', timeSec = null } = {}) => {
+  if (!playbackNodes.value.length) {
+    currentNodeId.value = `p${currentPage.value}_n1`
+    currentTimelineSec.value = 0
+    return
+  }
+
+  const matchedNode = playbackNodes.value.find(item => item.node_id === nodeId)
+  const fallbackNode = matchedNode || playbackNodes.value[0]
+  currentNodeId.value = fallbackNode?.node_id || `p${currentPage.value}_n1`
+
+  if (timeSec !== null && timeSec !== undefined) {
+    currentTimelineSec.value = clampTimelineSec(timeSec)
+    syncCurrentNodeWithTimeline()
+    return
+  }
+
+  normalizeTimelineForNode(currentNodeId.value)
+}
+
+const syncCurrentNodeWithTimeline = () => {
+  if (!playbackNodes.value.length) return
+  const matched = playbackNodes.value.find((node) => {
+    const start = Number(node.start_sec || 0)
+    const end = Number(node.end_sec || 0)
+    return currentTimelineSec.value >= start && currentTimelineSec.value < end
+  }) || playbackNodes.value[playbackNodes.value.length - 1]
+  if (matched?.node_id && matched.node_id !== currentNodeId.value) {
+    currentNodeId.value = matched.node_id
+  }
+}
+
+const stopPlaybackTimer = () => {
+  if (playbackTimer) {
+    window.clearInterval(playbackTimer)
+    playbackTimer = null
+  }
+}
+
+const startPlaybackTimer = () => {
+  stopPlaybackTimer()
+  if (!playbackNodes.value.length) return
+  playbackTimer = window.setInterval(async () => {
+    if (!isPlay.value) return
+    currentTimelineSec.value += 1
+    syncCurrentNodeWithTimeline()
+
+    if (pageTimelineDuration.value > 0 && currentTimelineSec.value >= pageTimelineDuration.value) {
+      if (currentPage.value < totalPage.value) {
+        currentPage.value += 1
+        await refreshCurrentPageData({ preserveCurrentNode: false })
+        await saveBreakpoint()
+      } else {
+        isPlay.value = false
+        stopPlaybackTimer()
+      }
+    }
+  }, 1000)
+}
+
 const prevPage = async () => {
   if (!courseId.value || currentPage.value <= 1) return
+  isPlay.value = false
   currentPage.value--
-  await refreshCurrentPageData()
+  await refreshCurrentPageData({ preserveCurrentNode: false })
   await saveBreakpoint()
 }
 
 const nextPage = async () => {
   if (!courseId.value || currentPage.value >= totalPage.value) return
+  isPlay.value = false
   currentPage.value++
-  await refreshCurrentPageData()
+  await refreshCurrentPageData({ preserveCurrentNode: false })
   await saveBreakpoint()
 }
 
@@ -190,32 +313,49 @@ const loadStudentScript = async () => {
     currentNodeId.value = 'p1_n1'
     playbackNodes.value = []
     pageSummary.value = ''
+    playbackMode.value = 'duration_timeline'
+    playbackAudioMeta.value = null
+    currentTimelineSec.value = 0
     return
   }
   try {
     const data = await studentV1Api.coursewares.getPlaybackScript(courseId.value, currentPage.value)
+    const payload = data?.data || {}
     const nodes = data?.data?.nodes || []
     playbackNodes.value = nodes
-    pageSummary.value = data?.data?.page_summary || ''
-    currentNodeId.value = nodes[0]?.node_id || `p${currentPage.value}_n1`
+    pageSummary.value = payload.page_summary || ''
+    playbackAudioMeta.value = payload.audio_meta || null
+    playbackMode.value = payload.playback_mode || payload.audio_meta?.playback_mode || 'duration_timeline'
+    applyPlaybackPosition({ nodeId: currentNodeId.value })
   } catch (error) {
     playbackNodes.value = []
     pageSummary.value = ''
+    playbackMode.value = 'duration_timeline'
+    playbackAudioMeta.value = null
     currentNodeId.value = `p${currentPage.value}_n1`
+    currentTimelineSec.value = 0
   }
 }
 
 const selectPlaybackNode = async (nodeId) => {
   currentNodeId.value = nodeId
+  normalizeTimelineForNode(nodeId)
   await saveBreakpoint()
 }
 
-const refreshCurrentPageData = async () => {
+const refreshCurrentPageData = async ({ preserveCurrentNode = true, targetNodeId = '', targetTimeSec = null } = {}) => {
+  const nextNodeId = preserveCurrentNode ? currentNodeId.value : (targetNodeId || `p${currentPage.value}_n1`)
+  currentNodeId.value = nextNodeId
   updateCourseContent()
   await loadStudentScript()
+  applyPlaybackPosition({ nodeId: targetNodeId || nextNodeId, timeSec: targetTimeSec })
 }
 
 const togglePlay = () => {
+  if (!playbackNodes.value.length) {
+    ElMessage.warning('当前页暂无可播放的讲授节点')
+    return
+  }
   isPlay.value = !isPlay.value
 }
 
@@ -234,9 +374,16 @@ const sendMultiModalQuestion = async () => {
   }
 
   askLoading.value = true
+  isPlay.value = false
   try {
     const currentQuestion = question.value
     aiReply.value = ''
+    latestAnswerMeta.value = {
+      sourcePage: 0,
+      needReteach: false,
+      followUpSuggestion: '',
+      sessionId: sessionId.value
+    }
     let finalPayload = null
     await studentV1Api.qa.stream({
       sessionId: sessionId.value,
@@ -263,11 +410,37 @@ const sendMultiModalQuestion = async () => {
     if (qaHistory.value.length > 3) {
       qaHistory.value = qaHistory.value.slice(0, 3)
     }
-    if (finalPayload?.resume_node_id) {
-      currentNodeId.value = finalPayload.resume_node_id
+    if (finalPayload?.session_id) {
+      sessionId.value = finalPayload.session_id
+    }
+
+    const resumePage = Number(finalPayload?.resume_page || currentPage.value) || currentPage.value
+    const resumeNodeId = finalPayload?.resume_node_id || currentNodeId.value
+    const resumeSec = finalPayload?.resume_sec
+    if (resumePage !== currentPage.value) {
+      currentPage.value = resumePage
+      await refreshCurrentPageData({
+        preserveCurrentNode: false,
+        targetNodeId: resumeNodeId,
+        targetTimeSec: resumeSec
+      })
+    } else if (resumeNodeId || resumeSec !== undefined) {
+      applyPlaybackPosition({ nodeId: resumeNodeId, timeSec: resumeSec })
+    }
+
+    latestAnswerMeta.value = {
+      sourcePage: finalPayload?.source_page || resumePage,
+      needReteach: !!finalPayload?.need_reteach,
+      followUpSuggestion: finalPayload?.follow_up_suggestion || '',
+      sessionId: finalPayload?.session_id || sessionId.value
     }
     question.value = ''
-    ElMessage.success('AI 答疑完成')
+    if (finalPayload?.need_reteach) {
+      ElMessage.success('已按追问语境切换为重讲模式')
+    } else {
+      isPlay.value = true
+      ElMessage.success('AI 答疑完成，并已准备继续讲解')
+    }
   } catch (error) {
     aiReply.value = ''
     ElMessage.error(`提问失败：${error.message}`)
@@ -286,6 +459,7 @@ const openTraceMode = () => {
 onMounted(() => {
   checkBackendHealth()
   backendHealthTimer = window.setInterval(checkBackendHealth, 30000)
+  startPlaybackTimer()
   initializeCourseContext()
 })
 
@@ -293,6 +467,21 @@ onUnmounted(() => {
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
     backendHealthTimer = null
+  }
+  stopPlaybackTimer()
+})
+
+watch(isPlay, (value) => {
+  if (value) {
+    startPlaybackTimer()
+    return
+  }
+  stopPlaybackTimer()
+})
+
+watch(playbackNodes, () => {
+  if (isPlay.value) {
+    startPlaybackTimer()
   }
 })
 
@@ -316,7 +505,7 @@ const initializeCourseContext = async () => {
     currentCourseName.value = target.title || '未命名课件'
     totalPage.value = target.total_page || 1
     currentPage.value = 1
-    await refreshCurrentPageData()
+    await refreshCurrentPageData({ preserveCurrentNode: false })
 
     const session = await studentV1Api.sessions.start({
       userId: studentId.value,
@@ -369,7 +558,8 @@ const saveBreakpoint = async () => {
       userId: studentId.value,
       courseId: courseId.value,
       currentPage: currentPage.value,
-      currentNodeId: currentNodeId.value
+      currentNodeId: currentNodeId.value,
+      currentTimeSec: currentTimelineSec.value
     })
   } catch (error) {
     console.warn('断点保存失败', error)
@@ -410,7 +600,7 @@ const loadWeakPoints = async () => {
 
 const continueStudy = async () => {
   currentPage.value = breakpointPage.value
-  await refreshCurrentPageData()
+  await refreshCurrentPageData({ preserveCurrentNode: false })
   showBreakpointDialog.value = false
   await saveBreakpoint()
   ElMessage.success(`已为你跳转到第 ${breakpointPage.value} 页`)
@@ -418,7 +608,7 @@ const continueStudy = async () => {
 
 const restartStudy = async () => {
   currentPage.value = 1
-  await refreshCurrentPageData()
+  await refreshCurrentPageData({ preserveCurrentNode: false })
   showBreakpointDialog.value = false
   await saveBreakpoint()
   ElMessage.info('已回到第1页重新开始学习')
@@ -543,29 +733,59 @@ const checkAnswer = async (option) => {
 .app-container {
   width: 100%;
   height: 100vh;
-  background: linear-gradient(180deg, #f6f9ff 0%, #eef3fb 100%);
+  background:
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 22%),
+    linear-gradient(180deg, #fffdf7 0%, #f4f8fc 45%, #edf3f9 100%);
   display: flex;
   flex-direction: column;
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
 }
 .main {
   flex: 1;
   display: flex;
   gap: 16px;
-  padding: 12px 20px 20px;
+  padding: 16px 20px 20px;
   overflow: hidden;
 }
 .left-section {
   flex: 6;
+  min-width: 0;
 }
 .right-section {
   flex: 4;
   overflow: hidden;
+  min-width: 360px;
 }
 .smart-tab {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 24px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  padding: 0 14px 14px;
+}
+:deep(.el-tabs__header) {
+  margin: 0;
+  padding-top: 6px;
+}
+:deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+:deep(.el-tabs__item) {
+  color: #475569;
+  font-weight: 600;
+}
+:deep(.el-tabs__item.is-active) {
+  color: #0f172a;
+}
+:deep(.el-tabs__active-bar) {
+  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
+  height: 3px;
+  border-radius: 999px;
 }
 :deep(.el-tabs__content) {
   flex: 1;
@@ -573,11 +793,28 @@ const checkAnswer = async (option) => {
 }
 .footer {
   height: 40px;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.62);
   text-align: center;
   line-height: 40px;
   font-size: 12px;
-  color: #999;
-  border-top: 1px solid #eee;
+  color: #64748b;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 1100px) {
+	.main {
+		flex-direction: column;
+		overflow: auto;
+	}
+	.right-section {
+		min-width: 0;
+	}
+}
+
+@media (max-width: 720px) {
+	.main {
+		padding: 12px;
+	}
 }
 </style>

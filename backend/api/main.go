@@ -26,7 +26,7 @@ import (
 
 func main() {
 	_, filename, _, _ := runtime.Caller(0)
-	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
+	projectRoot := filepath.Dir(filepath.Dir(filename))
 
 	cfg, err := config.LoadConfig(filepath.Join(projectRoot, "config"))
 	if err != nil {
@@ -63,6 +63,13 @@ func main() {
 		&model.CoursePage{},
 		&model.TeachingNode{},
 		&model.UserProgress{},
+		&model.DialogueSession{},
+		&model.DialogueTurn{},
+		&model.AudioAsset{},
+		&model.PlatformUser{},
+		&model.TeachingCourse{},
+		&model.CourseClass{},
+		&model.CourseEnrollment{},
 		&model.QuestionLog{},
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
@@ -86,21 +93,8 @@ func main() {
 	_ = redisClient
 	applogger.Info("Redis连接成功")
 
-	// ========== 关键修改：修复 MinIO Endpoint 配置 ==========
-	// 移除 http:// 前缀，仅保留 域名/IP + 端口
-	tempOSSConfig := &config.OSSConfig{
-		Provider:  "minio",
-		Endpoint:  "localhost:9000", // 核心修改：去掉 http:// 前缀
-		AccessKey: "minioadmin",     // 默认密钥（确认无误）
-		SecretKey: "minioadmin",     // 默认密钥（确认无误）
-		Bucket:    "teaching",       // Bucket 名称（会自动创建，无需提前手动创建）
-		UseSSL:    false,            // 本地测试关闭 SSL
-	}
-
-	// 使用手动配置初始化MinIO
-	minioClient, err := oss.NewMinioClient(tempOSSConfig)
+	minioClient, err := oss.NewMinioClient(&cfg.OSS)
 	if err != nil {
-		// 增强错误提示，方便定位问题
 		applogger.Sugar.Fatalf("初始化MinIO失败: 初始化MinIO失败: %v", err)
 	}
 	applogger.Info("MinIO连接成功")
@@ -285,6 +279,24 @@ func main() {
 			openPlatform := v1.Group("/platform")
 			openPlatform.Use(handler.OpenAPISignatureMiddleware())
 			{
+				openPlatform.GET("/users", compatHandler.OpenPlatformUsers)
+				openPlatform.GET("/users/:userId", compatHandler.OpenPlatformUserDetail)
+				openPlatform.GET("/courses", compatHandler.OpenPlatformCourses)
+				openPlatform.POST("/courses", compatHandler.OpenCreatePlatformCourse)
+				openPlatform.GET("/courses/:courseId", compatHandler.OpenPlatformCourseDetail)
+				openPlatform.PUT("/courses/:courseId", compatHandler.OpenUpdatePlatformCourse)
+				openPlatform.DELETE("/courses/:courseId", compatHandler.OpenDeletePlatformCourse)
+				openPlatform.GET("/classes", compatHandler.OpenPlatformClasses)
+				openPlatform.POST("/classes", compatHandler.OpenCreatePlatformClass)
+				openPlatform.GET("/classes/:classId", compatHandler.OpenPlatformClassDetail)
+				openPlatform.PUT("/classes/:classId", compatHandler.OpenUpdatePlatformClass)
+				openPlatform.DELETE("/classes/:classId", compatHandler.OpenDeletePlatformClass)
+				openPlatform.GET("/enrollments", compatHandler.OpenPlatformEnrollments)
+				openPlatform.POST("/enrollments", compatHandler.OpenCreatePlatformEnrollment)
+				openPlatform.GET("/enrollments/:enrollmentId", compatHandler.OpenPlatformEnrollmentDetail)
+				openPlatform.PUT("/enrollments/:enrollmentId", compatHandler.OpenUpdatePlatformEnrollment)
+				openPlatform.DELETE("/enrollments/:enrollmentId", compatHandler.OpenDeletePlatformEnrollment)
+				openPlatform.GET("/overview", compatHandler.OpenPlatformOverview)
 				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
 				openPlatform.POST("/syncUser", compatHandler.OpenSyncUser)
 			}

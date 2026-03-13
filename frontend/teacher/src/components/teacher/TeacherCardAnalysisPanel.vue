@@ -21,8 +21,8 @@
         <p>数据说明：</p>
         <ul>
           <li>提问量：该页面学生发起的提问总数</li>
-          <li>停留时长：学生平均停留时长（秒）</li>
-          <li>卡点指数：综合提问量+停留时长计算的卡点程度（0-10）</li>
+          <li>停留时长：基于节点时长、追问轮次和重讲次数估算的学习停留时长（秒）</li>
+          <li>卡点指数：综合提问量、停留时长和重讲需求计算的卡点程度（0-10）</li>
         </ul>
       </div>
     </div>
@@ -69,17 +69,19 @@ const chartOption = computed(() => {
   const questionCounts = props.cardData.map(item => item.提问量)
   const stayTimes = props.cardData.map(item => item.停留时长)
   const cardScores = props.cardData.map(item => item.卡点指数)
+  const reteachCounts = props.cardData.map(item => item.需重讲 || 0)
 
   if (props.chartType === 'line') {
     return {
       title: { text: '各页面学习卡点趋势' },
       tooltip: { trigger: 'axis' },
-      legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+      legend: { data: ['提问量', '停留时长(秒)', '重讲次数', '卡点指数'] },
       xAxis: { type: 'category', data: pages },
       yAxis: { type: 'value' },
       series: [
         { name: '提问量', type: 'line', data: questionCounts },
         { name: '停留时长(秒)', type: 'line', data: stayTimes },
+        { name: '重讲次数', type: 'line', data: reteachCounts },
         { name: '卡点指数', type: 'line', data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
       ]
     }
@@ -109,12 +111,13 @@ const chartOption = computed(() => {
   return {
     title: { text: '各页面学习卡点数据' },
     tooltip: { trigger: 'axis' },
-    legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+    legend: { data: ['提问量', '停留时长(秒)', '重讲次数', '卡点指数'] },
     xAxis: { type: 'category', data: pages },
     yAxis: { type: 'value' },
     series: [
       { name: '提问量', type: 'bar', data: questionCounts },
       { name: '停留时长(秒)', type: 'bar', data: stayTimes },
+      { name: '重讲次数', type: 'bar', data: reteachCounts },
       { name: '卡点指数', type: 'bar', data: cardScores, itemStyle: { color: '#ff4d4f' } }
     ]
   }

@@ -47,18 +47,20 @@ func (h *CompatibilityHandler) StartStudentSession(c *gin.Context) {
 		UpdatedAt:     time.Now(),
 	}
 	h.persistSession(state)
+	syncDialogueSessionState(h.db, state.SessionID, req.UserID, req.CourseID, 1, state.CurrentNodeID, 0)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"sessionId": state.SessionID, "courseId": req.CourseID}})
 }
 
 func (h *CompatibilityHandler) UpdateStudentProgress(c *gin.Context) {
 	var req struct {
-		SessionID     string `json:"sessionId"`
-		UserID        string `json:"userId"`
-		CourseID      string `json:"courseId" binding:"required"`
-		Page          int    `json:"page"`
-		CurrentPage   int    `json:"currentPage"`
-		NodeID        string `json:"nodeId"`
-		CurrentNodeID string `json:"currentNodeId"`
+		SessionID      string `json:"sessionId"`
+		UserID         string `json:"userId"`
+		CourseID       string `json:"courseId" binding:"required"`
+		Page           int    `json:"page"`
+		CurrentPage    int    `json:"currentPage"`
+		NodeID         string `json:"nodeId"`
+		CurrentNodeID  string `json:"currentNodeId"`
+		CurrentTimeSec int    `json:"currentTimeSec"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -90,6 +92,7 @@ func (h *CompatibilityHandler) UpdateStudentProgress(c *gin.Context) {
 		state.SessionID = "sess_" + uuid.NewString()
 	}
 	h.persistSession(state)
+	syncDialogueSessionState(h.db, state.SessionID, req.UserID, req.CourseID, page, nodeID, req.CurrentTimeSec)
 
 	if strings.TrimSpace(req.UserID) != "" {
 		var progress model.UserProgress
@@ -120,6 +123,7 @@ func (h *CompatibilityHandler) GetStudentScript(c *gin.Context) {
 	if len(nodes) == 0 {
 		nodes = buildScriptNodes(page, displayText)
 	}
+	audioMeta := buildPlaybackAudioMeta(courseID, page, teachingNodes)
 	pageSummary := strings.TrimSpace(displayText)
 	if len(teachingNodes) > 0 {
 		pageSummary = buildTeachingNodePageSummary(teachingNodes)
@@ -127,9 +131,20 @@ func (h *CompatibilityHandler) GetStudentScript(c *gin.Context) {
 	if len(pageSummary) > 80 {
 		pageSummary = pageSummary[:80]
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "page": page, "nodes": nodes, "page_summary": pageSummary}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "page": page, "nodes": nodes, "page_summary": pageSummary, "audio_meta": audioMeta, "playback_mode": audioMeta["playback_mode"]}})
 }
 
+func (h *CompatibilityHandler) GetStudentPlaybackAudio(c *gin.Context) {
+	courseID := c.Param("courseId")
+	page, err := strconv.Atoi(c.Param("pageNum"))
+	if err != nil || page < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码错误"})
+		return
+	}
+
+	nodes := loadTeachingNodesByPage(h.db, courseID, page)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": buildPlaybackAudioMeta(courseID, page, nodes)})
+}
 func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	var req struct {
 		SessionID string `json:"sessionId"`
@@ -142,6 +157,22 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
+	session := h.loadSession(req.SessionID)
+	userID := defaultStudentID(func() string {
+		if session != nil {
+			return session.UserID
+		}
+		return ""
+	}())
+	sessionID := strings.TrimSpace(req.SessionID)
+	if sessionID == "" && session != nil {
+		sessionID = session.SessionID
+	}
+	if sessionID == "" {
+		sessionID = "sess_" + uuid.NewString()
+	}
+	nodeID := defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))
+	historySummary, recentTurns := buildDialogueContext(h.db, sessionID, 4)
 	var coursePage model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
@@ -150,11 +181,21 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	if strings.TrimSpace(contextText) == "" {
 		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, req.CourseID, req.Page))
 	}
-	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: req.Page, Context: contextText, Mode: "llm"})
+	aiResp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: req.Page, Context: contextText, Mode: "llm", SessionID: sessionID, HistorySummary: historySummary, RecentTurns: recentTurns})
 	if err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"code": 503, "message": "AI服务暂不可用"})
 		return
 	}
+	resumePage := maxInt(aiResp.ResumePage, req.Page)
+	resumeNodeID := resolveResumeNodeID(nodeID, resumePage, aiResp.Intent.NeedReteach)
+	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, resumePage, resumeNodeID)
+	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, aiResp.Answer, maxInt(aiResp.SourcePage, req.Page), aiResp.Intent.NeedReteach, aiResp.FollowUpSuggestion)
+	if userID != "" {
+		_ = h.db.Create(&model.QuestionLog{UserID: userID, CourseID: req.CourseID, PageIndex: req.Page, Question: req.Question, Answer: aiResp.Answer}).Error
+	}
+	state := sessionState{SessionID: sessionID, UserID: userID, CourseID: req.CourseID, CurrentPage: resumePage, CurrentNodeID: resumeNodeID, UpdatedAt: time.Now()}
+	h.persistSession(state)
+	syncDialogueSessionState(h.db, sessionID, userID, req.CourseID, resumePage, resumeNodeID, resumeSec)
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -185,11 +226,18 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	}
 	writeSSE("sentence", gin.H{"text": aiResp.Answer})
 	writeSSE("final", gin.H{
-		"need_reteach":   aiResp.Intent.NeedReteach,
-		"source_page":    aiResp.SourcePage,
-		"resume_page":    aiResp.ResumePage,
-		"resume_node_id": nextNodeID(req.NodeID, req.Page),
+		"session_id":           sessionID,
+		"need_reteach":         aiResp.Intent.NeedReteach,
+		"source_page":          maxInt(aiResp.SourcePage, req.Page),
+		"resume_page":          resumePage,
+		"resume_node_id":       resumeNodeID,
+		"resume_sec":           resumeSec,
+		"follow_up_suggestion": aiResp.FollowUpSuggestion,
 	})
+}
+
+func (h *CompatibilityHandler) GetStudentPlaybackAudioV1(c *gin.Context) {
+	h.GetStudentPlaybackAudio(c)
 }
 
 func weakPointVirtualID(page int) string {

@@ -17,6 +17,7 @@ type AIEngine interface {
 	ReconstructDocument(ctx context.Context, req ReconstructDocumentRequest) (*ReconstructDocumentResponse, error)
 	GenerateNodeScript(ctx context.Context, req GenerateNodeScriptRequest) (*GenerateNodeScriptResponse, error)
 	GenerateScript(ctx context.Context, req GenerateScriptRequest) (*GenerateScriptResponse, error)
+	GenerateAudio(ctx context.Context, req GenerateAudioRequest) (*GenerateAudioResponse, error)
 	AskWithContext(ctx context.Context, req AskWithContextRequest) (*AskWithContextResponse, error)
 	ParseKnowledge(ctx context.Context, req ParseKnowledgeRequest) (*ParseKnowledgeResponse, error)
 }
@@ -101,11 +102,54 @@ type GenerateScriptResponse struct {
 	MindmapMarkdown string `json:"mindmap_markdown"`
 }
 
+type GenerateAudioNode struct {
+	NodeID      string `json:"node_id"`
+	Title       string `json:"title"`
+	Text        string `json:"text"`
+	DurationSec int    `json:"duration_sec"`
+	StartSec    int    `json:"start_sec"`
+	EndSec      int    `json:"end_sec"`
+	AudioURL    string `json:"audio_url,omitempty"`
+}
+
+type GenerateAudioRequest struct {
+	CourseID   string              `json:"course_id"`
+	Page       int                 `json:"page"`
+	VoiceType  string              `json:"voice_type"`
+	Format     string              `json:"format"`
+	Provider   string              `json:"provider"`
+	Nodes      []GenerateAudioNode `json:"nodes"`
+	PlaybackID string              `json:"playback_id,omitempty"`
+}
+
+type GenerateAudioResponse struct {
+	AudioID         string              `json:"audio_id"`
+	AudioURL        string              `json:"audio_url"`
+	Provider        string              `json:"provider"`
+	VoiceType       string              `json:"voice_type"`
+	Format          string              `json:"format"`
+	Status          string              `json:"status"`
+	TotalDuration   int                 `json:"total_duration_sec"`
+	PlaybackMode    string              `json:"playback_mode"`
+	GeneratedAt     string              `json:"generated_at"`
+	Sections        []GenerateAudioNode `json:"sections"`
+}
+
+type ConversationTurn struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+	Page     int    `json:"page,omitempty"`
+	NodeID   string `json:"node_id,omitempty"`
+}
+
 type AskWithContextRequest struct {
-	Question    string `json:"question"`
-	CurrentPage int    `json:"current_page"`
-	Context     string `json:"context"`
-	Mode        string `json:"mode"`
+	Question       string             `json:"question"`
+	CurrentPage    int                `json:"current_page"`
+	Context        string             `json:"context"`
+	Mode           string             `json:"mode"`
+	SessionID      string             `json:"session_id,omitempty"`
+	HistorySummary string             `json:"history_summary,omitempty"`
+	RecentTurns    []ConversationTurn `json:"recent_turns,omitempty"`
 }
 
 type AskWithContextResponse struct {
@@ -113,6 +157,8 @@ type AskWithContextResponse struct {
 	SourcePage         int    `json:"source_page"`
 	SourceExcerpt      string `json:"source_excerpt"`
 	Answer             string `json:"answer"`
+	UsedFallback       bool   `json:"used_fallback"`
+	FallbackReason     string `json:"fallback_reason"`
 	ResumePage         int    `json:"resume_page"`
 	FollowUpSuggestion string `json:"follow_up_suggestion"`
 	Intent             struct {
@@ -215,6 +261,14 @@ func (c *aiEngineClient) GenerateNodeScript(ctx context.Context, req GenerateNod
 func (c *aiEngineClient) GenerateScript(ctx context.Context, req GenerateScriptRequest) (*GenerateScriptResponse, error) {
 	var result GenerateScriptResponse
 	if err := c.postJSON(ctx, "/generate-script", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *aiEngineClient) GenerateAudio(ctx context.Context, req GenerateAudioRequest) (*GenerateAudioResponse, error) {
+	var result GenerateAudioResponse
+	if err := c.postJSON(ctx, "/generate-audio", req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

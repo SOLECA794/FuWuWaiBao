@@ -20,6 +20,12 @@ export const teacherCoursewareApi = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content })
   }),
+  getNodes: (courseId, pageNum) => requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/pages/${pageNum}/nodes`),
+  saveNodes: ({ courseId, pageNum, nodes }) => requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/pages/${pageNum}/nodes`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nodes })
+  }),
   generateScript: ({ courseId, pageNum, mode = 'llm' }) => requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/scripts/ai-generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

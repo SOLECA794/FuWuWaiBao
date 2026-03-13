@@ -24,6 +24,7 @@ func RegisterStudentRoutes(api *gin.RouterGroup,
 		legacyStudent.POST("/session/start", compatHandler.StartStudentSession)
 		legacyStudent.POST("/progress/update", compatHandler.UpdateStudentProgress)
 		legacyStudent.GET("/script/:courseId/:page", compatHandler.GetStudentScript)
+		legacyStudent.GET("/script/:courseId/:page/audio", compatHandler.GetStudentPlaybackAudio)
 		legacyStudent.POST("/qa/stream", compatHandler.StreamStudentQA)
 
 		legacyStudent.POST("/courseware/page", studentHandler.GetCoursewarePage)
@@ -55,6 +56,7 @@ func RegisterStudentRoutes(api *gin.RouterGroup,
 			studentV1.POST("/qa/stream", compatHandler.StreamStudentQAV1)
 			studentV1.GET("/coursewares/:courseId/weak-points", compatHandler.GetWeakPointsV1)
 			studentV1.GET("/coursewares/:courseId/scripts/:pageNum", compatHandler.GetStudentScriptV1)
+			studentV1.GET("/coursewares/:courseId/scripts/:pageNum/audio", compatHandler.GetStudentPlaybackAudioV1)
 			studentV1.GET("/weak-points/:weakPointId/explain", compatHandler.ExplainWeakPointV1)
 			studentV1.POST("/weak-points/:weakPointId/generate-test", compatHandler.GenerateWeakPointTestV1)
 			studentV1.POST("/tests/:questionId/check", compatHandler.CheckAnswerV1)

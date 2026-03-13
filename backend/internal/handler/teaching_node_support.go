@@ -20,6 +20,7 @@ func loadTeachingNodesByPage(db *gorm.DB, courseID string, page int) []model.Tea
 
 func buildPlaybackNodesFromTeachingNodes(nodes []model.TeachingNode) []gin.H {
 	result := make([]gin.H, 0, len(nodes))
+	currentStartSec := 0
 	for index, node := range nodes {
 		text := teachingNodeDisplayText(node)
 		if strings.TrimSpace(text) == "" {
@@ -31,12 +32,25 @@ func buildPlaybackNodesFromTeachingNodes(nodes []model.TeachingNode) []gin.H {
 		} else if index == len(nodes)-1 {
 			nodeType = "transition"
 		}
+		startSec, durationSec, endSec := playbackTiming(node, currentStartSec)
+		readyAudio := strings.TrimSpace(node.AudioURL) != "" && strings.TrimSpace(node.TTSStatus) == "ready"
 		result = append(result, gin.H{
-			"node_id": node.NodeID,
-			"type":    nodeType,
-			"title":   node.Title,
-			"text":    text,
+			"node_id":            node.NodeID,
+			"type":               nodeType,
+			"title":              node.Title,
+			"text":               text,
+			"duration_sec":       durationSec,
+			"start_sec":          startSec,
+			"end_sec":            endSec,
+			"resume_sec":         startSec,
+			"audio_url":          node.AudioURL,
+			"audio_duration_sec": maxInt(node.AudioDurationSec, durationSec),
+			"audio_start_sec":    startSec,
+			"audio_end_sec":      endSec,
+			"tts_status":         defaultAudioStatus(node.TTSStatus),
+			"has_audio":          readyAudio,
 		})
+		currentStartSec = endSec
 	}
 	return result
 }
@@ -83,6 +97,38 @@ func teachingNodeDisplayText(node model.TeachingNode) string {
 		return text
 	}
 	return teachingNodeContextText(node)
+}
+
+func playbackDurationSec(node model.TeachingNode) int {
+	if node.EstimatedDuration > 0 {
+		return node.EstimatedDuration
+	}
+	text := teachingNodeDisplayText(node)
+	baseDuration := len([]rune(strings.TrimSpace(text))) / 14
+	if baseDuration < 20 {
+		baseDuration = 20
+	}
+	if baseDuration > 90 {
+		baseDuration = 90
+	}
+	return baseDuration
+}
+
+func playbackTiming(node model.TeachingNode, fallbackStartSec int) (int, int, int) {
+	startSec := fallbackStartSec
+	if node.AudioStartSec > 0 {
+		startSec = node.AudioStartSec
+	}
+	durationSec := playbackDurationSec(node)
+	if node.AudioDurationSec > 0 {
+		durationSec = node.AudioDurationSec
+	}
+	endSec := startSec + durationSec
+	if node.AudioEndSec > startSec {
+		endSec = node.AudioEndSec
+		durationSec = endSec - startSec
+	}
+	return startSec, durationSec, endSec
 }
 
 func generateAndStoreTeachingNodeScripts(

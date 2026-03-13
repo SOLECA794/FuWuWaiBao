@@ -75,6 +75,7 @@ func (h *StudentHandler) StartSession(c *gin.Context) {
 	}
 
 	sessionID := "sess_" + uuid.NewString()
+	syncDialogueSessionState(h.db, sessionID, req.UserID, req.CourseID, 1, "p1_n1", 0)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"sessionId": sessionID, "courseId": req.CourseID}})
 }
 
@@ -87,6 +88,7 @@ func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 		CurrentPage   int    `json:"currentPage"`
 		NodeID        string `json:"nodeId"`
 		CurrentNodeID string `json:"currentNodeId"`
+		CurrentTimeSec int   `json:"currentTimeSec"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -111,6 +113,7 @@ func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 	if nodeID == "" {
 		nodeID = fmt.Sprintf("p%d_n1", page)
 	}
+	syncDialogueSessionState(h.db, req.SessionID, req.UserID, req.CourseID, page, nodeID, req.CurrentTimeSec)
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": gin.H{"sessionId": req.SessionID, "page": page, "nodeId": nodeID}})
 }
@@ -214,6 +217,19 @@ func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"courseId": req.CourseID, "currentPage": req.CurrentPage, "content": content, "title": title}})
 }
 
+func (h *StudentHandler) GetPlaybackAudio(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageNum, err := strconv.Atoi(c.Param("pageNum"))
+	if err != nil || pageNum < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		return
+	}
+
+	nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
+	audioMeta := buildPlaybackAudioMeta(courseID, pageNum, nodes)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": audioMeta})
+}
+
 func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
 	var req AIQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -252,8 +268,34 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
-
-	resp := h.askQuestionWithFallback(c, req.CourseID, req.Page, req.Question)
+	sessionID := strings.TrimSpace(req.SessionID)
+	if sessionID == "" {
+		sessionID = "sess_" + uuid.NewString()
+	}
+	userID := strings.TrimSpace(c.GetString("userId"))
+	nodeID := defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))
+	historySummary, recentTurns := buildDialogueContext(h.db, sessionID, 4)
+	content, _ := h.loadPageScript(req.CourseID, req.Page)
+	result := questionReply{SourcePage: req.Page, ResumePage: req.Page}
+	if h.aiClient != nil {
+		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: req.Page, Context: content, Mode: "llm", SessionID: sessionID, HistorySummary: historySummary, RecentTurns: recentTurns})
+		if err == nil && strings.TrimSpace(resp.Answer) != "" {
+			result.Answer = resp.Answer
+			result.SourcePage = maxInt(resp.SourcePage, req.Page)
+			result.SourceExcerpt = resp.SourceExcerpt
+			result.ResumePage = maxInt(resp.ResumePage, req.Page)
+			result.FollowUpSuggestion = resp.FollowUpSuggestion
+			result.Intent.NeedReteach = resp.Intent.NeedReteach
+		} else {
+			result = h.askQuestionWithFallback(c, req.CourseID, req.Page, req.Question)
+		}
+	} else {
+		result = h.askQuestionWithFallback(c, req.CourseID, req.Page, req.Question)
+	}
+	resumeNodeID := resolveResumeNodeID(nodeID, result.ResumePage, result.Intent.NeedReteach)
+	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, result.ResumePage, resumeNodeID)
+	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, result.Answer, result.SourcePage, result.Intent.NeedReteach, result.FollowUpSuggestion)
+	syncDialogueSessionState(h.db, sessionID, userID, req.CourseID, result.ResumePage, resumeNodeID, resumeSec)
 	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
@@ -272,9 +314,9 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 		flusher.Flush()
 	}
 
-	parts := strings.Fields(resp.Answer)
+	parts := strings.Fields(result.Answer)
 	if len(parts) == 0 {
-		for _, r := range []rune(resp.Answer) {
+		for _, r := range []rune(result.Answer) {
 			writeEvent("token", gin.H{"text": string(r)})
 		}
 	} else {
@@ -282,9 +324,9 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 			writeEvent("token", gin.H{"text": part + " "})
 		}
 	}
-	writeEvent("sentence", gin.H{"text": resp.Answer})
-	writeEvent("final", gin.H{"need_reteach": resp.Intent.NeedReteach, "source_page": resp.SourcePage, "resume_page": maxInt(resp.ResumePage, req.Page), "resume_node_id": defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))})
-	h.recordQuestion(c.GetString("userId"), req.CourseID, req.Page, req.Question, resp.Answer)
+	writeEvent("sentence", gin.H{"text": result.Answer})
+	writeEvent("final", gin.H{"session_id": sessionID, "need_reteach": result.Intent.NeedReteach, "source_page": result.SourcePage, "resume_page": result.ResumePage, "resume_node_id": resumeNodeID, "resume_sec": resumeSec, "follow_up_suggestion": result.FollowUpSuggestion})
+	h.recordQuestion(userID, req.CourseID, req.Page, req.Question, result.Answer)
 }
 
 func (h *StudentHandler) GetStudentStudyData(c *gin.Context) {
@@ -323,11 +365,12 @@ func (h *StudentHandler) getCoursewarePageV1(c *gin.Context, courseID string) {
 	if len(nodes) == 0 {
 		nodes = buildPlaybackNodes(pageNum, content)
 	}
+	audioMeta := buildPlaybackAudioMeta(courseID, pageNum, teachingNodes)
 	pageSummary := content
 	if len(teachingNodes) > 0 {
 		pageSummary = buildTeachingNodePageSummary(teachingNodes)
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "page": pageNum, "nodes": nodes, "page_summary": pageSummary}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "page": pageNum, "nodes": nodes, "page_summary": pageSummary, "audio_meta": audioMeta, "playback_mode": audioMeta["playback_mode"]}})
 }
 
 func (h *StudentHandler) updateBreakpointCore(c *gin.Context, courseID string) {
@@ -402,6 +445,7 @@ func (h *StudentHandler) askQuestionWithFallback(c *gin.Context, courseID string
 			result.SourceExcerpt = resp.SourceExcerpt
 			result.ResumePage = maxInt(resp.ResumePage, pageNum)
 			result.FollowUpSuggestion = resp.FollowUpSuggestion
+			result.Fallback = resp.UsedFallback
 			result.Intent.NeedReteach = resp.Intent.NeedReteach
 			return result
 		}

@@ -42,12 +42,15 @@ type Course struct {
 // CoursePage 课件页表
 type CoursePage struct {
 	BaseModel
-	CourseID   string `gorm:"size:36;not null;index:idx_course_page,unique" json:"course_id"`
-	PageIndex  int    `gorm:"not null;index:idx_course_page,unique" json:"page_index"`
-	ImageURL   string `gorm:"size:500" json:"image_url"`
-	SourceText string `gorm:"type:text" json:"source_text"`
-	ScriptText string `gorm:"type:text" json:"script_text"`
-	AudioURL   string `gorm:"size:500" json:"audio_url"`
+	CourseID         string `gorm:"size:36;not null;index:idx_course_page,unique" json:"course_id"`
+	PageIndex        int    `gorm:"not null;index:idx_course_page,unique" json:"page_index"`
+	ImageURL         string `gorm:"size:500" json:"image_url"`
+	SourceText       string `gorm:"type:text" json:"source_text"`
+	ScriptText       string `gorm:"type:text" json:"script_text"`
+	AudioURL         string `gorm:"size:500" json:"audio_url"`
+	AudioStatus      string `gorm:"size:30;default:'not_generated'" json:"audio_status"`
+	AudioProvider    string `gorm:"size:60" json:"audio_provider"`
+	AudioDurationSec int    `gorm:"default:0" json:"audio_duration_sec"`
 }
 
 // TeachingNode 教学节点表
@@ -57,6 +60,7 @@ type TeachingNode struct {
 	NodeID               string `gorm:"size:100;not null;index:idx_course_teaching_node,priority:2,unique" json:"node_id"`
 	ChapterTitle         string `gorm:"size:200" json:"chapter_title"`
 	PageIndex            int    `gorm:"default:0;index" json:"page_index"`
+	EstimatedDuration    int    `gorm:"default:0" json:"estimated_duration"`
 	Title                string `gorm:"size:200;not null" json:"title"`
 	Summary              string `gorm:"type:text" json:"summary"`
 	SourcePages          string `gorm:"type:text" json:"source_pages"`
@@ -68,6 +72,12 @@ type TeachingNode struct {
 	InteractiveQuestions string `gorm:"type:text" json:"interactive_questions"`
 	TransitionText       string `gorm:"type:text" json:"transition_text"`
 	MindmapMarkdown      string `gorm:"type:text" json:"mindmap_markdown"`
+	AudioURL             string `gorm:"size:500" json:"audio_url"`
+	AudioDurationSec     int    `gorm:"default:0" json:"audio_duration_sec"`
+	AudioStartSec        int    `gorm:"default:0" json:"audio_start_sec"`
+	AudioEndSec          int    `gorm:"default:0" json:"audio_end_sec"`
+	TTSStatus            string `gorm:"size:30;default:'not_generated'" json:"tts_status"`
+	VoiceProfile         string `gorm:"size:60" json:"voice_profile"`
 	SortOrder            int    `gorm:"default:0" json:"sort_order"`
 }
 
@@ -77,6 +87,120 @@ type UserProgress struct {
 	UserID   string `gorm:"size:36;not null;index:idx_user_course,unique" json:"user_id"`
 	CourseID string `gorm:"size:36;not null;index:idx_user_course,unique" json:"course_id"`
 	LastPage int    `gorm:"default:0" json:"last_page"`
+}
+
+// DialogueSession 问答会话表
+type DialogueSession struct {
+	BaseModel
+	UserID         string     `gorm:"size:36;index" json:"user_id"`
+	CourseID       string     `gorm:"size:36;not null;index" json:"course_id"`
+	CurrentPage    int        `gorm:"default:1" json:"current_page"`
+	CurrentNodeID  string     `gorm:"size:100" json:"current_node_id"`
+	CurrentTimeSec int        `gorm:"default:0" json:"current_time_sec"`
+	PlaybackMode   string     `gorm:"size:30;default:'timeline'" json:"playback_mode"`
+	LastAskedAt    *time.Time `json:"last_asked_at,omitempty"`
+}
+
+// AudioAsset 音频资产表
+type AudioAsset struct {
+	BaseModel
+	CourseID         string `gorm:"size:36;not null;index:idx_audio_asset,priority:1" json:"course_id"`
+	PageIndex        int    `gorm:"default:1;index:idx_audio_asset,priority:2" json:"page_index"`
+	NodeID           string `gorm:"size:100;index:idx_audio_asset,priority:3" json:"node_id"`
+	Provider         string `gorm:"size:60" json:"provider"`
+	VoiceType        string `gorm:"size:60" json:"voice_type"`
+	Format           string `gorm:"size:20;default:'mp3'" json:"format"`
+	Status           string `gorm:"size:30;default:'placeholder'" json:"status"`
+	AudioURL         string `gorm:"size:500" json:"audio_url"`
+	DurationSec      int    `gorm:"default:0" json:"duration_sec"`
+	StartSec         int    `gorm:"default:0" json:"start_sec"`
+	EndSec           int    `gorm:"default:0" json:"end_sec"`
+	SourceScriptHash string `gorm:"size:64" json:"source_script_hash"`
+}
+
+// PlatformUser 平台用户表
+type PlatformUser struct {
+	BaseModel
+	PlatformID      string `gorm:"size:64;index" json:"platform_id"`
+	ExternalID      string `gorm:"size:64;uniqueIndex" json:"external_id"`
+	Username        string `gorm:"size:80;index" json:"username"`
+	DisplayName     string `gorm:"size:120" json:"display_name"`
+	Email           string `gorm:"size:120;index" json:"email"`
+	Phone           string `gorm:"size:32;index" json:"phone"`
+	Role            string `gorm:"size:30;default:'student';index" json:"role"`
+	Status          string `gorm:"size:30;default:'active'" json:"status"`
+	OrgCode         string `gorm:"size:64;index" json:"org_code"`
+	SchoolName      string `gorm:"size:160" json:"school_name"`
+	Major           string `gorm:"size:120" json:"major"`
+	Grade           string `gorm:"size:40" json:"grade"`
+	ClassExternalID string `gorm:"size:64;index" json:"class_external_id"`
+	ClassName       string `gorm:"size:160" json:"class_name"`
+	AvatarURL       string `gorm:"size:500" json:"avatar_url"`
+}
+
+// TeachingCourse 教学课程表
+type TeachingCourse struct {
+	BaseModel
+	PlatformID  string     `gorm:"size:64;index" json:"platform_id"`
+	ExternalID  string     `gorm:"size:64;uniqueIndex" json:"external_id"`
+	Code        string     `gorm:"size:80;index" json:"code"`
+	Title       string     `gorm:"size:200;not null;index" json:"title"`
+	Description string     `gorm:"type:text" json:"description"`
+	TeacherID   string     `gorm:"size:36;index" json:"teacher_id"`
+	OrgCode     string     `gorm:"size:64;index" json:"org_code"`
+	SchoolName  string     `gorm:"size:160" json:"school_name"`
+	Status      string     `gorm:"size:30;default:'draft';index" json:"status"`
+	Semester    string     `gorm:"size:60" json:"semester"`
+	Credit      float64    `gorm:"default:0" json:"credit"`
+	Period      int        `gorm:"default:0" json:"period"`
+	CoverURL    string     `gorm:"size:500" json:"cover_url"`
+	StartsAt    *time.Time `json:"starts_at,omitempty"`
+	EndsAt      *time.Time `json:"ends_at,omitempty"`
+}
+
+// CourseClass 教学班级表
+type CourseClass struct {
+	BaseModel
+	PlatformID       string `gorm:"size:64;index" json:"platform_id"`
+	ExternalID       string `gorm:"size:64;uniqueIndex" json:"external_id"`
+	TeachingCourseID string `gorm:"size:36;not null;index" json:"teaching_course_id"`
+	TeacherID        string `gorm:"size:36;index" json:"teacher_id"`
+	ClassName        string `gorm:"size:160;not null" json:"class_name"`
+	ClassCode        string `gorm:"size:80;index" json:"class_code"`
+	Semester         string `gorm:"size:60" json:"semester"`
+	Grade            string `gorm:"size:40" json:"grade"`
+	Major            string `gorm:"size:120" json:"major"`
+	Capacity         int    `gorm:"default:0" json:"capacity"`
+	Status           string `gorm:"size:30;default:'active'" json:"status"`
+}
+
+// CourseEnrollment 选课关系表
+type CourseEnrollment struct {
+	BaseModel
+	PlatformID       string     `gorm:"size:64;index" json:"platform_id"`
+	ExternalID       string     `gorm:"size:64;index" json:"external_id"`
+	TeachingCourseID string     `gorm:"size:36;not null;index:idx_enrollment_scope,priority:1" json:"teaching_course_id"`
+	CourseClassID    string     `gorm:"size:36;index:idx_enrollment_scope,priority:2" json:"course_class_id"`
+	UserID           string     `gorm:"size:36;not null;index:idx_enrollment_scope,priority:3" json:"user_id"`
+	Role             string     `gorm:"size:30;default:'student'" json:"role"`
+	Status           string     `gorm:"size:30;default:'active'" json:"status"`
+	EnrolledAt       *time.Time `json:"enrolled_at,omitempty"`
+}
+
+// DialogueTurn 问答轮次表
+type DialogueTurn struct {
+	BaseModel
+	SessionID          string `gorm:"size:36;not null;index" json:"session_id"`
+	CourseID           string `gorm:"size:36;not null;index" json:"course_id"`
+	UserID             string `gorm:"size:36;index" json:"user_id"`
+	TurnIndex          int    `gorm:"default:1" json:"turn_index"`
+	PageIndex          int    `gorm:"default:1;index" json:"page_index"`
+	NodeID             string `gorm:"size:100" json:"node_id"`
+	Question           string `gorm:"type:text;not null" json:"question"`
+	Answer             string `gorm:"type:text" json:"answer"`
+	SourcePage         int    `gorm:"default:1" json:"source_page"`
+	NeedReteach        bool   `gorm:"default:false" json:"need_reteach"`
+	FollowUpSuggestion string `gorm:"type:text" json:"follow_up_suggestion"`
 }
 
 // QuestionLog 提问日志表
