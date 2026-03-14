@@ -118,9 +118,9 @@
 
 ---
 
-## 六、开放平台接口
+## 六、平台 V1 接口（标准 REST，无需签名）
 
-以下接口位于 `/api/v1` 下，并带签名校验中间件：
+以下接口位于 `/api/v1/platform`，返回统一格式 `{ "code": 200, "message": "请求成功", "data": ... }`，供内部或管理端调用。
 
 - `/lesson/parse`
 - `/lesson/generateScript`
@@ -131,11 +131,71 @@
 - `/progress/adjust`
 - `/platform/syncCourse`
 - `/platform/syncUser`
+=======
+### 1. 平台总览
+
+- `GET /api/v1/platform/overview` — 返回用户、课程、班级、选课统计与最近同步记录
+
+### 2. 用户管理
+
+- `GET /api/v1/platform/users` — 用户列表，支持 `role` / `orgCode` / `keyword` / `page` / `pageSize`
+- `GET /api/v1/platform/users/:userId` — 用户详情（含关联课程/班级/选课）
+- `POST /api/v1/platform/syncUser` — 用户同步（Body: JSON）
+
+### 3. 课程管理
+
+- `GET /api/v1/platform/courses` — 课程列表，支持 `teacherId` / `status` / `orgCode` / `keyword` / `page` / `pageSize`
+- `POST /api/v1/platform/courses` — 创建课程（Body: JSON）
+- `GET /api/v1/platform/courses/:courseId` — 课程详情
+- `PUT /api/v1/platform/courses/:courseId` — 更新课程
+- `DELETE /api/v1/platform/courses/:courseId` — 删除课程（级联班级与选课）
+- `POST /api/v1/platform/syncCourse` — 课程同步（Body: JSON）
+
+### 4. 班级管理
+
+- `GET /api/v1/platform/classes` — 班级列表，支持 `courseId` / `teacherId` / `status` / `keyword` / `page` / `pageSize`
+- `POST /api/v1/platform/classes` — 创建班级（Body: JSON）
+- `GET /api/v1/platform/classes/:classId` — 班级详情
+- `PUT /api/v1/platform/classes/:classId` — 更新班级
+- `DELETE /api/v1/platform/classes/:classId` — 删除班级（级联选课）
+
+### 5. 选课管理
+
+- `GET /api/v1/platform/enrollments` — 选课列表，支持 `courseId` / `classId` / `userId` / `role` / `status` / `page` / `pageSize`
+- `POST /api/v1/platform/enrollments` — 创建选课（Body: JSON）
+- `GET /api/v1/platform/enrollments/:enrollmentId` — 选课详情
+- `PUT /api/v1/platform/enrollments/:enrollmentId` — 更新选课
+- `DELETE /api/v1/platform/enrollments/:enrollmentId` — 删除选课
+>>>>>>> Stashed changes
 
 ---
 
-## 七、说明
+## 七、开放平台接口（需签名，泛雅等外部对接）
+
+以下接口位于 `/api/v1/open/platform`，需携带 OpenAPI 签名（如 `enc` + `time`）校验：
+
+- `GET /api/v1/open/platform/overview`
+- `GET /api/v1/open/platform/users`、`GET /api/v1/open/platform/users/:userId`
+- `GET/POST/PUT/DELETE /api/v1/open/platform/courses`、`/api/v1/open/platform/courses/:courseId`
+- `GET/POST/PUT/DELETE /api/v1/open/platform/classes`、`/api/v1/open/platform/classes/:classId`
+- `GET/POST/PUT/DELETE /api/v1/open/platform/enrollments`、`/api/v1/open/platform/enrollments/:enrollmentId`
+- `POST /api/v1/open/platform/syncCourse`、`POST /api/v1/open/platform/syncUser`
+
+其他开放接口（需签名）：
+
+- `POST /api/v1/lesson/parse`、`/api/v1/lesson/generateScript`、`/api/v1/lesson/generateAudio`
+- `POST /api/v1/qa/interact`、`/api/v1/qa/voiceToText`
+- `POST /api/v1/progress/track`、`/api/v1/progress/adjust`
+
+---
+
+## 八、说明
 
 1. 当前实现优先保证前后端统一接口可用。
 2. 旧版接口继续保留，便于历史页面与 mock 联调。
 3. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。
+=======
+2. 平台标准接口（六）无需签名，直接请求 `/api/v1/platform/*`；对外/泛雅对接使用（七）`/api/v1/open/platform/*` 并携带签名。
+3. 旧版接口继续保留，便于历史页面与 mock 联调。
+4. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。
+>>>>>>> Stashed changes

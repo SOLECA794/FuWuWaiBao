@@ -52,7 +52,8 @@ func main() {
 	)
 
 	db, err := gorm.Open(postgres.Open(cfg.Database.DSN()), &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Info),
+		// Warn 避免启动时 AutoMigrate 的 schema 检查刷屏；调试 SQL 时可改为 gormlogger.Info
+		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
 	})
 	if err != nil {
 		applogger.Sugar.Fatalf("连接数据库失败: %v", err)
@@ -274,11 +275,55 @@ func main() {
 				openProgress.POST("/adjust", compatHandler.OpenAdjustProgress)
 			}
 
-			openPlatform := v1.Group("/platform")
+			// 平台 V1：标准 REST 接口（无需签名），返回 code/message/data
+			platformV1 := v1.Group("/platform")
+			{
+				platformV1.GET("/overview", compatHandler.PlatformV1Overview)
+				platformV1.GET("/users", compatHandler.PlatformV1Users)
+				platformV1.GET("/users/:userId", compatHandler.PlatformV1UserDetail)
+				platformV1.POST("/syncUser", compatHandler.PlatformV1SyncUser)
+				platformV1.GET("/courses", compatHandler.PlatformV1Courses)
+				platformV1.POST("/courses", compatHandler.PlatformV1CreateCourse)
+				platformV1.GET("/courses/:courseId", compatHandler.PlatformV1CourseDetail)
+				platformV1.PUT("/courses/:courseId", compatHandler.PlatformV1UpdateCourse)
+				platformV1.DELETE("/courses/:courseId", compatHandler.PlatformV1DeleteCourse)
+				platformV1.POST("/syncCourse", compatHandler.PlatformV1SyncCourse)
+				platformV1.GET("/classes", compatHandler.PlatformV1Classes)
+				platformV1.POST("/classes", compatHandler.PlatformV1CreateClass)
+				platformV1.GET("/classes/:classId", compatHandler.PlatformV1ClassDetail)
+				platformV1.PUT("/classes/:classId", compatHandler.PlatformV1UpdateClass)
+				platformV1.DELETE("/classes/:classId", compatHandler.PlatformV1DeleteClass)
+				platformV1.GET("/enrollments", compatHandler.PlatformV1Enrollments)
+				platformV1.POST("/enrollments", compatHandler.PlatformV1CreateEnrollment)
+				platformV1.GET("/enrollments/:enrollmentId", compatHandler.PlatformV1EnrollmentDetail)
+				platformV1.PUT("/enrollments/:enrollmentId", compatHandler.PlatformV1UpdateEnrollment)
+				platformV1.DELETE("/enrollments/:enrollmentId", compatHandler.PlatformV1DeleteEnrollment)
+			}
+
+			// OpenAPI 平台接口（需签名）：路径 /api/v1/open/platform 避免与上面 /api/v1/platform 重复
+			openPlatform := v1.Group("/open/platform")
 			openPlatform.Use(handler.OpenAPISignatureMiddleware())
 			{
-				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
+				openPlatform.GET("/overview", compatHandler.OpenPlatformOverview)
+				openPlatform.GET("/users", compatHandler.OpenPlatformUsers)
+				openPlatform.GET("/users/:userId", compatHandler.OpenPlatformUserDetail)
 				openPlatform.POST("/syncUser", compatHandler.OpenSyncUser)
+				openPlatform.GET("/courses", compatHandler.OpenPlatformCourses)
+				openPlatform.POST("/courses", compatHandler.OpenCreatePlatformCourse)
+				openPlatform.GET("/courses/:courseId", compatHandler.OpenPlatformCourseDetail)
+				openPlatform.PUT("/courses/:courseId", compatHandler.OpenUpdatePlatformCourse)
+				openPlatform.DELETE("/courses/:courseId", compatHandler.OpenDeletePlatformCourse)
+				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
+				openPlatform.GET("/classes", compatHandler.OpenPlatformClasses)
+				openPlatform.POST("/classes", compatHandler.OpenCreatePlatformClass)
+				openPlatform.GET("/classes/:classId", compatHandler.OpenPlatformClassDetail)
+				openPlatform.PUT("/classes/:classId", compatHandler.OpenUpdatePlatformClass)
+				openPlatform.DELETE("/classes/:classId", compatHandler.OpenDeletePlatformClass)
+				openPlatform.GET("/enrollments", compatHandler.OpenPlatformEnrollments)
+				openPlatform.POST("/enrollments", compatHandler.OpenCreatePlatformEnrollment)
+				openPlatform.GET("/enrollments/:enrollmentId", compatHandler.OpenPlatformEnrollmentDetail)
+				openPlatform.PUT("/enrollments/:enrollmentId", compatHandler.OpenUpdatePlatformEnrollment)
+				openPlatform.DELETE("/enrollments/:enrollmentId", compatHandler.OpenDeletePlatformEnrollment)
 			}
 		}
 	}
