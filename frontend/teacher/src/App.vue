@@ -7,12 +7,7 @@
       :username="loggedInUsername"
       @logout="isLoggedIn = false"
     />
-    <TeacherOverviewStrip
-      :current-course-name="currentCourseName"
-      :current-edit-page="currentEditPage"
-      :current-course-total-pages="currentCourseTotalPages"
-      :current-course-published="currentCoursePublished"
-    />
+   
 
     <div class="main-content">
       <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
@@ -40,6 +35,19 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             <span v-show="!isLeftMenuCollapsed">学习卡点可视化</span>
           </div>
+          <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
+              <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+
+              </svg>
+               <span v-show="!isLeftMenuCollapsed">平台管理</span>
+          </div>
+
         </div>
       </div>
 
@@ -66,6 +74,12 @@
             @next-page="nextPage"
           ></TeacherScriptPanel>
         </div>
+
+        <div v-else-if="activeTab === 'platform'" class="tab-container">
+            <PlatformManagementPanel />
+        </div>
+  
+      
 
         <div v-else-if="activeTab === 'stats'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
@@ -163,10 +177,12 @@ import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPa
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
+import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
 
 // --- 状态管理 ---
 const isLoggedIn = ref(false)
 const loggedInUsername = ref('')
+const activeTab = ref('script') // 或 'platform' 如果希望默认显示平台管理
 
 const handleLoginSuccess = (user) => {
   if (user.role === 'student') {
@@ -196,7 +212,37 @@ const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
 
-const activeTab = ref('script')
+const showPlatformManagement = ref(false)
+
+// --- 生命周期钩子 ---
+onMounted(async () => {
+  // 检查登录状态
+  const user = await teacherV1Api.checkLoginStatus()
+  if (user) {
+    handleLoginSuccess(user)
+  }
+
+  // 检查后端状态
+  checkBackendStatus()
+
+  // 检查课件列表
+  await fetchCoursewareList()
+})
+
+onUnmounted(() => {
+  clearInterval(backendHealthTimer)
+})
+const checkBackendStatus = async () => {
+  try {
+    const res = await teacherV1Api.health()
+    backendStatus.value = res.ok ? 'online' : 'offline'
+  } catch (error) {
+    backendStatus.value = 'offline'
+    console.error('后端状态检查失败:', error)
+  }
+}
+
+
 const isSidebarVisible = ref(window.innerWidth > 1024)
 const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
@@ -653,4 +699,5 @@ const loadQuestionRecords = async (courseId) => {
   font-size: 15px;
   text-align: center;
 }
+
 </style>

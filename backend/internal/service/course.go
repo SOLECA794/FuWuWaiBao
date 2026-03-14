@@ -45,7 +45,7 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 	// 开启事务
 	tx := s.db.Begin()
 
-	// 创建课件记录
+	// 创建课件记录（仅依赖数据库，不依赖 AI）
 	course := &model.Course{
 		Title:    title,
 		FileType: strings.TrimPrefix(filepath.Ext(file.Filename), "."),
@@ -77,76 +77,20 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 	// 更新课件记录的文件URL
 	course.FileURL = fileURL
 
+	// 下面这段 AI 解析逻辑在很多本地/测试环境下容易因为 AI 引擎未启动、
+	// 第三方依赖（如 pdftoppm / LibreOffice）缺失而失败。
+	// 为了保证“上传课件”接口本身尽量成功，这里将 AI 部分改为“最佳努力”：
+	// 任何 AI 相关错误仅记录日志，不再导致整个上传事务回滚。
 	if s.aiClient != nil {
-		parsed, err := s.aiClient.ParseDocument(ctx, file)
-		if err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("解析课件失败: %w", err)
+		if err := s.enrichCourseWithAI(ctx, tx, course, file); err != nil {
+			logger.Errorf("AI 解析/重构课件失败，将仅保存原始课件文件: %v", err)
 		}
+	}
 
-		// 优先尝试基于原始文件生成真实预览图，失败时回退到占位图
-		pagePreviewURLs := map[int]string{}
-		tmpPath, tmpErr := saveUploadedFileToTemp(file)
-		if tmpErr == nil {
-			defer os.Remove(tmpPath)
-			generated, genErr := s.generatePagePreviewImages(ctx, tmpPath, course.ID, strings.ToLower(filepath.Ext(file.Filename)))
-			if genErr == nil {
-				pagePreviewURLs = generated
-			} else {
-				logger.Errorf("生成课件预览图失败，使用占位图: %v", genErr)
-			}
-		} else {
-			logger.Errorf("保存课件临时文件失败，使用占位预览图: %v", tmpErr)
-		}
-
-		course.TotalPage = parsed.TotalPages
-		if err := tx.Save(course).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("更新课件信息失败: %w", err)
-		}
-
-		pages := make([]model.CoursePage, 0, len(parsed.ParsedPages))
-		for _, page := range parsed.ParsedPages {
-			imageURL := strings.TrimSpace(pagePreviewURLs[page.Page])
-			if imageURL == "" {
-				// 回退：使用占位预览图，确保前端预览可用
-				imageURL = fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, page.Page)
-			}
-			pages = append(pages, model.CoursePage{
-				CourseID:   course.ID,
-				PageIndex:  page.Page,
-				ImageURL:   imageURL,
-				SourceText: strings.TrimSpace(page.Content),
-			})
-		}
-		if len(pages) > 0 {
-			if err := tx.Create(&pages).Error; err != nil {
-				tx.Rollback()
-				return nil, fmt.Errorf("保存解析页面失败: %w", err)
-			}
-		}
-
-		reconstructed, err := s.aiClient.ReconstructDocument(ctx, ReconstructDocumentRequest{
-			ParsedDocument: map[string]any{
-				"doc_id":       parsed.DocID,
-				"doc_name":     parsed.DocName,
-				"doc_type":     parsed.DocType,
-				"total_pages":  parsed.TotalPages,
-				"parsed_pages": parsed.ParsedPages,
-			},
-			Mode: "hybrid",
-		})
-		if err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("重构课件内容失败: %w", err)
-		}
-		if err := s.saveTeachingNodes(tx, course.ID, reconstructed); err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("保存教学节点失败: %w", err)
-		}
-	} else if err := tx.Save(course).Error; err != nil {
+	// 无论 AI 是否可用，至少要把课件元信息和文件 URL 落库
+	if err := tx.Save(course).Error; err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("更新课件URL失败: %w", err)
+		return nil, fmt.Errorf("更新课件信息失败: %w", err)
 	}
 
 	// 提交事务
@@ -157,6 +101,73 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 	logger.Infof("课件上传成功: %s, URL: %s", course.ID, fileURL)
 
 	return course, nil
+}
+
+// enrichCourseWithAI 使用 AI 引擎为课件生成解析页、预览图和教学节点。
+// 注意：这里任何错误都应该被上层捕获为“非致命”，不影响上传主流程。
+func (s *courseService) enrichCourseWithAI(ctx context.Context, tx *gorm.DB, course *model.Course, file *multipart.FileHeader) error {
+	parsed, err := s.aiClient.ParseDocument(ctx, file)
+	if err != nil {
+		return fmt.Errorf("解析课件失败: %w", err)
+	}
+
+	// 优先尝试基于原始文件生成真实预览图，失败时回退到占位图
+	pagePreviewURLs := map[int]string{}
+	tmpPath, tmpErr := saveUploadedFileToTemp(file)
+	if tmpErr == nil {
+		defer os.Remove(tmpPath)
+		generated, genErr := s.generatePagePreviewImages(ctx, tmpPath, course.ID, strings.ToLower(filepath.Ext(file.Filename)))
+		if genErr == nil {
+			pagePreviewURLs = generated
+		} else {
+			logger.Errorf("生成课件预览图失败，使用占位图: %v", genErr)
+		}
+	} else {
+		logger.Errorf("保存课件临时文件失败，使用占位预览图: %v", tmpErr)
+	}
+
+	course.TotalPage = parsed.TotalPages
+	if err := tx.Save(course).Error; err != nil {
+		return fmt.Errorf("更新课件信息失败: %w", err)
+	}
+
+	pages := make([]model.CoursePage, 0, len(parsed.ParsedPages))
+	for _, page := range parsed.ParsedPages {
+		imageURL := strings.TrimSpace(pagePreviewURLs[page.Page])
+		if imageURL == "" {
+			// 回退：使用占位预览图，确保前端预览可用
+			imageURL = fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, page.Page)
+		}
+		pages = append(pages, model.CoursePage{
+			CourseID:   course.ID,
+			PageIndex:  page.Page,
+			ImageURL:   imageURL,
+			SourceText: strings.TrimSpace(page.Content),
+		})
+	}
+	if len(pages) > 0 {
+		if err := tx.Create(&pages).Error; err != nil {
+			return fmt.Errorf("保存解析页面失败: %w", err)
+		}
+	}
+
+	reconstructed, err := s.aiClient.ReconstructDocument(ctx, ReconstructDocumentRequest{
+		ParsedDocument: map[string]any{
+			"doc_id":       parsed.DocID,
+			"doc_name":     parsed.DocName,
+			"doc_type":     parsed.DocType,
+			"total_pages":  parsed.TotalPages,
+			"parsed_pages": parsed.ParsedPages,
+		},
+		Mode: "hybrid",
+	})
+	if err != nil {
+		return fmt.Errorf("重构课件内容失败: %w", err)
+	}
+	if err := s.saveTeachingNodes(tx, course.ID, reconstructed); err != nil {
+		return fmt.Errorf("保存教学节点失败: %w", err)
+	}
+	return nil
 }
 
 // GetCourse 获取课件信息

@@ -1581,8 +1581,14 @@ function cleanDisplayText(value) {
   color: #0284c7;
 }
 
-.stats-grid,
-.recent-grid,
+.stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.recent-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)); /* 只修改这一行，从2列改为4列 */
+}
+
 .entity-layout,
 .form-grid {
   display: grid;
@@ -1632,7 +1638,7 @@ function cleanDisplayText(value) {
 }
 
 .recent-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .recent-card,
@@ -1840,8 +1846,7 @@ function cleanDisplayText(value) {
 }
 
 @media (max-width: 1200px) {
-  .stats-grid,
-  .recent-grid,
+ 
   .entity-layout,
   .form-grid {
     grid-template-columns: 1fr;

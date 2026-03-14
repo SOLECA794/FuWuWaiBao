@@ -286,3 +286,12 @@ type AnswerRecord struct {
 	IsCorrect    bool   `json:"is_correct"`
 	MasteryDelta int    `json:"mastery_delta"` // 掌握度变化
 }
+
+// User 系统用户表（用于登录认证）
+type User struct {
+	BaseModel
+	Username     string `gorm:"size:100;uniqueIndex;not null" json:"username"`
+	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	// 角色：teacher / student
+	Role string `gorm:"size:20;not null;default:'teacher'" json:"role"`
+}

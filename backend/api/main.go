@@ -78,6 +78,7 @@ func main() {
 		&model.KnowledgePoint{},
 		&model.Question{},
 		&model.AnswerRecord{},
+		&model.User{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -106,6 +107,7 @@ func main() {
 	studentHandler := handler.NewStudentHandler(db, aiClient)
 	weakPointHandler := handler.NewWeakPointHandler(db, aiClient)
 	compatHandler := handler.NewCompatibilityHandler(db, aiClient, courseService)
+	authHandler := handler.NewAuthHandler(db)
 
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -202,6 +204,12 @@ func main() {
 
 		v1 := api.Group("/v1")
 		{
+			auth := v1.Group("/auth")
+			{
+				auth.POST("/register", authHandler.Register)
+				auth.POST("/login", authHandler.Login)
+			}
+
 			v1.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
 
 			teacherV1 := v1.Group("/teacher/coursewares")
