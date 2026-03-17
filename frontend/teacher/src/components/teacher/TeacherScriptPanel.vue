@@ -33,72 +33,90 @@
       </div>
       <div class="no-preview" v-else>请先选择课件</div>
 
+      <div class="timeline-area">
+        <div class="timeline-curve"></div>
+        <div class="timeline-line"></div>
+        <div
+          v-for="(node, index) in timelineNodes"
+          :key="node.nodeId || index"
+          class="timeline-node"
+          :class="{ active: selectedNodeIndex === index }"
+          @click="selectedNodeIndex = index"
+        >
+          <div class="node-bubble">
+            <strong>{{ node.title || `节点 ${index + 1}` }}</strong>
+            <span>{{ Number(node.estimatedDuration) || 20 }}秒</span>
+          </div>
+          <span class="node-dot"></span>
+        </div>
+      </div>
+
       <footer class="stage-actions">
-        <button class="ghost-btn" @click="splitCurrentBlock" :disabled="!editor || !currentCourseId">切分当前块</button>
-        <button class="ghost-btn" @click="rebuildNodesFromScript" :disabled="!editor || !currentCourseId">按段落重建节点</button>
-        <button class="ghost-btn" @click="$emit('generate-ai-script')" :disabled="!currentCourseId || scriptGenerating || scriptSaving">
-          {{ scriptGenerating ? '智能生成中...' : '智能生成节点建议' }}
-        </button>
-        <button class="save-btn" @click="$emit('save-script')" :disabled="!currentCourseId || scriptSaving || scriptGenerating">
-          {{ scriptSaving ? '保存中...' : '保存讲稿与节点' }}
-        </button>
+        <div class="left-actions">
+          <button class="ghost-btn" @click="addNode" :disabled="!currentCourseId">+ 新增节点</button>
+          <button class="ghost-btn" @click="$emit('generate-ai-script')" :disabled="!currentCourseId || scriptGenerating || scriptSaving">
+            {{ scriptGenerating ? '智能生成中...' : '智能生成节点建议' }}
+          </button>
+          <button class="ghost-btn" @click="rebuildNodesFromScript" :disabled="!currentCourseId">重建节点</button>
+        </div>
+        <div class="right-actions">
+          <button class="pager-btn" @click="$emit('prev-page')" :disabled="currentEditPage <= 1">上一页</button>
+          <button class="pager-btn" @click="$emit('next-page')" :disabled="currentEditPage >= totalPages">下一页</button>
+          <button class="save-btn" @click="$emit('save-script')" :disabled="!currentCourseId || scriptSaving || scriptGenerating">
+            {{ scriptSaving ? '保存中...' : '保存讲稿与节点' }}
+          </button>
+        </div>
       </footer>
     </section>
 
-    <section class="script-studio">
-      <header class="studio-head">
-        <h4>块级讲稿编辑器</h4>
-        <span class="autosave-tip">映射自动保存：{{ autosaveState }}</span>
-      </header>
+    <aside class="copilot-panel">
+      <h4>上下文智能助手与编辑器</h4>
 
-      <div class="studio-split">
-        <div class="editor-pane">
-          <div class="mapping-board">
-            <aside class="knowledge-list">
-              <h5>知识节点</h5>
-              <div
-                v-for="(item, index) in blockSnapshots"
-                :key="item.nodeId"
-                class="knowledge-item"
-                :class="{ active: activeNodeId === item.nodeId }"
-                draggable="true"
-                @dragstart="onNodeDragStart($event, item.nodeId)"
-                @dragover.prevent
-                @drop.prevent="onNodeDrop(index)"
-                @click="focusNode(item.nodeId)"
-              >
-                <span class="node-index">{{ index + 1 }}</span>
-                <div class="node-meta">
-                  <strong>{{ item.nodeId }}</strong>
-                  <p>{{ item.textPreview }}</p>
-                </div>
-              </div>
-            </aside>
-
-            <div class="editor-canvas" @dragover.prevent @drop.prevent="onEditorDrop">
-              <EditorContent v-if="editor" :editor="editor" class="tiptap-root" />
-            </div>
-          </div>
+      <section class="panel-block">
+        <h5>智能助手</h5>
+        <div class="ai-inline">
+          <input v-model="aiPrompt" placeholder="请输入智能指令..." />
         </div>
+        <button class="copilot-action" @click="$emit('generate-ai-script')" :disabled="!currentCourseId || scriptGenerating || scriptSaving">
+          智能推荐资源
+        </button>
+      </section>
 
-        <div class="preview-pane">
-          <h5>Markdown 实时预览</h5>
-          <div class="markdown-preview">
-            <UnifiedMdRenderer :md-text="currentScript" />
-          </div>
+      <section class="panel-block">
+        <h5>助手推荐</h5>
+        <ul class="recommend-list">
+          <li v-for="(item, idx) in recommendationItems" :key="`${item.title}_${idx}`" @click="selectedNodeIndex = idx">
+            <strong>{{ item.title }}</strong>
+            <span>{{ item.desc }}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel-block grow">
+        <h5>关联内容编辑器</h5>
+        <div class="node-tabs" v-if="timelineNodes.length">
+          <button
+            v-for="(node, idx) in timelineNodes"
+            :key="node.nodeId || idx"
+            :class="{ active: selectedNodeIndex === idx }"
+            @click="selectedNodeIndex = idx"
+          >
+            节点{{ idx + 1 }}：{{ node.title || '未命名' }}
+          </button>
         </div>
-      </div>
-    </section>
+        <textarea
+          class="linked-editor"
+          :value="selectedNodeScript"
+          placeholder="在这里编辑当前节点讲稿..."
+          @input="updateSelectedNodeText($event.target.value)"
+        ></textarea>
+      </section>
+    </aside>
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { Extension } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import { Editor, EditorContent } from '@tiptap/vue-3'
-import UnifiedMdRenderer from '../common/UnifiedMdRenderer.vue'
-
+import { computed, ref, watch } from 'vue'
 const props = defineProps({
   previewUrl: {
     type: String,
@@ -134,380 +152,159 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits([
-  'generate-ai-script',
-  'save-script',
-  'update:current-script',
-  'update:current-script-nodes',
-  'autosave-mapping',
-  'prev-page',
-  'next-page'
-])
+const emit = defineEmits(['generate-ai-script', 'save-script', 'update:current-script', 'update:current-script-nodes', 'prev-page', 'next-page'])
 
-const editor = ref(null)
-const blockSnapshots = ref([])
-const activeNodeId = ref('')
-const draggedNodeId = ref('')
-const draggedNodeIndex = ref(-1)
-const autosaveState = ref('待触发')
-let syncTimer = null
-let autosaveTimer = null
+const localNodes = ref([])
+const selectedNodeIndex = ref(0)
+const aiPrompt = ref('')
 
-const ParagraphNodeId = Extension.create({
-  name: 'paragraphNodeId',
-  addGlobalAttributes() {
-    return [
-      {
-        types: ['paragraph'],
-        attributes: {
-          nodeId: {
-            default: null,
-            parseHTML: (element) => element.getAttribute('data-node-id') || null,
-            renderHTML: (attributes) => {
-              if (!attributes.nodeId) {
-                return {}
-              }
-              return {
-                'data-node-id': attributes.nodeId
-              }
-            }
-          }
-        }
-      }
-    ]
-  }
-})
+const syncNodesFromProps = (nodes) => {
+  const mapped = (nodes || []).map((node, index, list) => ({
+    id: node.id || '',
+    nodeId: node.nodeId || `p${props.currentEditPage}_n${index + 1}`,
+    type: node.type || inferNodeType(index, list.length),
+    title: node.title || `${index === 0 ? '节点1：开场' : `节点${index + 1}：讲解`}`,
+    summary: node.summary || node.text || '',
+    scriptText: node.scriptText || node.text || '',
+    reteachScript: node.reteachScript || '',
+    transitionText: node.transitionText || '',
+    estimatedDuration: Number(node.estimatedDuration) || estimateDuration(node.scriptText || node.summary || node.text || ''),
+    sortOrder: Number(node.sortOrder) || index + 1
+  }))
 
-watch(
-  () => [props.currentCourseId, props.currentEditPage],
-  () => {
-    buildEditorFromNodes(props.currentScriptNodes, true)
-  },
-  { immediate: true }
-)
-
-watch(
-  () => props.currentScriptNodes,
-  (nodes) => {
-    if (!editor.value) {
-      buildEditorFromNodes(nodes, true)
-      return
-    }
-    const currentNodeIds = blockSnapshots.value.map((item) => item.nodeId).join('|')
-    const incomingNodeIds = (nodes || []).map((item, idx) => ensureNodeId(item?.nodeId, idx + 1)).join('|')
-    if (currentNodeIds !== incomingNodeIds) {
-      buildEditorFromNodes(nodes, false)
-    }
-  },
-  { deep: true }
-)
-
-onBeforeUnmount(() => {
-  if (syncTimer) window.clearTimeout(syncTimer)
-  if (autosaveTimer) window.clearTimeout(autosaveTimer)
-  if (editor.value) editor.value.destroy()
-})
-
-function buildEditorFromNodes(nodes, shouldCreate) {
-  const safeNodes = normalizeNodes(nodes)
-  const content = buildEditorContentFromNodes(safeNodes)
-
-  if (shouldCreate || !editor.value) {
-    if (editor.value) {
-      editor.value.destroy()
-    }
-    editor.value = new Editor({
-      extensions: [StarterKit, ParagraphNodeId],
-      content,
-      editorProps: {
-        attributes: {
-          class: 'block-editor'
-        },
-        handleClick(view, pos) {
-          const node = view.state.doc.nodeAt(pos)
-          if (node?.type?.name === 'paragraph') {
-            activeNodeId.value = node.attrs.nodeId || ''
-          }
-          return false
-        }
-      },
-      onSelectionUpdate: ({ editor: editorInstance }) => {
-        const paragraph = findCurrentParagraph(editorInstance)
-        if (paragraph?.nodeId) {
-          activeNodeId.value = paragraph.nodeId
-        }
-      },
-      onUpdate: ({ editor: editorInstance }) => {
-        synchronizeState(editorInstance)
-      }
-    })
-  } else {
-    editor.value.commands.setContent(content, false)
-    synchronizeState(editor.value)
+  localNodes.value = mapped
+  if (selectedNodeIndex.value > mapped.length - 1) {
+    selectedNodeIndex.value = Math.max(0, mapped.length - 1)
   }
 }
 
-function synchronizeState(editorInstance) {
-  if (syncTimer) window.clearTimeout(syncTimer)
-  syncTimer = window.setTimeout(() => {
-    normalizeParagraphNodeIds(editorInstance)
-    const blocks = collectBlocks(editorInstance)
-    blockSnapshots.value = blocks.map((block, index) => ({
-      ...block,
-      textPreview: String(block.text || '空段落').replace(/\s+/g, ' ').slice(0, 36) || '空段落',
-      sortOrder: index + 1,
-      type: inferNodeType(index, blocks.length)
-    }))
+watch(() => props.currentScriptNodes, (value) => {
+  syncNodesFromProps(value)
+}, { immediate: true, deep: true })
 
-    if (!activeNodeId.value && blockSnapshots.value.length > 0) {
-      activeNodeId.value = blockSnapshots.value[0].nodeId
+watch(() => props.currentEditPage, () => {
+  selectedNodeIndex.value = 0
+})
+
+const emitNodes = () => {
+  emit('update:current-script-nodes', localNodes.value.map((node, index, list) => ({
+    ...node,
+    type: inferNodeType(index, list.length),
+    sortOrder: index + 1,
+    estimatedDuration: Number(node.estimatedDuration) || estimateDuration(node.scriptText || node.summary || '')
+  })))
+}
+
+const syncScriptFromNodes = () => {
+  const merged = localNodes.value
+    .map(node => String(node.scriptText || node.summary || '').trim())
+    .filter(Boolean)
+    .join('\n')
+  emit('update:current-script', merged)
+}
+
+const timelineNodes = computed(() => {
+  if (localNodes.value.length > 0) return localNodes.value
+  return [{
+    nodeId: `p${props.currentEditPage}_n1`,
+    type: 'opening',
+    title: '节点1：开场',
+    scriptText: props.currentScript || '',
+    estimatedDuration: 20
+  }]
+})
+
+const recommendationItems = computed(() => {
+  return timelineNodes.value.slice(0, 4).map((node, index) => ({
+    title: node.title || `代码片段 ${index + 1}`,
+    desc: (node.summary || node.scriptText || '可根据当前页内容做精讲和提问设计').slice(0, 44)
+  }))
+})
+
+const selectedNodeScript = computed(() => {
+  const node = timelineNodes.value[selectedNodeIndex.value]
+  return node?.scriptText || ''
+})
+
+const updateNode = (index, field, value) => {
+  localNodes.value = localNodes.value.map((node, currentIndex) => {
+    if (currentIndex !== index) return node
+    return {
+      ...node,
+      [field]: field === 'estimatedDuration' ? Number(value) || 0 : value
     }
+  })
+  emitNodes()
+  syncScriptFromNodes()
+}
 
-    highlightActiveParagraph()
+const addNode = () => {
+  localNodes.value = [...localNodes.value, {
+    id: '',
+    nodeId: `p${props.currentEditPage}_n${localNodes.value.length + 1}`,
+    type: inferNodeType(localNodes.value.length, localNodes.value.length + 1),
+    title: `节点${localNodes.value.length + 1}：讲解`,
+    summary: '',
+    scriptText: '',
+    reteachScript: '',
+    transitionText: '',
+    estimatedDuration: 30,
+    sortOrder: localNodes.value.length + 1
+  }]
+  selectedNodeIndex.value = localNodes.value.length - 1
+  emitNodes()
+  syncScriptFromNodes()
+}
 
-    const script = blockSnapshots.value
-      .map((block) => String(block.text || '').trim())
-      .filter(Boolean)
-      .join('\n\n')
-
-    emit('update:current-script', script)
-    emit('update:current-script-nodes', blockSnapshots.value.map((item) => ({
-      id: item.id || '',
-      nodeId: item.nodeId,
-      title: `节点${item.sortOrder}`,
-      summary: item.textPreview,
-      scriptText: item.text,
+const rebuildNodesFromScript = () => {
+  const raw = String(props.currentScript || '').trim()
+  if (!raw) {
+    localNodes.value = []
+    emitNodes()
+    emit('update:current-script', '')
+    return
+  }
+  localNodes.value = raw
+    .split(/\n{2,}|(?<=[。！？])\s*/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map((text, index, list) => ({
+      id: '',
+      nodeId: `p${props.currentEditPage}_n${index + 1}`,
+      type: inferNodeType(index, list.length),
+      title: `${index === 0 ? '节点1：开场' : `节点${index + 1}：核心代码`}`,
+      summary: text.length > 48 ? `${text.slice(0, 48)}...` : text,
+      scriptText: text,
       reteachScript: '',
       transitionText: '',
-      estimatedDuration: estimateDuration(item.text),
-      sortOrder: item.sortOrder,
-      type: item.type
-    })))
-
-    if (autosaveTimer) window.clearTimeout(autosaveTimer)
-    autosaveState.value = '等待自动保存...'
-    autosaveTimer = window.setTimeout(() => {
-      autosaveState.value = '自动保存中...'
-      emit('autosave-mapping', {
-        content: script,
-        nodes: blockSnapshots.value.map((item) => ({
-          id: item.id || '',
-          nodeId: item.nodeId,
-          title: `节点${item.sortOrder}`,
-          summary: item.textPreview,
-          scriptText: item.text,
-          reteachScript: '',
-          transitionText: '',
-          estimatedDuration: estimateDuration(item.text),
-          sortOrder: item.sortOrder
-        }))
-      })
-      window.setTimeout(() => {
-        autosaveState.value = '已自动保存'
-      }, 250)
-    }, 900)
-  }, 60)
+      estimatedDuration: estimateDuration(text),
+      sortOrder: index + 1
+    }))
+  selectedNodeIndex.value = 0
+  emitNodes()
+  syncScriptFromNodes()
 }
 
-function splitCurrentBlock() {
-  if (!editor.value) return
-  editor.value.chain().focus().splitBlock().run()
-  normalizeParagraphNodeIds(editor.value)
-  synchronizeState(editor.value)
-}
-
-function rebuildNodesFromScript() {
-  if (!editor.value) return
-  const lines = String(props.currentScript || '')
-    .split(/\n{2,}/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-
-  const nodes = lines.length
-    ? lines.map((text, idx) => ({
-        nodeId: ensureNodeId('', idx + 1),
-        scriptText: text
-      }))
-    : [{ nodeId: ensureNodeId('', 1), scriptText: '' }]
-
-  buildEditorFromNodes(nodes, false)
-}
-
-function onNodeDragStart(event, nodeId) {
-  draggedNodeId.value = nodeId
-  if (event?.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', nodeId)
-  }
-}
-
-function onNodeDrop(targetIndex) {
-  const sourceIndex = blockSnapshots.value.findIndex((item) => item.nodeId === draggedNodeId.value)
-  if (sourceIndex < 0 || sourceIndex === targetIndex) return
-
-  const next = [...blockSnapshots.value]
-  const [moved] = next.splice(sourceIndex, 1)
-  next.splice(targetIndex, 0, moved)
-  applyBlocks(next)
-}
-
-function onEditorDrop(event) {
-  const droppedNodeId = draggedNodeId.value || event?.dataTransfer?.getData('text/plain') || ''
-  if (!droppedNodeId || !editor.value) return
-
-  const targetParagraph = event.target?.closest?.('[data-node-id]')
-  if (!targetParagraph) return
-
-  const targetNodeId = targetParagraph.getAttribute('data-node-id') || ''
-  if (!targetNodeId || targetNodeId === droppedNodeId) return
-
-  const next = blockSnapshots.value.map((item) => ({ ...item }))
-  const target = next.find((item) => item.nodeId === targetNodeId)
-  const source = next.find((item) => item.nodeId === droppedNodeId)
-  if (!target) return
-
-  if (source) {
-    source.nodeId = ensureNodeId('', Date.now())
-  }
-  target.nodeId = droppedNodeId
-  activeNodeId.value = droppedNodeId
-  applyBlocks(next)
-}
-
-function focusNode(nodeId) {
-  activeNodeId.value = nodeId
-  highlightActiveParagraph()
-
-  if (!editor.value) return
-  const block = blockSnapshots.value.find((item) => item.nodeId === nodeId)
-  if (!block) return
-  editor.value.chain().focus().setTextSelection(block.pos + 1).run()
-
-  nextTick(() => {
-    const paragraph = document.querySelector(`[data-node-id="${nodeId}"]`)
-    paragraph?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
-}
-
-function applyBlocks(blocks) {
-  if (!editor.value) return
-  const sorted = blocks.map((item, index) => ({
-    ...item,
-    sortOrder: index + 1,
-    nodeId: ensureNodeId(item.nodeId, index + 1)
-  }))
-  const content = buildEditorContentFromNodes(sorted)
-  editor.value.commands.setContent(content, false)
-  synchronizeState(editor.value)
-}
-
-function collectBlocks(editorInstance) {
-  const result = []
-  editorInstance.state.doc.descendants((node, pos) => {
-    if (node.type.name !== 'paragraph') return true
-    result.push({
+const updateSelectedNodeText = (value) => {
+  if (!localNodes.value.length) {
+    localNodes.value = [{
       id: '',
-      nodeId: ensureNodeId(node.attrs.nodeId, result.length + 1),
-      text: node.textContent || '',
-      pos
-    })
-    return true
-  })
-  if (result.length === 0) {
-    result.push({ id: '', nodeId: ensureNodeId('', 1), text: '', pos: 0 })
+      nodeId: `p${props.currentEditPage}_n1`,
+      type: 'opening',
+      title: '节点1：开场',
+      summary: '',
+      scriptText: value,
+      reteachScript: '',
+      transitionText: '',
+      estimatedDuration: estimateDuration(value),
+      sortOrder: 1
+    }]
+  } else {
+    updateNode(selectedNodeIndex.value, 'scriptText', value)
+    return
   }
-  return result
-}
-
-function normalizeParagraphNodeIds(editorInstance) {
-  const tr = editorInstance.state.tr
-  const seen = new Set()
-  let index = 1
-
-  editorInstance.state.doc.descendants((node, pos) => {
-    if (node.type.name !== 'paragraph') return true
-    let nodeId = node.attrs.nodeId
-    if (!nodeId || seen.has(nodeId)) {
-      nodeId = ensureNodeId('', index)
-      tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs,
-        nodeId
-      })
-    }
-    seen.add(nodeId)
-    index += 1
-    return true
-  })
-
-  if (tr.docChanged) {
-    editorInstance.view.dispatch(tr)
-  }
-}
-
-function highlightActiveParagraph() {
-  const root = document.querySelector('.block-editor')
-  if (!root) return
-  root.querySelectorAll('[data-node-id]').forEach((element) => {
-    if (element.getAttribute('data-node-id') === activeNodeId.value) {
-      element.classList.add('active-paragraph')
-    } else {
-      element.classList.remove('active-paragraph')
-    }
-  })
-}
-
-function findCurrentParagraph(editorInstance) {
-  const { $from } = editorInstance.state.selection
-  const node = $from.parent
-  if (node.type.name !== 'paragraph') return null
-  return {
-    nodeId: node.attrs.nodeId,
-    pos: $from.before($from.depth)
-  }
-}
-
-function normalizeNodes(nodes) {
-  const list = Array.isArray(nodes) ? nodes : []
-  if (list.length > 0) {
-    return list.map((node, index) => ({
-      nodeId: ensureNodeId(node?.nodeId, index + 1),
-      scriptText: String(node?.scriptText || node?.text || '').trim()
-    }))
-  }
-
-  const fallback = String(props.currentScript || '').trim()
-  if (!fallback) {
-    return [{ nodeId: ensureNodeId('', 1), scriptText: '' }]
-  }
-
-  return fallback
-    .split(/\n{2,}|(?<=[。！？])\s*/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((text, index) => ({
-      nodeId: ensureNodeId('', index + 1),
-      scriptText: text
-    }))
-}
-
-function buildEditorContentFromNodes(nodes) {
-  return {
-    type: 'doc',
-    content: nodes.map((item) => ({
-      type: 'paragraph',
-      attrs: {
-        nodeId: ensureNodeId(item.nodeId, 1)
-      },
-      content: item.scriptText
-        ? [
-            {
-              type: 'text',
-              text: item.scriptText
-            }
-          ]
-        : []
-    }))
-  }
+  emitNodes()
+  syncScriptFromNodes()
 }
 
 function inferNodeType(index, total) {
@@ -520,12 +317,6 @@ function estimateDuration(text) {
   const size = Math.ceil(String(text || '').trim().length / 14)
   return Math.max(20, Math.min(90, size || 20))
 }
-
-function ensureNodeId(value, index) {
-  const raw = String(value || '').trim()
-  if (raw) return raw
-  return `p${props.currentEditPage}_n${index}`
-}
 </script>
 
 <style scoped>
@@ -533,37 +324,35 @@ function ensureNodeId(value, index) {
   flex: 1;
   min-height: 0;
   display: flex;
-  overflow-y: auto;
-  overflow-x: hidden;
-  background: #f2f5f1;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f7fbf9 0%, #edf3ef 100%);
 }
 
 .viewer-stage {
-  width: 36%;
-  min-width: 360px;
-  border-right: 1px solid #d7e1d9;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px;
-  gap: 12px;
-  background: linear-gradient(160deg, #f8fbf8 0%, #eef5f0 100%);
-  overflow-y: auto;
+  padding: 18px 20px 10px;
 }
 
 .stage-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
 .stage-head h4 {
   margin: 0;
-  color: #27433b;
+  font-size: 34px;
+  font-weight: 500;
+  color: #314641;
 }
 
 .slide-index {
-  font-size: 14px;
-  color: #4f6d64;
+  font-size: 32px;
+  color: #6b847b;
 }
 
 .slide-wrap {
@@ -571,296 +360,369 @@ function ensureNodeId(value, index) {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 44px;
 }
 
 .slide-nav-btn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
-  border: 1px solid #b8c9bf;
-  background: #f6fbf8;
-  color: #35554d;
+  border: 1px solid #c6d8ce;
+  background: rgba(244, 251, 247, 0.95);
+  color: #406056;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  z-index: 2;
+  z-index: 3;
 }
 
 .slide-nav-btn.prev {
-  left: 6px;
+  left: 0;
 }
 
 .slide-nav-btn.next {
-  right: 6px;
+  right: 0;
+}
+
+.slide-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .slide-canvas {
-  width: 100%;
-  min-height: 280px;
-  border: 1px solid #d0ddd5;
+  width: min(100%, 620px);
+  min-height: 290px;
+  background: #eef4f1;
+  border: 1px solid #ceddd4;
   border-radius: 12px;
-  background: #fff;
-  overflow: hidden;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .preview-iframe {
   width: 100%;
+  min-height: 260px;
+  border-radius: 8px;
+  background: #fbfdfc;
+  border: 1px solid #d6e3dc;
+  object-fit: contain;
+  display: block;
   height: 100%;
-  min-height: 280px;
-  border: 0;
 }
 
-.preview-placeholder,
-.no-preview {
+.preview-placeholder {
   display: flex;
-  min-height: 280px;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 56px 16px;
+  text-align: center;
+  border: 2px dashed #d6e3dc;
+  border-radius: 12px;
+  background: #f6fbf8;
+  gap: 8px;
+  color: #6b7f78;
+}
+
+.preview-placeholder small {
+  font-size: 13px;
+  color: #93a69f;
+  line-height: 1.5;
+}
+
+.no-preview {
+  color: #93a69f;
+  font-size: 14px;
+  text-align: center;
+  padding: 80px 0;
+}
+
+.timeline-area {
+  position: relative;
+  margin-top: 20px;
+  padding: 26px 10px 14px;
+  min-height: 176px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 104px;
+  border-top: 2px solid #bccdc4;
+  pointer-events: none;
+}
+
+.timeline-curve {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 84px;
+  height: 48px;
+  border-bottom: 2px solid #d4e0da;
+  border-radius: 0 0 56px 56px;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.timeline-node {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  cursor: pointer;
+  flex: 0 0 176px;
+}
+
+.node-bubble {
+  min-height: 64px;
+  border-radius: 12px;
+  border: 1px solid #d4e1da;
+  background: #e8f0ec;
+  padding: 8px 10px;
+  color: #3d4f49;
+  display: flex;
   flex-direction: column;
-  color: #7d9289;
+  gap: 6px;
+  justify-content: center;
+}
+
+.node-bubble strong {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-bubble span {
+  font-size: 12px;
+  color: #6f867d;
+}
+
+.node-dot {
+  display: inline-block;
+  margin-top: 16px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #dbe7e1;
+  border: 3px solid #f6faf8;
+  box-shadow: 0 2px 8px rgba(68, 96, 86, 0.18);
+}
+
+.timeline-node.active .node-bubble {
+  border-color: #9bb8ad;
+  background: #d9e7df;
+}
+
+.timeline-node.active .node-dot {
+  background: #b7d1c4;
 }
 
 .stage-actions {
+  margin-top: auto;
+  padding: 8px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.left-actions,
+.right-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 
 .ghost-btn,
-.save-btn {
-  border: 1px solid #cad9cf;
-  background: #f8fcf9;
-  color: #2e4d43;
-  border-radius: 8px;
+.pager-btn,
+.save-btn,
+.copilot-action {
+  border: 1px solid #d0dfd7;
+  background: #edf5f1;
+  color: #3c524b;
   padding: 8px 12px;
+  border-radius: 10px;
   cursor: pointer;
-}
-
-.save-btn {
-  background: #2f6158;
-  border-color: #2f6158;
-  color: #fff;
-}
-
-.script-studio {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  gap: 12px;
-  overflow-y: auto;
-}
-
-.studio-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.studio-head h4 {
-  margin: 0;
-  color: #244138;
-}
-
-.autosave-tip {
-  color: #60796f;
   font-size: 13px;
 }
 
-.studio-split {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.save-btn,
+.copilot-action {
+  background: #dbe8e1;
+  border-color: #c4d7cd;
+  font-weight: 600;
 }
 
-.editor-pane,
-.preview-pane {
-  min-height: 0;
-  border: 1px solid #d5e0d7;
-  border-radius: 12px;
-  background: #fbfdfc;
-  overflow: hidden;
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.mapping-board {
-  height: 100%;
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 0;
-}
-
-.knowledge-list {
-  border-right: 1px solid #d9e5dc;
-  padding: 10px;
-  overflow: auto;
-}
-
-.knowledge-list h5,
-.preview-pane h5 {
-  margin: 0 0 10px;
-  color: #466359;
-}
-
-.knowledge-item {
+.copilot-panel {
+  flex: 0 0 340px;
+  width: 340px;
+  border-left: 1px solid #d8e4dc;
+  background: #f8fbf9;
+  padding: 14px 12px;
+  box-sizing: border-box;
   display: flex;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid #e2ece5;
-  border-radius: 10px;
-  background: #fff;
-  margin-bottom: 8px;
-  cursor: pointer;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: #b4c8bc #edf4ef;
 }
 
-.knowledge-item.active {
-  border-color: #2f6158;
-  box-shadow: inset 0 0 0 1px #2f6158;
-  background: #f2f9f5;
+.copilot-panel::-webkit-scrollbar {
+  width: 8px;
 }
 
-.node-index {
-  width: 22px;
-  height: 22px;
+.copilot-panel::-webkit-scrollbar-track {
+  background: #edf4ef;
   border-radius: 999px;
-  background: #e4f0e8;
-  color: #2f6158;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
+}
+
+.copilot-panel::-webkit-scrollbar-thumb {
+  background: #b4c8bc;
+  border-radius: 999px;
+}
+
+.copilot-panel h4 {
+  margin: 0;
+  font-size: 18px;
+  color: #314641;
+}
+
+.panel-block {
+  border: 1px solid #dce8e1;
+  border-radius: 12px;
+  padding: 10px;
+  background: #ffffff;
   flex-shrink: 0;
 }
 
-.node-meta {
-  min-width: 0;
+.panel-block h5 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #425a51;
 }
 
-.node-meta strong {
-  display: block;
-  font-size: 12px;
-  color: #38594f;
+.ai-inline input,
+.linked-editor {
+  width: 100%;
+  border: 1px solid #d9e4de;
+  border-radius: 9px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  font-size: 13px;
+  font-family: inherit;
 }
 
-.node-meta p {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #72897f;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.editor-canvas {
-  min-height: 0;
-  overflow: auto;
-  padding: 12px;
-}
-
-.tiptap-root :deep(.block-editor) {
-  min-height: 100%;
-  outline: none;
-}
-
-.tiptap-root :deep(.block-editor p) {
-  border: 1px solid #d7e2da;
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin: 0 0 10px;
-  background: #fff;
-}
-
-.tiptap-root :deep(.block-editor p::before) {
-  content: attr(data-node-id);
-  display: inline-block;
-  font-size: 11px;
-  color: #5d796f;
-  background: #eef6f1;
-  border: 1px solid #d7e8de;
-  padding: 2px 6px;
-  border-radius: 999px;
-  margin-right: 8px;
-}
-
-.tiptap-root :deep(.block-editor p.active-paragraph) {
-  border-color: #2f6158;
-  box-shadow: 0 0 0 2px rgba(47, 97, 88, 0.14);
-  background: #f4fbf7;
-}
-
-.preview-pane {
+.recommend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  gap: 6px;
 }
 
-.markdown-preview {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  color: #2f433d;
-  line-height: 1.62;
+.recommend-list li {
+  border: 1px solid #e2ebe6;
+  background: #f7faf8;
+  border-radius: 10px;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.markdown-preview :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 10px 0;
+.recommend-list strong {
+  font-size: 13px;
+  color: #385049;
 }
 
-.markdown-preview :deep(th),
-.markdown-preview :deep(td) {
-  border: 1px solid #d4dfd7;
-  padding: 6px 8px;
+.recommend-list span {
+  font-size: 12px;
+  color: #768d84;
 }
 
-.markdown-preview :deep(img) {
-  max-width: 100%;
-  border-radius: 8px;
+.grow {
+  flex: 0 0 auto;
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
-.markdown-preview :deep(pre) {
-  background: #f4f7f5;
-  border: 1px solid #d8e2da;
-  border-radius: 8px;
-  padding: 10px;
-  overflow: auto;
+.node-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
 }
 
-.markdown-preview :deep(.mermaid-chart) {
-  border: 1px solid #dae5dd;
-  border-radius: 8px;
-  padding: 10px;
-  background: #fff;
+.node-tabs button {
+  border: 1px solid #dae6df;
+  border-radius: 999px;
+  background: #f5faf7;
+  color: #546b62;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-@media (max-width: 1280px) {
+.node-tabs button.active {
+  background: #dfebe4;
+  border-color: #c5d8ce;
+  color: #355048;
+}
+
+.linked-editor {
+  flex: 0 0 auto;
+  height: 150px;
+  min-height: 120px;
+  margin-top: 8px;
+  resize: none;
+  line-height: 1.7;
+  overflow-y: auto;
+}
+
+@media (max-width: 1200px) {
+  .copilot-panel {
+    flex-basis: 300px;
+    width: 300px;
+  }
+}
+
+@media (max-width: 980px) {
   .editor-workbench {
     flex-direction: column;
   }
 
-  .viewer-stage {
+  .copilot-panel {
     width: 100%;
-    min-width: 0;
-    border-right: 0;
-    border-bottom: 1px solid #d7e1d9;
-  }
-
-  .studio-split {
-    grid-template-columns: 1fr;
-  }
-
-  .mapping-board {
-    grid-template-columns: 1fr;
-  }
-
-  .knowledge-list {
-    border-right: 0;
-    border-bottom: 1px solid #d9e5dc;
-    max-height: 220px;
+    flex-basis: auto;
+    border-left: none;
+    border-top: 1px solid #d8e4dc;
   }
 }
+
 </style>
