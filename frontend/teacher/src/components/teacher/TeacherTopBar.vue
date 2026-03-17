@@ -7,15 +7,15 @@
     <div class="nav-right">
       <div class="backend-status" :class="backendStatusClass">
         <span class="status-dot"></span>
-        后端：{{ backendStatusText }}
+        {{ backendStatusText }}
       </div>
       <div class="teacher-info">
         <div class="avatar">
-          <span>教</span>
+          <span>{{ (username || '教').slice(0, 1) }}</span>
         </div>
         <div class="account-actions">
           <span class="teacher-name">{{ username }}</span>
-          <button class="logout-btn" @click="$emit('logout')">退出登录</button>
+          <button class="logout-btn" @click="$emit('logout')">识性登录</button>
         </div>
       </div>
     </div>
@@ -44,13 +44,13 @@ defineEmits(['logout'])
 <style scoped>
 .top-nav {
   height: 56px;
-  background: #ffffff;
+  background: #f7f9f8;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 22px;
   color: #1e293b;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #dee8e1;
   flex-shrink: 0;
 }
 
@@ -61,13 +61,14 @@ defineEmits(['logout'])
 }
 
 .app-icon {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .app-title {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  color: #30443f;
 }
 
 .nav-right {
@@ -80,10 +81,11 @@ defineEmits(['logout'])
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: #F4F7F7;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #e9f4eb;
+  border: 1px solid #d5e6d9;
 }
 
 .status-dot {
@@ -94,7 +96,7 @@ defineEmits(['logout'])
 }
 
 .backend-status.online {
-  color: #166534;
+  color: #5f7f67;
 }
 
 .backend-status.online .status-dot {
@@ -132,15 +134,15 @@ defineEmits(['logout'])
 .teacher-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: #F4F7F7;
-  color: #2F605A;
+  background: #d8e4dc;
+  color: #445a52;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -158,7 +160,7 @@ defineEmits(['logout'])
 .teacher-name {
   font-size: 13px;
   font-weight: 600;
-  color: #1e293b;
+  color: #324740;
 }
 
 .logout-btn {
@@ -167,7 +169,7 @@ defineEmits(['logout'])
   padding: 0;
   margin-top: 2px;
   font-size: 11px;
-  color: #64748b;
+  color: #80938b;
   cursor: pointer;
   transition: color 0.2s;
 }

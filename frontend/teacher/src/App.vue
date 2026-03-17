@@ -1,27 +1,27 @@
 <template>
   <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
   <div v-else class="teacher-app">
-    <TeacherTopBar
-      :backend-status-class="backendStatusClass"
-      :backend-status-text="backendStatusText"
-      :username="loggedInUsername"
-      @logout="isLoggedIn = false"
-    />
-   
+    <div class="workspace-shell">
+      <TeacherTopBar
+        :backend-status-class="backendStatusClass"
+        :backend-status-text="backendStatusText"
+        :username="loggedInUsername"
+        @logout="isLoggedIn = false"
+      />
 
-    <div class="main-content">
+      <div class="main-content">
       <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
       <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
         <div class="menu-header">
-          <span v-show="!isLeftMenuCollapsed">MENU</span>
+          <span v-show="!isLeftMenuCollapsed">菜单</span>
           <button class="menu-toggle-btn" @click="isLeftMenuCollapsed = !isLeftMenuCollapsed" :title="isLeftMenuCollapsed ? '展开菜单' : '收起菜单'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path></svg>
           </button>
         </div>
         <div class="menu-list">
-          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="讲稿编辑">
+          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="编辑讲稿">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-            <span v-show="!isLeftMenuCollapsed">讲稿编辑</span>
+            <span v-show="!isLeftMenuCollapsed">编辑讲稿</span>
           </div>
           <div class="menu-item" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'" title="学情分析">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
@@ -31,9 +31,9 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             <span v-show="!isLeftMenuCollapsed">提问统计</span>
           </div>
-          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="学习卡点可视化">
+          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="卡点可视化">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            <span v-show="!isLeftMenuCollapsed">学习卡点可视化</span>
+            <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
           </div>
           <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -45,7 +45,7 @@
               </svg>
 
               </svg>
-               <span v-show="!isLeftMenuCollapsed">平台管理</span>
+        <span v-show="!isLeftMenuCollapsed">平台管理 <small>(悬停后展开)</small></span>
           </div>
 
         </div>
@@ -125,6 +125,7 @@
 
       <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
       <TeacherCoursewareSidebar
+        v-if="activeTab !== 'script'"
         v-show="isSidebarVisible"
         :courseware-list="coursewareList"
         :current-course-id="currentCourseId"
@@ -139,6 +140,7 @@
         @select-page="selectEditPage"
         style="border-right: none; border-left: 1px solid #e2e8f0;"
       />
+    </div>
     </div>
 
     <TeacherUploadModal
@@ -566,12 +568,25 @@ const loadQuestionRecords = async (courseId) => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: #F4F7F7;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
+  padding: 14px;
+  box-sizing: border-box;
 }
+
+.workspace-shell {
+  width: 100%;
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7faf8;
+  border: 1px solid #d8e4dc;
+  box-shadow: 0 24px 48px rgba(45, 72, 66, 0.08);
+}
+
 .main-content {
   display: flex;
-  height: calc(100vh - 108px);
+  height: calc(100% - 56px);
 }
 .editor-section {
   flex: 1;
@@ -663,6 +678,11 @@ const loadQuestionRecords = async (courseId) => {
   background: #F4F7F7;
   border-right-color: #2F605A;
   font-weight: 600;
+}
+
+.menu-item small {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .ins-icon {
