@@ -210,7 +210,7 @@ func (h *CompatibilityHandler) OpenTrackProgress(c *gin.Context) {
 	if page <= 0 {
 		page = 1
 	}
-	state := sessionState{SessionID: defaultString(req.SessionID, "sess_"+uuid.NewString()), UserID: req.UserID, CourseID: req.CourseID, CurrentPage: page, CurrentNodeID: defaultString(req.CurrentSectionID, fmt.Sprintf("p%d_n1", page)), UpdatedAt: time.Now()}
+	state := sessionState{SessionID: defaultString(req.SessionID, uuid.NewString()), UserID: req.UserID, CourseID: req.CourseID, CurrentPage: page, CurrentNodeID: defaultString(req.CurrentSectionID, fmt.Sprintf("p%d_n1", page)), UpdatedAt: time.Now()}
 	h.persistSession(state)
 	var progress model.UserProgress
 	if err := h.db.Where("user_id = ? AND course_id = ?", req.UserID, req.CourseID).First(&progress).Error; err == nil {

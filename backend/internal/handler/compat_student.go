@@ -39,7 +39,7 @@ func (h *CompatibilityHandler) StartStudentSession(c *gin.Context) {
 		return
 	}
 	state := sessionState{
-		SessionID:     "sess_" + uuid.NewString(),
+		SessionID:     uuid.NewString(),
 		UserID:        req.UserID,
 		CourseID:      req.CourseID,
 		CurrentPage:   1,
@@ -89,7 +89,7 @@ func (h *CompatibilityHandler) UpdateStudentProgress(c *gin.Context) {
 		UpdatedAt:     time.Now(),
 	}
 	if state.SessionID == "" {
-		state.SessionID = "sess_" + uuid.NewString()
+		state.SessionID = uuid.NewString()
 	}
 	h.persistSession(state)
 	syncDialogueSessionState(h.db, state.SessionID, req.UserID, req.CourseID, page, nodeID, req.CurrentTimeSec)
@@ -169,7 +169,7 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 		sessionID = session.SessionID
 	}
 	if sessionID == "" {
-		sessionID = "sess_" + uuid.NewString()
+		sessionID = uuid.NewString()
 	}
 	nodeID := defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))
 	historySummary, recentTurns := buildDialogueContext(h.db, sessionID, 4)
@@ -422,6 +422,7 @@ func (h *CompatibilityHandler) SaveNoteV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
 		StudentID string `json:"studentId" binding:"required"`
+		NodeID    string `json:"nodeId"`
 		PageNum   int    `json:"pageNum" binding:"required"`
 		Content   string `json:"content" binding:"required"`
 		X         int    `json:"x"`
@@ -431,12 +432,16 @@ func (h *CompatibilityHandler) SaveNoteV1(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
-	note := model.StudentNote{UserID: req.StudentID, CourseID: courseID, PageNum: req.PageNum, Note: req.Content}
+	nodeID := strings.TrimSpace(req.NodeID)
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("p%d_n1", req.PageNum)
+	}
+	note := model.StudentNote{UserID: req.StudentID, CourseID: courseID, NodeID: nodeID, PageNum: req.PageNum, Note: req.Content}
 	if err := h.db.Create(&note).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"noteId": note.ID}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"noteId": note.ID, "nodeId": nodeID}})
 }
 
 func (h *CompatibilityHandler) GetStudyStatsV1(c *gin.Context) {

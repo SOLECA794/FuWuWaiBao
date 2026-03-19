@@ -1,4 +1,4 @@
-﻿# 智能互动讲课系统后端接口说明
+# 智能互动讲课系统后端接口说明
 
 本文档以当前仓库实现为准，目标是保留现有统一接口设计，同时兼容旧版联调接口。
 
@@ -32,6 +32,7 @@
 - `GET /api/v1/teacher/coursewares/:courseId/stats`
 - `GET /api/v1/teacher/coursewares/:courseId/questions`
 - `GET /api/v1/teacher/coursewares/:courseId/card-data`
+- `GET /api/v1/teacher/coursewares/:courseId/node-insights`（节点洞察：提问数/笔记数/练习正确率/重讲率/7日趋势）
 
 ---
 
@@ -50,6 +51,10 @@
 - `GET /api/v1/student/coursewares/:courseId/breakpoint`
 - `PUT /api/v1/student/coursewares/:courseId/breakpoint`
 - `POST /api/v1/student/coursewares/:courseId/notes`
+- `GET /api/v1/student/notes`（支持 `studentId/courseId/pageNum/page/pageSize`）
+- `POST /api/v1/student/favorites`
+- `GET /api/v1/student/favorites`（支持分页）
+- `DELETE /api/v1/student/favorites/:favoriteId`（需 `studentId` 归属校验）
 - `GET /api/v1/student/coursewares/:courseId/stats`
 
 ### 3. 薄弱点与练习
@@ -58,6 +63,9 @@
 - `GET /api/v1/student/weak-points/:weakPointId/explain`
 - `POST /api/v1/student/weak-points/:weakPointId/generate-test`
 - `POST /api/v1/student/tests/:questionId/check`
+- `POST /api/v1/student/practice/generate`（AI 生成 + 模板兜底）
+- `POST /api/v1/student/practice/submit`（幂等提交：`taskId + studentId`）
+- `POST /api/v1/student/nodes/:nodeId/explain`（专项讲解）
 
 ---
 
@@ -197,4 +205,6 @@
 2. 平台标准接口（六）无需签名，直接请求 `/api/v1/platform/*`；对外/泛雅对接使用（七）`/api/v1/open/platform/*` 并携带签名。
 3. 旧版接口 continue 保留，便于历史页面与 mock 联调。
 4. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。
+5. `student/practice/generate` 当前为“AI 出题优先，失败自动回退模板题”，以保证接口稳定可用。
+6. `student/favorites/:favoriteId` 删除接口已增加用户归属校验，防止越权删除。
 
