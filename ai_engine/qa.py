@@ -43,7 +43,7 @@ def resolve_llm_base_url(model: str) -> tuple[str, str]:
 @dataclass
 class QAConfig:
     mode: str = "llm"  # 默认使用真实模型
-    model: str = "qwen-plus"
+    model: str = os.getenv("AI_MODEL", "qwen-turbo")
     temperature: float = 0.2
 
 
@@ -54,7 +54,7 @@ class QAResponder:
         self.parsed_document = parsed_document
         self.config = config or QAConfig(
             mode=os.getenv("AI_GEN_MODE", "llm"),
-            model=os.getenv("AI_MODEL", "qwen-plus"),
+            model=os.getenv("AI_MODEL", "qwen-turbo"),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.2")),
         )
         self.page_map = {
@@ -117,9 +117,14 @@ class QAResponder:
 
         role_desc = "高校专业课老师" if not need_reteach else "善于举例的耐心导师"
         system_prompt = (
-            f"你是{role_desc}。当前正在讲解一份文档。"
-            "请基于参考内容回答学生问题。如果内容不足以回答，请根据专业知识点拨。"
-            "如果学生表示听不懂（need_reteach=True），请务必用一个更生活化、更通俗的案例来类比解析。"
+            f"你是{role_desc}，必须使用苏格拉底式启发教学。"
+            "严禁直接给最终答案，先澄清学生卡点，再逐步引导。"
+            "每次输出必须遵守："
+            "1) 先用一句话确认学生问题；"
+            "2) 提一个引导问题；"
+            "3) 给不超过两句的提示或类比；"
+            "4) 以问题结尾，推动学生继续思考。"
+            "禁止出现“标准答案是”这类直接给结论的话术。"
         )
         
         user_prompt = (
@@ -128,7 +133,8 @@ class QAResponder:
             f"是否需要重讲(Reteach): {need_reteach}\n"
             f"历史对话摘要: {history_summary or '无'}\n"
             f"最近几轮问答: {self._format_recent_turns(recent_turns)}\n"
-            "请给出专业且易懂的回答。如果学生的问题明显承接上一轮，请主动沿用历史上下文，不要把它当作全新问题。"
+            "请按苏格拉底法给出启发式回应。"
+            "如果学生的问题明显承接上一轮，请主动沿用历史上下文，不要把它当作全新问题。"
         )
 
         try:
@@ -150,14 +156,14 @@ class QAResponder:
         preview = "；".join(lines[:3]) if lines else "当前页缺少足够上下文，建议教师补充讲稿或原文。"
         if need_reteach:
             return (
-                f"我先换一种更容易理解的方式说明。当前这部分主要在讲：{preview}。"
-                "你可以把它理解为先明确核心概念，再看它在例子里是怎么工作的。"
-                f"如果还不清楚，我们可以继续围绕“{question}”拆成更细的步骤。"
+                f"我理解你现在卡在“{question}”，我们先不急着看答案。"
+                f"先想一想：在这页内容“{preview}”里，你觉得最难的是概念、步骤，还是公式代入？"
+                "提示你一个思路：先说出你已确定的一步，再补上下一步会容易很多。你想先从哪一步开始？"
             )
         return (
-            f"结合当前课件内容，这个问题可以先抓住这些信息：{preview}。"
-            f"如果你想继续追问“{question}”，我可以再展开原理、例子或推导过程。"
-            f"（当前回答使用本地兜底模式，原因：{reason}）"
+            f"你这个问题很好，我们先聚焦“{question}”对应的关键线索：{preview}。"
+            "先回答我一个小问题：你现在更不确定“为什么这样做”，还是“不知道下一步做什么”？"
+            f"提示：把问题拆成“已知-目标-第一步”三段会更清晰。你愿意先说说你的第一步吗？（兜底模式：{reason}）"
         )
 
     def _make_followup_suggestion(self, question: str, need_reteach: bool, source_page: int) -> str:

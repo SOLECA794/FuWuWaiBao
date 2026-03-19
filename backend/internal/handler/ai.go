@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -73,6 +74,7 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 
 	var req struct {
 		PageNum    int    `json:"pageNum" binding:"required"`
+		NodeID     string `json:"nodeId"`
 		Type       string `json:"type"` // text/audio/image
 		Question   string `json:"question" binding:"required"`
 		TracePoint *struct {
@@ -99,6 +101,14 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 	if strings.TrimSpace(context) == "" {
 		context = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseId, req.PageNum))
 	}
+	nodeID := strings.TrimSpace(req.NodeID)
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("p%d_n1", req.PageNum)
+	}
+	nodeScopedContext := buildNodeScopedContext(h.db, courseId, req.PageNum, nodeID)
+	if strings.TrimSpace(nodeScopedContext) != "" {
+		context = nodeScopedContext
+	}
 
 	// TODO: 调用 AI 服务获取答案
 	answer := generateAIAnswer(req.Question, context)
@@ -114,6 +124,7 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 		UserID:    c.GetString("userId"), // 需要从 JWT 获取
 		CourseID:  courseId,
 		PageIndex: req.PageNum,
+		NodeID:    nodeID,
 		Question:  req.Question,
 		Answer:    answer,
 	}
@@ -123,7 +134,11 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 		"code":    200,
 		"message": "请求成功",
 		"data": gin.H{
-			"answer": answer,
+			"answer":         answer,
+			"sourcePage":     req.PageNum,
+			"source_page":    req.PageNum,
+			"sourceNodeId":   nodeID,
+			"source_node_id": nodeID,
 		},
 	})
 }

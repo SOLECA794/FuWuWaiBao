@@ -1,32 +1,27 @@
 <template>
   <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
   <div v-else class="teacher-app">
-    <TeacherTopBar
-      :backend-status-class="backendStatusClass"
-      :backend-status-text="backendStatusText"
-      :username="loggedInUsername"
-      @logout="isLoggedIn = false"
-    />
-    <TeacherOverviewStrip
-      :current-course-name="currentCourseName"
-      :current-edit-page="currentEditPage"
-      :current-course-total-pages="currentCourseTotalPages"
-      :current-course-published="currentCoursePublished"
-    />
+    <div class="workspace-shell">
+      <TeacherTopBar
+        :backend-status-class="backendStatusClass"
+        :backend-status-text="backendStatusText"
+        :username="loggedInUsername"
+        @logout="isLoggedIn = false"
+      />
 
-    <div class="main-content">
+      <div class="main-content">
       <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
       <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
         <div class="menu-header">
-          <span v-show="!isLeftMenuCollapsed">MENU</span>
+          <span v-show="!isLeftMenuCollapsed">菜单</span>
           <button class="menu-toggle-btn" @click="isLeftMenuCollapsed = !isLeftMenuCollapsed" :title="isLeftMenuCollapsed ? '展开菜单' : '收起菜单'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path></svg>
           </button>
         </div>
         <div class="menu-list">
-          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="讲稿编辑">
+          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="编辑讲稿">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-            <span v-show="!isLeftMenuCollapsed">讲稿编辑</span>
+            <span v-show="!isLeftMenuCollapsed">编辑讲稿</span>
           </div>
           <div class="menu-item" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'" title="学情分析">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
@@ -36,10 +31,23 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             <span v-show="!isLeftMenuCollapsed">提问统计</span>
           </div>
-          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="学习卡点可视化">
+          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="卡点可视化">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            <span v-show="!isLeftMenuCollapsed">学习卡点可视化</span>
+            <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
           </div>
+          <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
+              <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+
+              </svg>
+        <span v-show="!isLeftMenuCollapsed">平台管理 <small>(悬停后展开)</small></span>
+          </div>
+
         </div>
       </div>
 
@@ -57,15 +65,25 @@
             :total-pages="currentCourseTotalPages"
             :current-script="currentScript"
             :current-script-nodes="currentScriptNodes"
+            :mapping-coverage="currentMappingCoverage"
+            :node-stats="studentStats.nodeStats || []"
+            :focus-node-request="focusNodeRequest"
             :script-generating="scriptGenerating"
             :script-saving="scriptSaving"
             @generate-ai-script="generateAIScript"
             @save-script="saveScript"
             @update:current-script="currentScript = $event"
+            @update:current-script-nodes="currentScriptNodes = $event"
             @prev-page="prevPage"
             @next-page="nextPage"
           ></TeacherScriptPanel>
         </div>
+
+        <div v-else-if="activeTab === 'platform'" class="tab-container">
+            <PlatformManagementPanel />
+        </div>
+  
+      
 
         <div v-else-if="activeTab === 'stats'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
@@ -90,7 +108,9 @@
             :current-course-total-pages="currentCourseTotalPages"
             :filter-page="filterPage"
             :filtered-questions="filteredQuestions"
+            :uncovered-node-ids="studentStats.mappingCoverage?.uncoveredNodeIds || []"
             @update:filter-page="filterPage = $event"
+            @focus-node="focusQuestionNode"
           ></TeacherQuestionsPanel>
         </div>
 
@@ -111,6 +131,7 @@
 
       <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
       <TeacherCoursewareSidebar
+        v-if="activeTab !== 'script'"
         v-show="isSidebarVisible"
         :courseware-list="coursewareList"
         :current-course-id="currentCourseId"
@@ -125,6 +146,7 @@
         @select-page="selectEditPage"
         style="border-right: none; border-left: 1px solid #e2e8f0;"
       />
+    </div>
     </div>
 
     <TeacherUploadModal
@@ -149,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 // 导入所有组件
@@ -163,10 +185,12 @@ import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPa
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
+import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
 
 // --- 状态管理 ---
 const isLoggedIn = ref(false)
 const loggedInUsername = ref('')
+const activeTab = ref('script') // 或 'platform' 如果希望默认显示平台管理
 
 const handleLoginSuccess = (user) => {
   if (user.role === 'student') {
@@ -183,6 +207,9 @@ const currentCourseName = ref('')
 const currentCourseTotalPages = ref(0)
 const currentEditPage = ref(1)
 const currentScript = ref('')
+const currentScriptNodes = ref([])
+const currentMappingCoverage = ref(null)
+const focusNodeRequest = ref(null)
 
 const showUploadModal = ref(false)
 const fileInput = ref(null)
@@ -196,13 +223,58 @@ const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
 
-const activeTab = ref('script')
+const showPlatformManagement = ref(false)
+
+// --- 生命周期钩子 ---
+onMounted(async () => {
+  // 检查登录状态
+  const user = await teacherV1Api.checkLoginStatus()
+  if (user) {
+    handleLoginSuccess(user)
+  }
+
+  // 检查后端状态
+  checkBackendStatus()
+
+  // 检查课件列表
+  await fetchCoursewareList()
+})
+
+onUnmounted(() => {
+  clearInterval(backendHealthTimer)
+})
+const checkBackendStatus = async () => {
+  try {
+    const res = await teacherV1Api.health()
+    backendStatus.value = res.ok ? 'online' : 'offline'
+  } catch (error) {
+    backendStatus.value = 'offline'
+    console.error('后端状态检查失败:', error)
+  }
+}
+
+
 const isSidebarVisible = ref(window.innerWidth > 1024)
 const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
-  keyDifficulties: '暂无'
+  keyDifficulties: '暂无',
+  nodeStats: [],
+  mappingCoverage: null,
+  activeSessions: 0,
+  avgTurnsPerSession: 0,
+  nodeHeatmap: [],
+  masteryRadar: { indicators: [], values: [], avgMastery: 0 },
+  classTrend: [],
+  learningInsights: { reteachNodes: [], prerequisiteGaps: [], summary: '' }
+})
+
+watch(currentMappingCoverage, (coverage) => {
+  studentStats.value = {
+    ...studentStats.value,
+    mappingCoverage: coverage || null
+  }
 })
 
 const cardData = ref([])
@@ -231,20 +303,29 @@ const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
 })
 
-const currentScriptNodes = computed(() => {
-  const raw = String(currentScript.value || '').trim()
+const buildNodesFromScriptText = (scriptText, page) => {
+  const raw = String(scriptText || '').trim()
   if (!raw) return []
-
   return raw
-    .split(/\n+|(?<=[。！？])/)
+    .split(/\n{2,}|(?<=[。！？])/)
     .map(item => item.trim())
     .filter(Boolean)
     .map((text, index, list) => ({
-      nodeId: `p${currentEditPage.value}_n${index + 1}`,
+      id: '',
+      nodeId: `p${page}_n${index + 1}`,
       type: index === 0 ? 'opening' : index === list.length - 1 ? 'transition' : 'explain',
-      text
+      title: index === 0 ? '节点1：开场' : `节点${index + 1}：讲解`,
+      summary: text.length > 48 ? `${text.slice(0, 48)}...` : text,
+      scriptText: text,
+      reteachScript: '',
+      transitionText: '',
+      structuredMarkdown: '',
+      knowledgeNodesJson: '[]',
+      scriptSegmentsJson: '[]',
+      estimatedDuration: 30,
+      sortOrder: index + 1
     }))
-})
+}
 
 // 新增：真实预览URL（假设后端返回图片）
 const realPreviewUrl = computed(() => {
@@ -383,25 +464,258 @@ const loadScript = async (courseId, page) => {
   try {
     const data = await teacherV1Api.coursewares.getScript(courseId, page)
     currentScript.value = data?.data?.content || ''
+    const nodes = data?.data?.nodes
+    currentMappingCoverage.value = data?.data?.mappingCoverage || null
+    currentScriptNodes.value = Array.isArray(nodes) && nodes.length > 0
+      ? normalizeNodesFromServer(nodes)
+      : buildNodesFromScriptText(currentScript.value, page)
   } catch (err) {
     currentScript.value = ''
+    currentScriptNodes.value = []
+    currentMappingCoverage.value = null
   }
+}
+
+const normalizeNodesFromServer = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  return list.map((node = {}, index) => {
+    const knowledgeNodes = parseJSONArrayOrDefault(node.knowledgeNodesJson, node.knowledgeNodes)
+    const scriptSegments = parseJSONArrayOrDefault(node.scriptSegmentsJson, node.scriptSegments)
+    return {
+      ...node,
+      schemaVersion: Number(node.schemaVersion) || 2,
+      sortOrder: Number(node.sortOrder) || index + 1,
+      knowledgeNodes,
+      scriptSegments,
+      knowledgeNodesJson: JSON.stringify(knowledgeNodes),
+      scriptSegmentsJson: JSON.stringify(scriptSegments)
+    }
+  })
 }
 
 const saveScript = async () => {
   if (!currentScript.value.trim()) return alert('请输入讲稿内容！')
+
+  const validationError = validateNodeJSONFields(currentScriptNodes.value)
+  if (validationError) {
+    alert(validationError)
+    return
+  }
+
+  const normalizedNodes = normalizeNodesForSave(currentScriptNodes.value)
+  currentScriptNodes.value = normalizedNodes
+
   scriptSaving.value = true
   try {
-    await teacherV1Api.coursewares.saveScript({
-      courseId: currentCourseId.value,
-      pageNum: currentEditPage.value,
-      content: currentScript.value
-    })
+    const courseId = currentCourseId.value
+    const pageNum = currentEditPage.value
+    const [, nodeSaveResult] = await Promise.all([
+      teacherV1Api.coursewares.saveScript({
+        courseId,
+        pageNum,
+        content: currentScript.value
+      }),
+      teacherV1Api.coursewares.saveNodes({
+        courseId,
+        pageNum,
+        nodes: normalizedNodes
+      })
+    ])
+    const coverage = nodeSaveResult?.data?.mappingCoverage || null
+    currentMappingCoverage.value = coverage
+    await loadStudentStats(courseId)
+    if (coverage && Number(coverage.coverageRate || 0) < 1) {
+      alert(`保存成功，但当前节点映射覆盖率为 ${Math.round(Number(coverage.coverageRate || 0) * 100)}%，存在未覆盖节点：${(coverage.uncoveredNodeIds || []).join('、')}`)
+      return
+    }
     alert('讲稿保存成功！')
   } catch (err) {
-    alert('保存讲稿失败：' + err.message)
+    const detail = String(err?.message || '').trim()
+    if (detail) {
+      alert('保存讲稿失败：' + detail)
+      return
+    }
+    alert('保存讲稿失败：请检查节点映射与依赖关系配置')
   } finally {
     scriptSaving.value = false
+  }
+}
+
+const normalizeNodesForSave = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  return list.map((node = {}, index) => {
+    const knowledgeNodes = parseJSONArrayOrDefault(node.knowledgeNodesJson, node.knowledgeNodes)
+    const scriptSegments = parseJSONArrayOrDefault(node.scriptSegmentsJson, node.scriptSegments)
+    return {
+      ...node,
+      sortOrder: Number(node.sortOrder) || index + 1,
+      knowledgeNodes,
+      scriptSegments,
+      knowledgeNodesJson: JSON.stringify(knowledgeNodes),
+      scriptSegmentsJson: JSON.stringify(scriptSegments)
+    }
+  })
+}
+
+const parseJSONArrayOrDefault = (raw, fallback) => {
+  if (Array.isArray(fallback) && fallback.length > 0) {
+    return fallback
+  }
+  const text = String(raw ?? '').trim()
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text)
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+    return [parsed]
+  } catch {
+    return []
+  }
+}
+
+const validateNodeJSONFields = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  const validNodeIdSet = new Set(list.map(item => String(item?.nodeId || '').trim()).filter(Boolean))
+  const validSegmentIdSet = buildSegmentIdSetFromScript(currentScript.value)
+
+  for (let i = 0; i < list.length; i += 1) {
+    const node = list[i] || {}
+    const nodeLabel = node.title || node.nodeId || `节点${i + 1}`
+
+    const knowledgeError = validateJSONArray(node.knowledgeNodesJson, '知识节点 JSON')
+    if (knowledgeError) {
+      return `${nodeLabel} 的知识节点 JSON 无效：${knowledgeError}`
+    }
+
+    const knowledgeRefError = validateKnowledgeReferences(node.knowledgeNodesJson, validNodeIdSet, validSegmentIdSet)
+    if (knowledgeRefError) {
+      return `${nodeLabel} 的知识节点 JSON 引用无效：${knowledgeRefError}`
+    }
+
+    const segmentsError = validateJSONArray(node.scriptSegmentsJson, '讲稿段落映射 JSON')
+    if (segmentsError) {
+      return `${nodeLabel} 的讲稿段落映射 JSON 无效：${segmentsError}`
+    }
+
+    const segmentRefError = validateSegmentReferences(node.scriptSegmentsJson, validNodeIdSet, validSegmentIdSet)
+    if (segmentRefError) {
+      return `${nodeLabel} 的讲稿段落映射 JSON 引用无效：${segmentRefError}`
+    }
+  }
+  return ''
+}
+
+const buildSegmentIdSetFromScript = (scriptText) => {
+  const segments = String(scriptText || '')
+    .split(/\n{2,}|(?<=[。！？])\s*/)
+    .map(item => item.trim())
+    .filter(Boolean)
+  const ids = segments.map((_, index) => `seg_${index + 1}`)
+  return new Set(ids)
+}
+
+const validateSegmentReferences = (rawValue, validNodeIdSet, validSegmentIdSet) => {
+  const text = String(rawValue ?? '').trim()
+  if (!text) return ''
+  let list = []
+  try {
+    const parsed = JSON.parse(text)
+    list = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return ''
+  }
+
+  const seenSegmentIds = new Set()
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i] || {}
+    const segmentId = String(item.segment_id || '').trim()
+    if (!segmentId) {
+      return `第 ${i + 1} 项缺少 segment_id`
+    }
+    if (seenSegmentIds.has(segmentId)) {
+      return `segment_id ${segmentId} 在同一节点内重复`
+    }
+    seenSegmentIds.add(segmentId)
+    if (validSegmentIdSet.size > 0 && !validSegmentIdSet.has(segmentId)) {
+      return `segment_id ${segmentId} 不在当前讲稿段落范围内`
+    }
+
+    const nodeIDs = Array.isArray(item.node_ids) ? item.node_ids : []
+    if (nodeIDs.length === 0) {
+      return `segment_id ${segmentId} 缺少 node_ids`
+    }
+    for (let j = 0; j < nodeIDs.length; j += 1) {
+      const nodeId = String(nodeIDs[j] || '').trim()
+      if (!nodeId) {
+        return `segment_id ${segmentId} 包含空 node_id`
+      }
+      if (validNodeIdSet.size > 0 && !validNodeIdSet.has(nodeId)) {
+        return `segment_id ${segmentId} 引用了不存在的 node_id ${nodeId}`
+      }
+    }
+  }
+  return ''
+}
+
+const validateKnowledgeReferences = (rawValue, validNodeIdSet, validSegmentIdSet) => {
+  const text = String(rawValue ?? '').trim()
+  if (!text) return ''
+  let list = []
+  try {
+    const parsed = JSON.parse(text)
+    list = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return ''
+  }
+
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i] || {}
+    const nodeId = String(item.node_id || '').trim()
+    if (!nodeId) {
+      return `第 ${i + 1} 项缺少 node_id`
+    }
+    if (validNodeIdSet.size > 0 && !validNodeIdSet.has(nodeId)) {
+      return `node_id ${nodeId} 不在当前页节点范围内`
+    }
+
+    const prerequisites = Array.isArray(item.prerequisites) ? item.prerequisites : []
+    for (let j = 0; j < prerequisites.length; j += 1) {
+      const prereq = String(prerequisites[j] || '').trim()
+      if (!prereq) {
+        return `node_id ${nodeId} 的 prerequisites 包含空值`
+      }
+      if (validNodeIdSet.size > 0 && !validNodeIdSet.has(prereq)) {
+        return `node_id ${nodeId} 的 prerequisites 引用了不存在节点 ${prereq}`
+      }
+    }
+
+    const coverageSpan = Array.isArray(item.coverage_span) ? item.coverage_span : []
+    for (let j = 0; j < coverageSpan.length; j += 1) {
+      const segId = String(coverageSpan[j] || '').trim()
+      if (!segId) {
+        return `node_id ${nodeId} 的 coverage_span 包含空值`
+      }
+      if (validSegmentIdSet.size > 0 && !validSegmentIdSet.has(segId)) {
+        return `node_id ${nodeId} 的 coverage_span 引用了不存在段落 ${segId}`
+      }
+    }
+  }
+
+  return ''
+}
+
+const validateJSONArray = (value, fieldLabel) => {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      return `${fieldLabel} 必须是数组格式（[]）`
+    }
+    return ''
+  } catch {
+    return `${fieldLabel} 不是合法 JSON`
   }
 }
 
@@ -414,6 +728,14 @@ const generateAIScript = async () => {
       pageNum: currentEditPage.value
     })
     currentScript.value = data?.data?.content || 'AI生成失败，请重试'
+    const payload = data?.data || {}
+    if (Array.isArray(payload.nodes) && payload.nodes.length > 0) {
+      currentScriptNodes.value = normalizeNodesFromServer(payload.nodes)
+    }
+    if (payload.mappingCoverage) {
+      currentMappingCoverage.value = payload.mappingCoverage
+    }
+    await loadScript(currentCourseId.value, currentEditPage.value)
   } catch (err) {
     currentScript.value = '生成失败：' + err.message
   } finally {
@@ -475,10 +797,30 @@ const loadStudentStats = async (courseId) => {
     studentStats.value = {
       totalQuestions: payload.totalQuestions || 0,
       hotPages: (payload.pageStats || []).map(item => item.page).slice(0, 3),
-      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无'
+      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无',
+      nodeStats: Array.isArray(payload.nodeStats) ? payload.nodeStats : [],
+      mappingCoverage: payload.mappingCoverage || null,
+      activeSessions: payload.activeSessions || 0,
+      avgTurnsPerSession: Number(payload.avgTurnsPerSession || 0),
+      nodeHeatmap: Array.isArray(payload.nodeHeatmap) ? payload.nodeHeatmap : [],
+      masteryRadar: payload.masteryRadar || { indicators: [], values: [], avgMastery: 0 },
+      classTrend: Array.isArray(payload.classTrend) ? payload.classTrend : [],
+      learningInsights: payload.learningInsights || { reteachNodes: [], prerequisiteGaps: [], summary: '' }
     }
   } catch (err) {
-    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败' }
+    studentStats.value = {
+      totalQuestions: 0,
+      hotPages: [],
+      keyDifficulties: '加载失败',
+      nodeStats: [],
+      mappingCoverage: null,
+      activeSessions: 0,
+      avgTurnsPerSession: 0,
+      nodeHeatmap: [],
+      masteryRadar: { indicators: [], values: [], avgMastery: 0 },
+      classTrend: [],
+      learningInsights: { reteachNodes: [], prerequisiteGaps: [], summary: '' }
+    }
   }
 }
 
@@ -505,6 +847,8 @@ const loadQuestionRecords = async (courseId) => {
       id: item.id,
       studentId: item.user_id || item.userId || '未知',
       page: item.page_index || item.pageIndex || 1,
+      nodeId: item.node_id || item.nodeId || '',
+      nodeTitle: item.node_title || item.nodeTitle || '',
       content: item.question || '',
       answer: item.answer || '',
       time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
@@ -513,6 +857,20 @@ const loadQuestionRecords = async (courseId) => {
     questionRecords.value = []
   }
 }
+
+const focusQuestionNode = async (record) => {
+  if (!record) return
+  const page = Number(record.page || 1) || 1
+  const targetNodeId = String(record.nodeId || '').trim()
+  activeTab.value = 'script'
+  if (page !== currentEditPage.value) {
+    await selectEditPage(page)
+  }
+  if (targetNodeId) {
+    focusNodeRequest.value = { nodeId: targetNodeId, at: Date.now() }
+  }
+  ElMessage.success(`已定位到第 ${page} 页，可继续按节点编辑讲稿`)
+}
 </script>
 
 <style scoped>
@@ -520,12 +878,25 @@ const loadQuestionRecords = async (courseId) => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: #F4F7F7;
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
+  padding: 14px;
+  box-sizing: border-box;
 }
+
+.workspace-shell {
+  width: 100%;
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7faf8;
+  border: 1px solid #d8e4dc;
+  box-shadow: 0 24px 48px rgba(45, 72, 66, 0.08);
+}
+
 .main-content {
   display: flex;
-  height: calc(100vh - 108px);
+  height: calc(100% - 56px);
 }
 .editor-section {
   flex: 1;
@@ -619,6 +990,11 @@ const loadQuestionRecords = async (courseId) => {
   font-weight: 600;
 }
 
+.menu-item small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
 .ins-icon {
   width: 20px;
   height: 20px;
@@ -653,4 +1029,5 @@ const loadQuestionRecords = async (courseId) => {
   font-size: 15px;
   text-align: center;
 }
+
 </style>

@@ -91,6 +91,12 @@ class GenerateNodeScriptRequest(BaseModel):
     mode: str = "llm"
 
 
+class GenerateFromMarkdownRequest(BaseModel):
+    markdown: str
+    course_name: Optional[str] = None
+    mode: str = "llm"
+
+
 class GenerateAudioNode(BaseModel):
     node_id: str
     title: str = ""
@@ -263,6 +269,16 @@ async def generate_node_script(req: GenerateNodeScriptRequest):
         return generator.generate_node_script(req.teaching_node, req.course_name)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"节点讲稿生成失败: {str(e)}")
+
+
+@app.post("/generate-from-markdown")
+async def generate_from_markdown(req: GenerateFromMarkdownRequest):
+    """三阶段最小链路：Markdown -> 节点树(node_id) -> 节点讲稿(node_id)。"""
+    try:
+        generator = LessonGenerator(GenerationConfig(mode=req.mode))
+        return generator.generate_from_markdown(req.markdown, req.course_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Markdown 三阶段生成失败: {str(e)}")
 
 
 def _audio_base_url() -> str:
@@ -451,7 +467,7 @@ def _llm_parse_knowledge(text: str, mode: str) -> dict[str, Any]:
     if not api_key:
         raise RuntimeError("缺少环境变量 AI_API_KEY，无法调用大模型")
 
-    model = os.getenv("AI_MODEL", "qwen-plus")
+    model = os.getenv("AI_MODEL", "qwen-turbo")
     base_url, _ = resolve_llm_base_url(model)
     client = OpenAI(api_key=api_key, base_url=base_url)
 
@@ -491,7 +507,7 @@ async def parse_knowledge(req: ParseKnowledgeRequest):
 
 def _llm_health_payload() -> dict[str, Any]:
     api_key = (os.getenv("AI_API_KEY") or "").strip()
-    model = (os.getenv("AI_MODEL") or "qwen-plus").strip()
+    model = (os.getenv("AI_MODEL") or "qwen-turbo").strip()
     base_url, normalize_reason = resolve_llm_base_url(model)
     return {
         "configured": bool(api_key),

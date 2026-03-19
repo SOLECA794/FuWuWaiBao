@@ -34,6 +34,7 @@ type AIQuestionRequest struct {
 	StudentID string `json:"studentId"`
 	CourseID  string `json:"courseId" binding:"required"`
 	PageNum   int    `json:"pageNum" binding:"required"`
+	NodeID    string `json:"nodeId"`
 	Question  string `json:"question" binding:"required"`
 	Type      string `json:"type"`
 }
@@ -42,6 +43,7 @@ type TraceQuestionRequest struct {
 	StudentID string  `json:"studentId"`
 	CourseID  string  `json:"courseId" binding:"required"`
 	PageNum   int     `json:"pageNum" binding:"required"`
+	NodeID    string  `json:"nodeId"`
 	X         float64 `json:"x" binding:"required"`
 	Y         float64 `json:"y" binding:"required"`
 	Question  string  `json:"question" binding:"required"`
@@ -81,14 +83,14 @@ func (h *StudentHandler) StartSession(c *gin.Context) {
 
 func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 	var req struct {
-		SessionID     string `json:"sessionId"`
-		UserID        string `json:"userId"`
-		CourseID      string `json:"courseId" binding:"required"`
-		Page          int    `json:"page"`
-		CurrentPage   int    `json:"currentPage"`
-		NodeID        string `json:"nodeId"`
-		CurrentNodeID string `json:"currentNodeId"`
-		CurrentTimeSec int   `json:"currentTimeSec"`
+		SessionID      string `json:"sessionId"`
+		UserID         string `json:"userId"`
+		CourseID       string `json:"courseId" binding:"required"`
+		Page           int    `json:"page"`
+		CurrentPage    int    `json:"currentPage"`
+		NodeID         string `json:"nodeId"`
+		CurrentNodeID  string `json:"currentNodeId"`
+		CurrentTimeSec int    `json:"currentTimeSec"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -238,9 +240,10 @@ func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
 		return
 	}
 
-	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, req.Question)
-	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, req.Question, resp.Answer)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "sourceExcerpt": resp.SourceExcerpt, "needReteach": resp.Intent.NeedReteach, "followUpSuggestion": resp.FollowUpSuggestion, "aiUnavailable": resp.Fallback}})
+	nodeID := resolveStudentNodeID(req.NodeID, req.PageNum)
+	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, nodeID, req.Question)
+	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, nodeID, req.Question, resp.Answer)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt, "needReteach": resp.Intent.NeedReteach, "followUpSuggestion": resp.FollowUpSuggestion, "aiUnavailable": resp.Fallback}})
 }
 
 func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
@@ -251,9 +254,10 @@ func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
 	}
 
 	question := fmt.Sprintf("%s（圈选坐标: %.2f, %.2f）", req.Question, req.X, req.Y)
-	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, question)
-	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, req.Question, resp.Answer)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "sourceExcerpt": resp.SourceExcerpt}})
+	nodeID := resolveStudentNodeID(req.NodeID, req.PageNum)
+	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, nodeID, question)
+	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, nodeID, req.Question, resp.Answer)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt}})
 }
 
 func (h *StudentHandler) QAStream(c *gin.Context) {
@@ -276,6 +280,10 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 	nodeID := defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))
 	historySummary, recentTurns := buildDialogueContext(h.db, sessionID, 4)
 	content, _ := h.loadPageScript(req.CourseID, req.Page)
+	nodeScopedContext := buildNodeScopedContext(h.db, req.CourseID, req.Page, nodeID)
+	if strings.TrimSpace(nodeScopedContext) != "" {
+		content = nodeScopedContext
+	}
 	result := questionReply{SourcePage: req.Page, ResumePage: req.Page}
 	if h.aiClient != nil {
 		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: req.Page, Context: content, Mode: "llm", SessionID: sessionID, HistorySummary: historySummary, RecentTurns: recentTurns})
@@ -287,12 +295,12 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 			result.FollowUpSuggestion = resp.FollowUpSuggestion
 			result.Intent.NeedReteach = resp.Intent.NeedReteach
 		} else {
-			result = h.askQuestionWithFallback(c, req.CourseID, req.Page, req.Question)
+			result = h.askQuestionWithFallback(c, req.CourseID, req.Page, nodeID, req.Question)
 		}
 	} else {
-		result = h.askQuestionWithFallback(c, req.CourseID, req.Page, req.Question)
+		result = h.askQuestionWithFallback(c, req.CourseID, req.Page, nodeID, req.Question)
 	}
-	resumeNodeID := resolveResumeNodeID(nodeID, result.ResumePage, result.Intent.NeedReteach)
+	resumeNodeID := resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, result.ResumePage, result.Intent.NeedReteach)
 	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, result.ResumePage, resumeNodeID)
 	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, result.Answer, result.SourcePage, result.Intent.NeedReteach, result.FollowUpSuggestion)
 	syncDialogueSessionState(h.db, sessionID, userID, req.CourseID, result.ResumePage, resumeNodeID, resumeSec)
@@ -325,8 +333,8 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 		}
 	}
 	writeEvent("sentence", gin.H{"text": result.Answer})
-	writeEvent("final", gin.H{"session_id": sessionID, "need_reteach": result.Intent.NeedReteach, "source_page": result.SourcePage, "resume_page": result.ResumePage, "resume_node_id": resumeNodeID, "resume_sec": resumeSec, "follow_up_suggestion": result.FollowUpSuggestion})
-	h.recordQuestion(userID, req.CourseID, req.Page, req.Question, result.Answer)
+	writeEvent("final", gin.H{"session_id": sessionID, "need_reteach": result.Intent.NeedReteach, "source_page": result.SourcePage, "source_node_id": nodeID, "resume_page": result.ResumePage, "resume_node_id": resumeNodeID, "resume_sec": resumeSec, "follow_up_suggestion": result.FollowUpSuggestion})
+	h.recordQuestion(userID, req.CourseID, req.Page, nodeID, req.Question, result.Answer)
 }
 
 func (h *StudentHandler) GetStudentStudyData(c *gin.Context) {
@@ -434,8 +442,12 @@ type questionReply struct {
 	}
 }
 
-func (h *StudentHandler) askQuestionWithFallback(c *gin.Context, courseID string, pageNum int, question string) questionReply {
+func (h *StudentHandler) askQuestionWithFallback(c *gin.Context, courseID string, pageNum int, nodeID string, question string) questionReply {
 	content, _ := h.loadPageScript(courseID, pageNum)
+	nodeScopedContext := buildNodeScopedContext(h.db, courseID, pageNum, nodeID)
+	if strings.TrimSpace(nodeScopedContext) != "" {
+		content = nodeScopedContext
+	}
 	result := questionReply{SourcePage: pageNum, ResumePage: pageNum}
 	if h.aiClient != nil {
 		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: question, CurrentPage: pageNum, Context: content, Mode: "llm"})
@@ -481,12 +493,20 @@ func (h *StudentHandler) loadPageScript(courseID string, pageNum int) (string, s
 	return "", course.Title
 }
 
-func (h *StudentHandler) recordQuestion(studentID, courseID string, pageNum int, question, answer string) {
+func (h *StudentHandler) recordQuestion(studentID, courseID string, pageNum int, nodeID, question, answer string) {
 	studentID = strings.TrimSpace(studentID)
 	if studentID == "" || strings.TrimSpace(courseID) == "" || strings.TrimSpace(question) == "" {
 		return
 	}
-	_ = h.db.Create(&model.QuestionLog{UserID: studentID, CourseID: courseID, PageIndex: pageNum, Question: question, Answer: answer}).Error
+	_ = h.db.Create(&model.QuestionLog{UserID: studentID, CourseID: courseID, PageIndex: pageNum, NodeID: strings.TrimSpace(nodeID), Question: question, Answer: answer}).Error
+}
+
+func resolveStudentNodeID(rawNodeID string, pageNum int) string {
+	nodeID := strings.TrimSpace(rawNodeID)
+	if nodeID != "" {
+		return nodeID
+	}
+	return fmt.Sprintf("p%d_n1", pageNum)
 }
 
 func (h *StudentHandler) saveProgress(studentID, courseID string, page int) {
