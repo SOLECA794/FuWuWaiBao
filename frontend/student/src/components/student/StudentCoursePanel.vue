@@ -57,6 +57,12 @@
       <el-button @click="$emit('toggle-play')" :icon="isPlay ? 'el-icon-pause' : 'el-icon-play'" size="small">
         {{ isPlay ? '暂停' : '播放' }}
       </el-button>
+      <el-button @click="$emit('toggle-tts')" :type="ttsEnabled ? 'primary' : 'default'" plain size="small">
+        {{ ttsEnabled ? '语音已开' : '语音已关' }}
+      </el-button>
+      <el-button @click="$emit('speak-current-node')" icon="el-icon-microphone" size="small" plain>
+        朗读当前节点
+      </el-button>
       <el-button @click="$emit('next-page')" icon="el-icon-arrow-right" size="small">下一页</el-button>
     </div>
     <div class="page-summary" v-if="pageSummary">
@@ -153,6 +159,10 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  ttsEnabled: {
+    type: Boolean,
+    default: true
+  },
   pageSummary: {
     type: String,
     default: ''
@@ -175,7 +185,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node'])
+defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node', 'toggle-tts', 'speak-current-node'])
 
 const timelinePercent = computed(() => {
   if (!props.pageTimelineDuration) return 0

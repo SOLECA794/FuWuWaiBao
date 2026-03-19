@@ -72,6 +72,10 @@ type TeachingNode struct {
 	InteractiveQuestions string `gorm:"type:text" json:"interactive_questions"`
 	TransitionText       string `gorm:"type:text" json:"transition_text"`
 	MindmapMarkdown      string `gorm:"type:text" json:"mindmap_markdown"`
+	StructuredMarkdown   string `gorm:"type:text" json:"structured_markdown"`
+	KnowledgeNodesJSON   string `gorm:"type:text" json:"knowledge_nodes_json"`
+	ScriptSegmentsJSON   string `gorm:"type:text" json:"script_segments_json"`
+	SchemaVersion        int    `gorm:"default:2" json:"schema_version"`
 	AudioURL             string `gorm:"size:500" json:"audio_url"`
 	AudioDurationSec     int    `gorm:"default:0" json:"audio_duration_sec"`
 	AudioStartSec        int    `gorm:"default:0" json:"audio_start_sec"`
@@ -209,6 +213,7 @@ type QuestionLog struct {
 	UserID    string `gorm:"size:36;not null;index" json:"user_id"`
 	CourseID  string `gorm:"size:36;not null;index" json:"course_id"`
 	PageIndex int    `gorm:"not null" json:"page_index"`
+	NodeID    string `gorm:"size:100;index" json:"node_id"`
 	Question  string `gorm:"type:text;not null" json:"question"`
 	Answer    string `gorm:"type:text" json:"answer"`
 }

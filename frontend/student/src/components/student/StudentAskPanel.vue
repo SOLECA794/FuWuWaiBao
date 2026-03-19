@@ -36,8 +36,10 @@
           </span>
         </div>
         <div class="chat-content">{{ aiReply || '正在结合当前课件和上文追问生成回答...' }}</div>
+        <div class="typing-hint" v-if="streamTypingActive">正在逐字生成中...</div>
         <div class="reply-meta" v-if="latestAnswerMeta.sourcePage">
           <span>来源页：第 {{ latestAnswerMeta.sourcePage }} 页</span>
+          <span v-if="latestAnswerMeta.sourceNodeId">来源节点：{{ latestAnswerMeta.sourceNodeId }}</span>
           <span>{{ latestAnswerMeta.needReteach ? '系统判断你需要更通俗的解释' : '系统将按当前节奏继续讲解' }}</span>
         </div>
       </div>
@@ -51,13 +53,16 @@
     <div class="question-history" v-if="qaHistory.length">
       <div class="history-head">
         <div class="title">最近提问</div>
-        <span>保留最近 3 轮</span>
+        <span>保留最近 5 轮</span>
       </div>
       <div class="history-item" v-for="(item, idx) in qaHistory" :key="idx">
         <span class="history-index">0{{ idx + 1 }}</span>
         <div class="history-body">
           <span class="q">Q：{{ item.question }}</span>
           <span class="a">A：{{ item.answer }}</span>
+          <span class="meta" v-if="item.sourcePage || item.sourceNodeId">
+            来源：第 {{ item.sourcePage || '-' }} 页 {{ item.sourceNodeId ? `· ${item.sourceNodeId}` : '' }}
+          </span>
         </div>
       </div>
     </div>
@@ -78,6 +83,10 @@ defineProps({
   aiReply: {
     type: String,
     default: ''
+  },
+  streamTypingActive: {
+    type: Boolean,
+    default: false
   },
   qaHistory: {
     type: Array,
@@ -180,6 +189,12 @@ defineEmits(['update:question', 'open-upload', 'send-question'])
   color: #334155;
   white-space: pre-wrap;
 }
+
+.typing-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #0f766e;
+}
 .reply-meta {
   display: flex;
   flex-wrap: wrap;
@@ -264,6 +279,10 @@ defineEmits(['update:question', 'open-upload', 'send-question'])
 .history-item .a {
   color: #475569;
   line-height: 1.6;
+}
+
+.history-item .meta {
+  color: #64748b;
 }
 
 @media (max-width: 720px) {

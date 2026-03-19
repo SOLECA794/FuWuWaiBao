@@ -84,6 +84,10 @@ func main() {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
 	}
 
+	if err = model.RunPostMigrateBackfill(db); err != nil {
+		applogger.Sugar.Fatalf("数据库回填失败: %v", err)
+	}
+
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
 
 	redisClient, err := repository.InitRedis(&cfg.Redis)

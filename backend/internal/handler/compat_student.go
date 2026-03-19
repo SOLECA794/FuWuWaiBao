@@ -178,6 +178,10 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	if err := h.db.Where("course_id = ? AND page_index = ?", req.CourseID, req.Page).First(&coursePage).Error; err == nil {
 		contextText = pageContextText(coursePage)
 	}
+	nodeScopedContext := buildNodeScopedContext(h.db, req.CourseID, req.Page, nodeID)
+	if strings.TrimSpace(nodeScopedContext) != "" {
+		contextText = nodeScopedContext
+	}
 	if strings.TrimSpace(contextText) == "" {
 		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, req.CourseID, req.Page))
 	}
@@ -187,11 +191,11 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 		return
 	}
 	resumePage := maxInt(aiResp.ResumePage, req.Page)
-	resumeNodeID := resolveResumeNodeID(nodeID, resumePage, aiResp.Intent.NeedReteach)
+	resumeNodeID := resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, resumePage, aiResp.Intent.NeedReteach)
 	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, resumePage, resumeNodeID)
 	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, aiResp.Answer, maxInt(aiResp.SourcePage, req.Page), aiResp.Intent.NeedReteach, aiResp.FollowUpSuggestion)
 	if userID != "" {
-		_ = h.db.Create(&model.QuestionLog{UserID: userID, CourseID: req.CourseID, PageIndex: req.Page, Question: req.Question, Answer: aiResp.Answer}).Error
+		_ = h.db.Create(&model.QuestionLog{UserID: userID, CourseID: req.CourseID, PageIndex: req.Page, NodeID: nodeID, Question: req.Question, Answer: aiResp.Answer}).Error
 	}
 	state := sessionState{SessionID: sessionID, UserID: userID, CourseID: req.CourseID, CurrentPage: resumePage, CurrentNodeID: resumeNodeID, UpdatedAt: time.Now()}
 	h.persistSession(state)
@@ -229,6 +233,7 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 		"session_id":           sessionID,
 		"need_reteach":         aiResp.Intent.NeedReteach,
 		"source_page":          maxInt(aiResp.SourcePage, req.Page),
+		"source_node_id":       nodeID,
 		"resume_page":          resumePage,
 		"resume_node_id":       resumeNodeID,
 		"resume_sec":           resumeSec,

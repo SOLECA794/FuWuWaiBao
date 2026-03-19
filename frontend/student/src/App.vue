@@ -28,6 +28,7 @@
           :course-img="courseImg"
           :playback-nodes="playbackNodes"
           :current-node-id="currentNodeId"
+          :tts-enabled="ttsEnabled"
           :page-summary="pageSummary"
           :trace-point="tracePoint"
           :trace-top="traceTop"
@@ -36,6 +37,8 @@
           @prev-page="prevPage"
           @select-node="selectPlaybackNode"
           @toggle-play="togglePlay"
+          @toggle-tts="toggleTts"
+          @speak-current-node="speakCurrentNode"
           @next-page="nextPage"
         />
       </section>
@@ -47,6 +50,7 @@
               :question="question"
               :ask-loading="askLoading"
               :ai-reply="aiReply"
+              :stream-typing-active="streamTypingActive"
               :qa-history="qaHistory"
               :latest-answer-meta="latestAnswerMeta"
               @update:question="question = $event"
@@ -132,6 +136,8 @@ const playbackNodes = ref([])
 const pageSummary = ref('')
 const playbackMode = ref('duration_timeline')
 const playbackAudioMeta = ref(null)
+const playbackState = ref('paused')
+const ttsEnabled = ref(true)
 const currentCourseName = ref('')
 const currentPage = ref(1)
 const totalPage = ref(10)
@@ -141,6 +147,10 @@ const activeTab = ref('ask')
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
 const currentTimelineSec = ref(0)
 let playbackTimer = null
+let currentSpeechUtterance = null
+let streamTypingTimer = null
+const streamTypingQueue = ref([])
+const streamTypingActive = ref(false)
 
 const question = ref('')
 const aiReply = ref('')
@@ -148,6 +158,7 @@ const askLoading = ref(false)
 const qaHistory = ref([])
 const latestAnswerMeta = ref({
   sourcePage: 0,
+  sourceNodeId: '',
   needReteach: false,
   followUpSuggestion: '',
   sessionId: ''
@@ -263,6 +274,90 @@ const stopPlaybackTimer = () => {
   }
 }
 
+const stopStreamTypewriter = () => {
+  if (streamTypingTimer) {
+    window.clearInterval(streamTypingTimer)
+    streamTypingTimer = null
+  }
+  streamTypingQueue.value = []
+  streamTypingActive.value = false
+}
+
+const startStreamTypewriter = () => {
+  if (streamTypingTimer || streamTypingQueue.value.length === 0) return
+  streamTypingActive.value = true
+  streamTypingTimer = window.setInterval(() => {
+    if (!streamTypingQueue.value.length) {
+      window.clearInterval(streamTypingTimer)
+      streamTypingTimer = null
+      streamTypingActive.value = false
+      return
+    }
+    const nextChar = streamTypingQueue.value.shift()
+    aiReply.value += nextChar
+  }, 16)
+}
+
+const pushTypewriterText = (text) => {
+  const value = String(text || '')
+  if (!value) return
+  streamTypingQueue.value.push(...value.split(''))
+  startStreamTypewriter()
+}
+
+const waitTypewriterDrain = async () => {
+  const startedAt = Date.now()
+  while (streamTypingQueue.value.length > 0 || streamTypingActive.value) {
+    if (Date.now() - startedAt > 3000) {
+      aiReply.value += streamTypingQueue.value.join('')
+      stopStreamTypewriter()
+      break
+    }
+    await new Promise(resolve => window.setTimeout(resolve, 30))
+  }
+}
+
+const stopSpeechNarration = () => {
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
+  currentSpeechUtterance = null
+}
+
+const speakCurrentNode = () => {
+  if (!ttsEnabled.value || !isPlay.value) return
+  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') return
+  const node = currentNodeMeta.value
+  if (!node) return
+  const text = String(node.text || node.title || '').trim()
+  if (!text) return
+
+  const speakingMark = `${currentPage.value}:${node.node_id}:${normalizeTimeSec(node.start_sec)}`
+  if (currentSpeechUtterance?.__mark === speakingMark) {
+    return
+  }
+
+  stopSpeechNarration()
+  const utter = new SpeechSynthesisUtterance(text)
+  utter.lang = 'zh-CN'
+  utter.rate = 1
+  utter.pitch = 1
+  utter.volume = 1
+  utter.__mark = speakingMark
+  utter.onend = () => {
+    if (currentSpeechUtterance === utter) {
+      currentSpeechUtterance = null
+    }
+  }
+  utter.onerror = () => {
+    if (currentSpeechUtterance === utter) {
+      currentSpeechUtterance = null
+    }
+  }
+  currentSpeechUtterance = utter
+  window.speechSynthesis.speak(utter)
+}
+
 const startPlaybackTimer = () => {
   stopPlaybackTimer()
   if (!playbackNodes.value.length) return
@@ -357,6 +452,25 @@ const togglePlay = () => {
     return
   }
   isPlay.value = !isPlay.value
+  playbackState.value = isPlay.value ? 'lecturing' : 'paused'
+  if (!isPlay.value) {
+    stopSpeechNarration()
+    return
+  }
+  speakCurrentNode()
+}
+
+const toggleTts = () => {
+  ttsEnabled.value = !ttsEnabled.value
+  if (!ttsEnabled.value) {
+    stopSpeechNarration()
+    ElMessage.info('已关闭语音讲稿')
+    return
+  }
+  if (isPlay.value) {
+    speakCurrentNode()
+  }
+  ElMessage.success('已开启语音讲稿')
 }
 
 const openUpload = () => {
@@ -364,6 +478,10 @@ const openUpload = () => {
 }
 
 const sendMultiModalQuestion = async () => {
+  if (askLoading.value) {
+    ElMessage.info('当前正在处理上一条提问，请稍后')
+    return
+  }
   if (!question.value.trim()) {
     ElMessage.warning('请输入问题后再发送')
     return
@@ -375,11 +493,15 @@ const sendMultiModalQuestion = async () => {
 
   askLoading.value = true
   isPlay.value = false
+  playbackState.value = 'tutoring'
+  stopSpeechNarration()
+  stopStreamTypewriter()
   try {
     const currentQuestion = question.value
     aiReply.value = ''
     latestAnswerMeta.value = {
       sourcePage: 0,
+      sourceNodeId: '',
       needReteach: false,
       followUpSuggestion: '',
       sessionId: sessionId.value
@@ -393,23 +515,20 @@ const sendMultiModalQuestion = async () => {
       question: currentQuestion
     }, {
       token: (payload) => {
-        aiReply.value += payload.text || ''
+        pushTypewriterText(payload.text || '')
       },
       sentence: (payload) => {
-        if (!aiReply.value) aiReply.value = payload.text || ''
+        if (!aiReply.value && streamTypingQueue.value.length === 0) {
+          pushTypewriterText(payload.text || '')
+        }
       },
       final: (payload) => {
         finalPayload = payload
       }
     })
 
-    qaHistory.value.unshift({
-      question: currentQuestion,
-      answer: aiReply.value
-    })
-    if (qaHistory.value.length > 3) {
-      qaHistory.value = qaHistory.value.slice(0, 3)
-    }
+    await waitTypewriterDrain()
+
     if (finalPayload?.session_id) {
       sessionId.value = finalPayload.session_id
     }
@@ -430,21 +549,78 @@ const sendMultiModalQuestion = async () => {
 
     latestAnswerMeta.value = {
       sourcePage: finalPayload?.source_page || resumePage,
+      sourceNodeId: finalPayload?.source_node_id || finalPayload?.sourceNodeId || (resumeNodeId || currentNodeId.value),
       needReteach: !!finalPayload?.need_reteach,
       followUpSuggestion: finalPayload?.follow_up_suggestion || '',
       sessionId: finalPayload?.session_id || sessionId.value
     }
+
+    qaHistory.value.unshift({
+      question: currentQuestion,
+      answer: aiReply.value,
+      sourcePage: latestAnswerMeta.value.sourcePage,
+      sourceNodeId: latestAnswerMeta.value.sourceNodeId
+    })
+    if (qaHistory.value.length > 5) {
+      qaHistory.value = qaHistory.value.slice(0, 5)
+    }
+    traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}，续接节点 ${resumeNodeId || currentNodeId.value}`
     question.value = ''
     if (finalPayload?.need_reteach) {
       ElMessage.success('已按追问语境切换为重讲模式')
     } else {
+      playbackState.value = 'resuming'
       isPlay.value = true
+      playbackState.value = 'lecturing'
+      speakCurrentNode()
       ElMessage.success('AI 答疑完成，并已准备继续讲解')
     }
   } catch (error) {
-    aiReply.value = ''
-    ElMessage.error(`提问失败：${error.message}`)
+    try {
+      const fallbackResp = await studentV1Api.qa.ask({
+        courseId: courseId.value,
+        pageNum: currentPage.value,
+        nodeId: currentNodeId.value,
+        question: question.value
+      })
+      const payload = fallbackResp?.data || {}
+      aiReply.value = payload.answer || ''
+      latestAnswerMeta.value = {
+        sourcePage: payload.sourcePage || payload.source_page || currentPage.value,
+        sourceNodeId: payload.sourceNodeId || payload.source_node_id || currentNodeId.value,
+        needReteach: !!payload.needReteach,
+        followUpSuggestion: payload.followUpSuggestion || '',
+        sessionId: sessionId.value
+      }
+      qaHistory.value.unshift({
+        question: question.value,
+        answer: aiReply.value,
+        sourcePage: latestAnswerMeta.value.sourcePage,
+        sourceNodeId: latestAnswerMeta.value.sourceNodeId
+      })
+      if (qaHistory.value.length > 5) {
+        qaHistory.value = qaHistory.value.slice(0, 5)
+      }
+      traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}`
+      question.value = ''
+      playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
+      if (!latestAnswerMeta.value.needReteach) {
+        isPlay.value = true
+        playbackState.value = 'lecturing'
+        speakCurrentNode()
+      }
+      ElMessage.warning('流式问答失败，已切换到普通问答返回结果')
+    } catch (fallbackError) {
+      aiReply.value = ''
+      ElMessage.error(`提问失败：${fallbackError.message || error.message}`)
+    }
   } finally {
+    if (!latestAnswerMeta.value.needReteach) {
+      playbackState.value = isPlay.value ? 'lecturing' : 'paused'
+      if (isPlay.value) {
+        speakCurrentNode()
+      }
+    }
     askLoading.value = false
   }
 }
@@ -453,7 +629,8 @@ const openTraceMode = () => {
   tracePoint.value = true
   traceTop.value = 150
   traceLeft.value = 200
-  traceLog.value = `已定位：第 ${currentPage.value} 页 → 节点 ${currentNodeId.value}`
+  const sourceNode = latestAnswerMeta.value?.sourceNodeId || currentNodeId.value
+  traceLog.value = `已定位：第 ${currentPage.value} 页 → 当前节点 ${currentNodeId.value}${sourceNode ? `（最近问答来源节点 ${sourceNode}）` : ''}`
 }
 
 onMounted(() => {
@@ -469,19 +646,32 @@ onUnmounted(() => {
     backendHealthTimer = null
   }
   stopPlaybackTimer()
+  stopSpeechNarration()
+  stopStreamTypewriter()
 })
 
 watch(isPlay, (value) => {
   if (value) {
+    playbackState.value = askLoading.value ? 'tutoring' : 'lecturing'
     startPlaybackTimer()
+    speakCurrentNode()
     return
   }
+  playbackState.value = askLoading.value ? 'tutoring' : 'paused'
   stopPlaybackTimer()
+  stopSpeechNarration()
 })
 
 watch(playbackNodes, () => {
   if (isPlay.value) {
     startPlaybackTimer()
+    speakCurrentNode()
+  }
+})
+
+watch(currentNodeId, () => {
+  if (isPlay.value) {
+    speakCurrentNode()
   }
 })
 

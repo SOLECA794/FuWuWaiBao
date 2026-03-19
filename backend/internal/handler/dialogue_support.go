@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -132,4 +133,178 @@ func resolveResumeNodeID(currentNodeID string, page int, needReteach bool) strin
 		return defaultStringValue(currentNodeID, fmt.Sprintf("p%d_n1", page))
 	}
 	return nextNodeID(currentNodeID, page)
+}
+
+func resolveResumeNodeIDByCourse(db *gorm.DB, courseID, currentNodeID string, page int, needReteach bool) string {
+	currentNodeID = strings.TrimSpace(currentNodeID)
+	if strings.TrimSpace(courseID) == "" {
+		return resolveResumeNodeID(currentNodeID, page, needReteach)
+	}
+
+	nodes := loadTeachingNodesByPage(db, courseID, page)
+	if len(nodes) == 0 {
+		return resolveResumeNodeID(currentNodeID, page, needReteach)
+	}
+
+	if needReteach {
+		if currentNodeID != "" {
+			return currentNodeID
+		}
+		return defaultStringValue(strings.TrimSpace(nodes[0].NodeID), fmt.Sprintf("p%d_n1", page))
+	}
+
+	if currentNodeID == "" {
+		return defaultStringValue(strings.TrimSpace(nodes[0].NodeID), fmt.Sprintf("p%d_n1", page))
+	}
+
+	for i := 0; i < len(nodes); i++ {
+		if strings.TrimSpace(nodes[i].NodeID) != currentNodeID {
+			continue
+		}
+		if i+1 < len(nodes) {
+			return defaultStringValue(strings.TrimSpace(nodes[i+1].NodeID), nextNodeID(currentNodeID, page))
+		}
+		return nextNodeID(currentNodeID, page)
+	}
+
+	return nextNodeID(currentNodeID, page)
+}
+
+func buildNodeScopedContext(db *gorm.DB, courseID string, page int, nodeID string) string {
+	nodeID = strings.TrimSpace(nodeID)
+	nodes := loadTeachingNodesByPage(db, courseID, page)
+	if len(nodes) == 0 {
+		return ""
+	}
+
+	nodeByID := make(map[string]model.TeachingNode, len(nodes))
+	for _, node := range nodes {
+		id := strings.TrimSpace(node.NodeID)
+		if id != "" {
+			nodeByID[id] = node
+		}
+	}
+
+	targetNodeIDs := map[string]struct{}{}
+	if nodeID != "" {
+		targetNodeIDs[nodeID] = struct{}{}
+		for _, prereq := range extractPrerequisiteNodeIDs(nodeByID, nodeID) {
+			targetNodeIDs[prereq] = struct{}{}
+		}
+	}
+
+	segments := make([]string, 0)
+	if len(targetNodeIDs) > 0 {
+		for _, node := range nodes {
+			matched := extractSegmentTextsByNodeSet(node.ScriptSegmentsJSON, targetNodeIDs)
+			if len(matched) > 0 {
+				segments = append(segments, matched...)
+			}
+		}
+	}
+
+	if len(segments) > 0 {
+		return strings.Join(filterEmptyStrings(segments), "\n\n")
+	}
+
+	if len(targetNodeIDs) > 0 {
+		parts := make([]string, 0)
+		for target := range targetNodeIDs {
+			node, ok := nodeByID[target]
+			if !ok {
+				continue
+			}
+			text := strings.TrimSpace(teachingNodeContextText(node))
+			if text != "" {
+				parts = append(parts, text)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(filterEmptyStrings(parts), "\n\n")
+		}
+	}
+
+	return buildPageContextFromTeachingNodes(nodes)
+}
+
+func extractSegmentTextsByNodeSet(rawJSON string, nodeIDSet map[string]struct{}) []string {
+	rawJSON = strings.TrimSpace(rawJSON)
+	if rawJSON == "" || len(nodeIDSet) == 0 {
+		return nil
+	}
+
+	var segments []map[string]any
+	if err := json.Unmarshal([]byte(rawJSON), &segments); err != nil {
+		return nil
+	}
+
+	result := make([]string, 0)
+	for _, segment := range segments {
+		nodeIDs, ok := segment["node_ids"].([]any)
+		if !ok {
+			continue
+		}
+		contains := false
+		for _, item := range nodeIDs {
+			candidate := strings.TrimSpace(fmt.Sprintf("%v", item))
+			if _, ok := nodeIDSet[candidate]; ok {
+				contains = true
+				break
+			}
+		}
+		if !contains {
+			continue
+		}
+		text := strings.TrimSpace(fmt.Sprintf("%v", segment["text"]))
+		if text != "" {
+			result = append(result, text)
+		}
+	}
+
+	return result
+}
+
+func extractPrerequisiteNodeIDs(nodeByID map[string]model.TeachingNode, nodeID string) []string {
+	node, ok := nodeByID[nodeID]
+	if !ok {
+		return nil
+	}
+	raw := strings.TrimSpace(node.KnowledgeNodesJSON)
+	if raw == "" {
+		return nil
+	}
+
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		return nil
+	}
+
+	result := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, entry := range entries {
+		entryNodeID := strings.TrimSpace(fmt.Sprintf("%v", entry["node_id"]))
+		if entryNodeID != nodeID {
+			continue
+		}
+		prereqRaw, ok := entry["prerequisites"].([]any)
+		if !ok {
+			continue
+		}
+		for _, item := range prereqRaw {
+			candidate := strings.TrimSpace(fmt.Sprintf("%v", item))
+			if candidate == "" {
+				continue
+			}
+			if _, exists := nodeByID[candidate]; !exists {
+				continue
+			}
+			if _, exists := seen[candidate]; exists {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			result = append(result, candidate)
+		}
+	}
+
+	return result
 }

@@ -170,6 +170,10 @@ func generateAndStoreTeachingNodeScripts(
 			"transition_text":       strings.TrimSpace(resp.Transition),
 			"mindmap_markdown":      strings.TrimSpace(resp.MindmapMarkdown),
 			"interactive_questions": encodeJSONStringArray(resp.InteractiveQuestions),
+			"structured_markdown":   strings.TrimSpace(resp.StructuredMarkdown),
+			"knowledge_nodes_json":  encodeJSON(resp.KnowledgeNodes),
+			"script_segments_json":  encodeJSON(resp.ScriptSegments),
+			"schema_version":        2,
 		}
 		_ = db.Model(&model.TeachingNode{}).Where("id = ?", node.ID).Updates(updates).Error
 		if strings.TrimSpace(resp.Script) != "" {
@@ -201,6 +205,17 @@ func encodeJSONStringArray(values []string) string {
 	}
 	payload, err := json.Marshal(values)
 	if err != nil {
+		return "[]"
+	}
+	return string(payload)
+}
+
+func encodeJSON(value any) string {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return "[]"
+	}
+	if len(payload) == 0 {
 		return "[]"
 	}
 	return string(payload)

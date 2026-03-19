@@ -16,6 +16,7 @@ type AIEngine interface {
 	ParseDocument(ctx context.Context, file *multipart.FileHeader) (*ParseDocumentResponse, error)
 	ReconstructDocument(ctx context.Context, req ReconstructDocumentRequest) (*ReconstructDocumentResponse, error)
 	GenerateNodeScript(ctx context.Context, req GenerateNodeScriptRequest) (*GenerateNodeScriptResponse, error)
+	GenerateFromMarkdown(ctx context.Context, req GenerateFromMarkdownRequest) (*GenerateFromMarkdownResponse, error)
 	GenerateScript(ctx context.Context, req GenerateScriptRequest) (*GenerateScriptResponse, error)
 	GenerateAudio(ctx context.Context, req GenerateAudioRequest) (*GenerateAudioResponse, error)
 	AskWithContext(ctx context.Context, req AskWithContextRequest) (*AskWithContextResponse, error)
@@ -87,13 +88,75 @@ type GenerateNodeScriptRequest struct {
 }
 
 type GenerateNodeScriptResponse struct {
-	NodeID               string   `json:"node_id"`
-	Title                string   `json:"title"`
-	Script               string   `json:"script"`
-	MindmapMarkdown      string   `json:"mindmap_markdown"`
-	InteractiveQuestions []string `json:"interactive_questions"`
-	ReteachScript        string   `json:"reteach_script"`
-	Transition           string   `json:"transition"`
+	NodeID               string                 `json:"node_id"`
+	Title                string                 `json:"title"`
+	Script               string                 `json:"script"`
+	MindmapMarkdown      string                 `json:"mindmap_markdown"`
+	InteractiveQuestions []string               `json:"interactive_questions"`
+	ReteachScript        string                 `json:"reteach_script"`
+	Transition           string                 `json:"transition"`
+	StructuredMarkdown   string                 `json:"structured_markdown"`
+	KnowledgeNodes       []KnowledgeNodeProfile `json:"knowledge_nodes"`
+	ScriptSegments       []ScriptSegment        `json:"script_segments"`
+}
+
+type GenerateFromMarkdownRequest struct {
+	Markdown   string `json:"markdown"`
+	CourseName string `json:"course_name"`
+	Mode       string `json:"mode"`
+}
+
+type PipelineNode struct {
+	NodeID        string   `json:"node_id"`
+	Title         string   `json:"title"`
+	Summary       string   `json:"summary"`
+	SourceSpan    string   `json:"source_span"`
+	Prerequisites []string `json:"prerequisites"`
+}
+
+type PipelineNodeTree struct {
+	Nodes []PipelineNode `json:"nodes"`
+}
+
+type PipelineScriptSegment struct {
+	SegmentID string `json:"segment_id"`
+	Text      string `json:"text"`
+	NodeID    string `json:"node_id"`
+}
+
+type PipelineNodeScript struct {
+	NodeID   string                  `json:"node_id"`
+	Title    string                  `json:"title"`
+	Script   string                  `json:"script"`
+	Segments []PipelineScriptSegment `json:"segments"`
+}
+
+type GenerateFromMarkdownResponse struct {
+	CourseName     string               `json:"course_name"`
+	SourceMarkdown string               `json:"source_markdown"`
+	KeyPoints      []string             `json:"key_points"`
+	NodeTree       PipelineNodeTree     `json:"node_tree"`
+	Scripts        []PipelineNodeScript `json:"scripts"`
+	UsedFallback   bool                 `json:"used_fallback"`
+}
+
+type KnowledgeNodeProfile struct {
+	NodeID        string   `json:"node_id"`
+	ParentID      string   `json:"parent_id"`
+	Level         int      `json:"level"`
+	Title         string   `json:"title"`
+	Tags          []string `json:"tags"`
+	Prerequisites []string `json:"prerequisites"`
+	Difficulty    string   `json:"difficulty"`
+	CoverageSpan  []string `json:"coverage_span"`
+}
+
+type ScriptSegment struct {
+	SegmentID      string   `json:"segment_id"`
+	Text           string   `json:"text"`
+	NodeIDs        []string `json:"node_ids"`
+	Confidence     float64  `json:"confidence"`
+	ManualOverride bool     `json:"manual_override"`
 }
 
 type GenerateScriptResponse struct {
@@ -123,16 +186,16 @@ type GenerateAudioRequest struct {
 }
 
 type GenerateAudioResponse struct {
-	AudioID         string              `json:"audio_id"`
-	AudioURL        string              `json:"audio_url"`
-	Provider        string              `json:"provider"`
-	VoiceType       string              `json:"voice_type"`
-	Format          string              `json:"format"`
-	Status          string              `json:"status"`
-	TotalDuration   int                 `json:"total_duration_sec"`
-	PlaybackMode    string              `json:"playback_mode"`
-	GeneratedAt     string              `json:"generated_at"`
-	Sections        []GenerateAudioNode `json:"sections"`
+	AudioID       string              `json:"audio_id"`
+	AudioURL      string              `json:"audio_url"`
+	Provider      string              `json:"provider"`
+	VoiceType     string              `json:"voice_type"`
+	Format        string              `json:"format"`
+	Status        string              `json:"status"`
+	TotalDuration int                 `json:"total_duration_sec"`
+	PlaybackMode  string              `json:"playback_mode"`
+	GeneratedAt   string              `json:"generated_at"`
+	Sections      []GenerateAudioNode `json:"sections"`
 }
 
 type ConversationTurn struct {
@@ -253,6 +316,14 @@ func (c *aiEngineClient) ReconstructDocument(ctx context.Context, req Reconstruc
 func (c *aiEngineClient) GenerateNodeScript(ctx context.Context, req GenerateNodeScriptRequest) (*GenerateNodeScriptResponse, error) {
 	var result GenerateNodeScriptResponse
 	if err := c.postJSON(ctx, "/generate-node-script", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *aiEngineClient) GenerateFromMarkdown(ctx context.Context, req GenerateFromMarkdownRequest) (*GenerateFromMarkdownResponse, error) {
+	var result GenerateFromMarkdownResponse
+	if err := c.postJSON(ctx, "/generate-from-markdown", req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil

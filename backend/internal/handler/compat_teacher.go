@@ -232,7 +232,7 @@ func (h *CompatibilityHandler) AskCoursewareV1(c *gin.Context) {
 		return
 	}
 	if strings.TrimSpace(req.StudentID) != "" {
-		_ = h.db.Create(&model.QuestionLog{UserID: req.StudentID, CourseID: courseID, PageIndex: req.PageNum, Question: req.Question, Answer: resp.Answer}).Error
+		_ = h.db.Create(&model.QuestionLog{UserID: req.StudentID, CourseID: courseID, PageIndex: req.PageNum, NodeID: fmt.Sprintf("p%d_n1", req.PageNum), Question: req.Question, Answer: resp.Answer}).Error
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "sourceExcerpt": resp.SourceExcerpt, "followUpSuggestion": resp.FollowUpSuggestion, "needReteach": resp.Intent.NeedReteach}})
 }

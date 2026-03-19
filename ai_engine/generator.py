@@ -11,9 +11,23 @@ except ImportError:
     from qa import resolve_llm_base_url
 
 try:
-    from .schema import build_node_script_schema
+    from .schema import (
+        build_node_script_schema,
+        build_stage1_markdown_schema,
+        build_stage2_node_tree_schema,
+        build_stage3_script_schema,
+        normalize_stage2_nodes,
+        normalize_stage3_scripts,
+    )
 except ImportError:
-    from schema import build_node_script_schema
+    from schema import (
+        build_node_script_schema,
+        build_stage1_markdown_schema,
+        build_stage2_node_tree_schema,
+        build_stage3_script_schema,
+        normalize_stage2_nodes,
+        normalize_stage3_scripts,
+    )
 
 load_dotenv()
 
@@ -21,7 +35,7 @@ load_dotenv()
 @dataclass
 class GenerationConfig:
     mode: str = "llm"  # 默认使用真实模型
-    model: str = "qwen-plus"
+    model: str = os.getenv("AI_MODEL", "qwen-turbo")
     temperature: float = 0.2
     max_content_chars: int = 3500
 
@@ -32,7 +46,7 @@ class LessonGenerator:
     def __init__(self, config: GenerationConfig | None = None):
         self.config = config or GenerationConfig(
             mode=os.getenv("AI_GEN_MODE", "llm"),
-            model=os.getenv("AI_MODEL", "qwen-plus"),
+            model=os.getenv("AI_MODEL", "qwen-turbo"),
             temperature=float(os.getenv("AI_TEMPERATURE", "0.2")),
             max_content_chars=int(os.getenv("AI_MAX_CONTENT_CHARS", "3500")),
         )
@@ -58,6 +72,47 @@ class LessonGenerator:
             },
             "lessons": outputs,
         }
+
+    def generate_from_markdown(self, markdown: str, course_name: str | None = None) -> dict[str, Any]:
+        normalized_markdown = self._prepare_content(markdown or "")
+        if not normalized_markdown:
+            normalized_markdown = "# 未命名课件\n\n- 内容为空"
+
+        fallback = self._fallback_pipeline(normalized_markdown)
+
+        try:
+            client = self._build_llm_client()
+
+            stage1 = self._run_stage1_markdown_understanding(client, normalized_markdown)
+            stage1_markdown = str(stage1.get("normalized_markdown") or normalized_markdown).strip() or normalized_markdown
+            stage1_points = [str(item).strip() for item in (stage1.get("key_points") or []) if str(item).strip()]
+
+            stage2_nodes = self._run_stage2_node_tree(client, stage1_markdown, stage1_points)
+            if not stage2_nodes:
+                stage2_nodes = fallback["node_tree"]["nodes"]
+
+            stage3_scripts = self._run_stage3_scripts(client, stage1_markdown, stage2_nodes, course_name)
+            if not stage3_scripts:
+                stage3_scripts = fallback["scripts"]
+
+            node_ids = {item["node_id"] for item in stage2_nodes}
+            cleaned_scripts = normalize_stage3_scripts(stage3_scripts, node_ids)
+            if not cleaned_scripts:
+                cleaned_scripts = normalize_stage3_scripts(fallback["scripts"], node_ids)
+
+            return {
+                "course_name": course_name or "未命名课程",
+                "source_markdown": stage1_markdown,
+                "key_points": stage1_points,
+                "node_tree": {"nodes": stage2_nodes},
+                "scripts": cleaned_scripts,
+                "used_fallback": False,
+            }
+        except Exception as error:
+            result = dict(fallback)
+            result["generation_error"] = str(error)
+            result["used_fallback"] = True
+            return result
 
     def _generate_llm(self, page: int, content: str) -> dict[str, Any]:
         normalized_content = self._prepare_content(content)
@@ -118,7 +173,9 @@ class LessonGenerator:
             system_prompt = (
                 "你是高校课程智能讲授编排助手。"
                 "请根据讲授节点信息生成适合互动式课堂的讲授内容。"
-                "输出严格 JSON，字段必须是 script、mindmap_markdown、interactive_questions、reteach_script、transition。"
+                "输出严格 JSON。"
+                "必须包含 script、mindmap_markdown、interactive_questions、reteach_script、transition。"
+                "可选包含 structured_markdown、knowledge_nodes、script_segments。"
             )
             user_prompt = (
                 f"课程名: {course_name or '未提供'}\n"
@@ -128,18 +185,28 @@ class LessonGenerator:
                 f"示例: {json.dumps(examples, ensure_ascii=False)}\n"
                 f"易错点: {json.dumps(confusions, ensure_ascii=False)}\n"
                 f"补充内容: {assembled_content}\n"
-                "请输出适合老师直接讲授、并支持后续追问的结果。"
+                "请输出适合老师直接讲授、并支持后续追问的结果。\n"
+                "要求：\n"
+                "1) script 语言要像真实教师课堂讲解，不要机械罗列。\n"
+                "2) structured_markdown 需包含标题、要点、公式占位（如有）、图表说明占位（如有）。\n"
+                "3) knowledge_nodes 至少包含当前节点，并给出 level/tags/prerequisites/difficulty/coverage_span。\n"
+                "4) script_segments 用于段落映射，每段包含 segment_id/text/node_ids/confidence/manual_override。\n"
+                "5) 若信息不足，可简化可选字段，但必须返回合法 JSON。"
             )
             raw_content = self._request_llm_payload(client, system_prompt, user_prompt)
             data = self._extract_json(raw_content)
+            script = self._clean_generated_text(data.get("script")) or fallback["script"]
             return build_node_script_schema(
                 node_id=node_id,
                 title=title,
-                script=self._clean_generated_text(data.get("script")) or fallback["script"],
+                script=script,
                 mindmap_markdown=self._clean_generated_text(data.get("mindmap_markdown")) or fallback["mindmap_markdown"],
                 interactive_questions=data.get("interactive_questions") or fallback["interactive_questions"],
                 reteach_script=self._clean_generated_text(data.get("reteach_script")) or fallback["reteach_script"],
                 transition=self._clean_generated_text(data.get("transition")) or fallback["transition"],
+                structured_markdown=self._clean_generated_text(data.get("structured_markdown")),
+                knowledge_nodes=data.get("knowledge_nodes") or [],
+                script_segments=data.get("script_segments") or self._build_segments_from_script(script, node_id),
             )
         except Exception:
             return fallback
@@ -157,25 +224,44 @@ class LessonGenerator:
         base_url, _ = resolve_llm_base_url(self.config.model)
         return OpenAI(api_key=api_key, base_url=base_url)
 
-    def _request_llm_payload(self, client: Any, system_prompt: str, user_prompt: str) -> str:
+    def _request_llm_payload(self, client: Any, system_prompt: str, user_prompt: str, json_schema: dict[str, Any] | None = None) -> str:
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
 
         try:
-            response = client.chat.completions.create(
-                model=self.config.model,
-                temperature=self.config.temperature,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
+            if json_schema:
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    temperature=self.config.temperature,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": json_schema,
+                    },
+                )
+            else:
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    temperature=self.config.temperature,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
         except Exception:
-            response = client.chat.completions.create(
-                model=self.config.model,
-                temperature=self.config.temperature,
-                messages=messages,
-            )
+            try:
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    temperature=self.config.temperature,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
+            except Exception:
+                response = client.chat.completions.create(
+                    model=self.config.model,
+                    temperature=self.config.temperature,
+                    messages=messages,
+                )
 
         return response.choices[0].message.content or ""
 
@@ -265,7 +351,64 @@ class LessonGenerator:
         ]
         reteach_script = f"如果你还没完全听懂，我们就换个角度重讲，重点放在：{reteach_focus}。"
         transition = f"理解完“{title}”之后，我们就可以继续进入下一个知识节点。"
-        return build_node_script_schema(node_id, title, script, mindmap, interactive_questions, reteach_script, transition)
+        structured_markdown = "\n".join(
+            [
+                f"# {title}",
+                "",
+                "## 核心要点",
+                *[f"- {point}" for point in (core_points[:4] or [summary or "核心内容"])],
+                "",
+                "## 课堂讲解提示",
+                f"- 示例：{example_text}",
+                f"- 易错点：{reteach_focus}",
+            ]
+        )
+        return build_node_script_schema(
+            node_id,
+            title,
+            script,
+            mindmap,
+            interactive_questions,
+            reteach_script,
+            transition,
+            structured_markdown=structured_markdown,
+            knowledge_nodes=[
+                {
+                    "node_id": node_id,
+                    "parent_id": "",
+                    "level": 1,
+                    "title": title,
+                    "tags": ["core"],
+                    "prerequisites": [],
+                    "difficulty": "medium",
+                    "coverage_span": ["seg_1"],
+                }
+            ],
+            script_segments=self._build_segments_from_script(script, node_id),
+        )
+
+    @staticmethod
+    def _build_segments_from_script(script: str, node_id: str) -> list[dict[str, Any]]:
+        text = (script or "").strip()
+        if not text:
+            return []
+
+        rough_segments = [seg.strip() for seg in re.split(r"(?<=[。！？])", text) if seg.strip()]
+        if not rough_segments:
+            rough_segments = [text]
+
+        segments: list[dict[str, Any]] = []
+        for idx, seg in enumerate(rough_segments, start=1):
+            segments.append(
+                {
+                    "segment_id": f"seg_{idx}",
+                    "text": seg,
+                    "node_ids": [node_id],
+                    "confidence": 0.8,
+                    "manual_override": False,
+                }
+            )
+        return segments
 
     @staticmethod
     def _extract_json(text: str) -> dict[str, Any]:
@@ -278,3 +421,110 @@ class LessonGenerator:
         if start == -1 or end == -1 or end <= start:
             raise ValueError("模型返回内容中未找到有效 JSON")
         return json.loads(cleaned[start : end + 1])
+
+    def _run_stage1_markdown_understanding(self, client: Any, markdown: str) -> dict[str, Any]:
+        system_prompt = (
+            "你是课件结构化预处理助手。"
+            "请保留原始语义，提炼可用于后续节点划分的关键信息。"
+            "输出必须严格符合给定 JSON Schema。"
+        )
+        user_prompt = (
+            f"输入课件 Markdown:\n{markdown}\n\n"
+            "请输出：\n"
+            "1) normalized_markdown：整理后的 Markdown（不改结论、不编造）\n"
+            "2) key_points：5-12条关键点"
+        )
+        raw = self._request_llm_payload(client, system_prompt, user_prompt, json_schema=build_stage1_markdown_schema())
+        data = self._extract_json(raw)
+        return {
+            "normalized_markdown": str(data.get("normalized_markdown") or "").strip(),
+            "key_points": [str(item).strip() for item in (data.get("key_points") or []) if str(item).strip()],
+        }
+
+    def _run_stage2_node_tree(self, client: Any, markdown: str, key_points: list[str]) -> list[dict[str, Any]]:
+        system_prompt = (
+            "你是教学设计助手。"
+            "任务是把课件 Markdown 划分为可讲授的知识节点树。"
+            "输出必须严格符合给定 JSON Schema，并且每个节点都必须有 node_id。"
+        )
+        user_prompt = (
+            f"课件 Markdown:\n{markdown}\n\n"
+            f"关键点:\n{json.dumps(key_points, ensure_ascii=False)}\n\n"
+            "请输出 nodes 数组，每个节点包含 node_id/title/summary/source_span/prerequisites。"
+            "node_id 必须稳定、可读，例如 node_001。"
+        )
+        raw = self._request_llm_payload(client, system_prompt, user_prompt, json_schema=build_stage2_node_tree_schema())
+        data = self._extract_json(raw)
+        return normalize_stage2_nodes(data.get("nodes") or [])
+
+    def _run_stage3_scripts(
+        self,
+        client: Any,
+        markdown: str,
+        nodes: list[dict[str, Any]],
+        course_name: str | None,
+    ) -> list[dict[str, Any]]:
+        system_prompt = (
+            "你是课堂讲稿生成助手。"
+            "请严格按节点输出可直接讲授的脚本，每条脚本必须绑定 node_id。"
+            "输出必须严格符合给定 JSON Schema。"
+        )
+        user_prompt = (
+            f"课程名: {course_name or '未命名课程'}\n"
+            f"原始 Markdown:\n{markdown}\n\n"
+            f"节点树:\n{json.dumps(nodes, ensure_ascii=False)}\n\n"
+            "请输出 scripts 数组；每个元素包含 node_id/title/script/segments。"
+            "segments 中每一段必须给 segment_id/text/node_id。"
+        )
+        raw = self._request_llm_payload(client, system_prompt, user_prompt, json_schema=build_stage3_script_schema())
+        data = self._extract_json(raw)
+        node_ids = {item["node_id"] for item in nodes}
+        return normalize_stage3_scripts(data.get("scripts") or [], node_ids)
+
+    def _fallback_pipeline(self, markdown: str) -> dict[str, Any]:
+        lines = [line.strip() for line in (markdown or "").splitlines() if line.strip()]
+        headings = [line.lstrip("# ").strip() for line in lines if line.startswith("#")]
+        if not headings:
+            headings = ["课件主题", "核心概念", "总结过渡"]
+
+        nodes: list[dict[str, Any]] = []
+        scripts: list[dict[str, Any]] = []
+        for idx, title in enumerate(headings, start=1):
+            node_id = f"node_{idx:03d}"
+            summary = f"围绕“{title}”进行讲授。"
+            node = {
+                "node_id": node_id,
+                "title": title,
+                "summary": summary,
+                "source_span": title,
+                "prerequisites": [f"node_{idx - 1:03d}"] if idx > 1 else [],
+            }
+            script_text = (
+                f"接下来讲解节点 {node_id}：{title}。"
+                f"这一段重点是：{summary}"
+                "请同学们先理解定义，再结合一个具体场景进行应用。"
+            )
+            scripts.append(
+                {
+                    "node_id": node_id,
+                    "title": title,
+                    "script": script_text,
+                    "segments": [
+                        {
+                            "segment_id": f"seg_{idx}_1",
+                            "text": script_text,
+                            "node_id": node_id,
+                        }
+                    ],
+                }
+            )
+            nodes.append(node)
+
+        return {
+            "course_name": "未命名课程",
+            "source_markdown": markdown,
+            "key_points": headings[:8],
+            "node_tree": {"nodes": nodes},
+            "scripts": scripts,
+            "used_fallback": True,
+        }

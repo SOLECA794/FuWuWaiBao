@@ -65,11 +65,15 @@
             :total-pages="currentCourseTotalPages"
             :current-script="currentScript"
             :current-script-nodes="currentScriptNodes"
+            :mapping-coverage="currentMappingCoverage"
+            :node-stats="studentStats.nodeStats || []"
+            :focus-node-request="focusNodeRequest"
             :script-generating="scriptGenerating"
             :script-saving="scriptSaving"
             @generate-ai-script="generateAIScript"
             @save-script="saveScript"
             @update:current-script="currentScript = $event"
+            @update:current-script-nodes="currentScriptNodes = $event"
             @prev-page="prevPage"
             @next-page="nextPage"
           ></TeacherScriptPanel>
@@ -104,7 +108,9 @@
             :current-course-total-pages="currentCourseTotalPages"
             :filter-page="filterPage"
             :filtered-questions="filteredQuestions"
+            :uncovered-node-ids="studentStats.mappingCoverage?.uncoveredNodeIds || []"
             @update:filter-page="filterPage = $event"
+            @focus-node="focusQuestionNode"
           ></TeacherQuestionsPanel>
         </div>
 
@@ -165,7 +171,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 // 导入所有组件
@@ -201,6 +207,9 @@ const currentCourseName = ref('')
 const currentCourseTotalPages = ref(0)
 const currentEditPage = ref(1)
 const currentScript = ref('')
+const currentScriptNodes = ref([])
+const currentMappingCoverage = ref(null)
+const focusNodeRequest = ref(null)
 
 const showUploadModal = ref(false)
 const fileInput = ref(null)
@@ -250,7 +259,22 @@ const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
-  keyDifficulties: '暂无'
+  keyDifficulties: '暂无',
+  nodeStats: [],
+  mappingCoverage: null,
+  activeSessions: 0,
+  avgTurnsPerSession: 0,
+  nodeHeatmap: [],
+  masteryRadar: { indicators: [], values: [], avgMastery: 0 },
+  classTrend: [],
+  learningInsights: { reteachNodes: [], prerequisiteGaps: [], summary: '' }
+})
+
+watch(currentMappingCoverage, (coverage) => {
+  studentStats.value = {
+    ...studentStats.value,
+    mappingCoverage: coverage || null
+  }
 })
 
 const cardData = ref([])
@@ -279,20 +303,29 @@ const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
 })
 
-const currentScriptNodes = computed(() => {
-  const raw = String(currentScript.value || '').trim()
+const buildNodesFromScriptText = (scriptText, page) => {
+  const raw = String(scriptText || '').trim()
   if (!raw) return []
-
   return raw
-    .split(/\n+|(?<=[。！？])/)
+    .split(/\n{2,}|(?<=[。！？])/)
     .map(item => item.trim())
     .filter(Boolean)
     .map((text, index, list) => ({
-      nodeId: `p${currentEditPage.value}_n${index + 1}`,
+      id: '',
+      nodeId: `p${page}_n${index + 1}`,
       type: index === 0 ? 'opening' : index === list.length - 1 ? 'transition' : 'explain',
-      text
+      title: index === 0 ? '节点1：开场' : `节点${index + 1}：讲解`,
+      summary: text.length > 48 ? `${text.slice(0, 48)}...` : text,
+      scriptText: text,
+      reteachScript: '',
+      transitionText: '',
+      structuredMarkdown: '',
+      knowledgeNodesJson: '[]',
+      scriptSegmentsJson: '[]',
+      estimatedDuration: 30,
+      sortOrder: index + 1
     }))
-})
+}
 
 // 新增：真实预览URL（假设后端返回图片）
 const realPreviewUrl = computed(() => {
@@ -431,25 +464,258 @@ const loadScript = async (courseId, page) => {
   try {
     const data = await teacherV1Api.coursewares.getScript(courseId, page)
     currentScript.value = data?.data?.content || ''
+    const nodes = data?.data?.nodes
+    currentMappingCoverage.value = data?.data?.mappingCoverage || null
+    currentScriptNodes.value = Array.isArray(nodes) && nodes.length > 0
+      ? normalizeNodesFromServer(nodes)
+      : buildNodesFromScriptText(currentScript.value, page)
   } catch (err) {
     currentScript.value = ''
+    currentScriptNodes.value = []
+    currentMappingCoverage.value = null
   }
+}
+
+const normalizeNodesFromServer = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  return list.map((node = {}, index) => {
+    const knowledgeNodes = parseJSONArrayOrDefault(node.knowledgeNodesJson, node.knowledgeNodes)
+    const scriptSegments = parseJSONArrayOrDefault(node.scriptSegmentsJson, node.scriptSegments)
+    return {
+      ...node,
+      schemaVersion: Number(node.schemaVersion) || 2,
+      sortOrder: Number(node.sortOrder) || index + 1,
+      knowledgeNodes,
+      scriptSegments,
+      knowledgeNodesJson: JSON.stringify(knowledgeNodes),
+      scriptSegmentsJson: JSON.stringify(scriptSegments)
+    }
+  })
 }
 
 const saveScript = async () => {
   if (!currentScript.value.trim()) return alert('请输入讲稿内容！')
+
+  const validationError = validateNodeJSONFields(currentScriptNodes.value)
+  if (validationError) {
+    alert(validationError)
+    return
+  }
+
+  const normalizedNodes = normalizeNodesForSave(currentScriptNodes.value)
+  currentScriptNodes.value = normalizedNodes
+
   scriptSaving.value = true
   try {
-    await teacherV1Api.coursewares.saveScript({
-      courseId: currentCourseId.value,
-      pageNum: currentEditPage.value,
-      content: currentScript.value
-    })
+    const courseId = currentCourseId.value
+    const pageNum = currentEditPage.value
+    const [, nodeSaveResult] = await Promise.all([
+      teacherV1Api.coursewares.saveScript({
+        courseId,
+        pageNum,
+        content: currentScript.value
+      }),
+      teacherV1Api.coursewares.saveNodes({
+        courseId,
+        pageNum,
+        nodes: normalizedNodes
+      })
+    ])
+    const coverage = nodeSaveResult?.data?.mappingCoverage || null
+    currentMappingCoverage.value = coverage
+    await loadStudentStats(courseId)
+    if (coverage && Number(coverage.coverageRate || 0) < 1) {
+      alert(`保存成功，但当前节点映射覆盖率为 ${Math.round(Number(coverage.coverageRate || 0) * 100)}%，存在未覆盖节点：${(coverage.uncoveredNodeIds || []).join('、')}`)
+      return
+    }
     alert('讲稿保存成功！')
   } catch (err) {
-    alert('保存讲稿失败：' + err.message)
+    const detail = String(err?.message || '').trim()
+    if (detail) {
+      alert('保存讲稿失败：' + detail)
+      return
+    }
+    alert('保存讲稿失败：请检查节点映射与依赖关系配置')
   } finally {
     scriptSaving.value = false
+  }
+}
+
+const normalizeNodesForSave = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  return list.map((node = {}, index) => {
+    const knowledgeNodes = parseJSONArrayOrDefault(node.knowledgeNodesJson, node.knowledgeNodes)
+    const scriptSegments = parseJSONArrayOrDefault(node.scriptSegmentsJson, node.scriptSegments)
+    return {
+      ...node,
+      sortOrder: Number(node.sortOrder) || index + 1,
+      knowledgeNodes,
+      scriptSegments,
+      knowledgeNodesJson: JSON.stringify(knowledgeNodes),
+      scriptSegmentsJson: JSON.stringify(scriptSegments)
+    }
+  })
+}
+
+const parseJSONArrayOrDefault = (raw, fallback) => {
+  if (Array.isArray(fallback) && fallback.length > 0) {
+    return fallback
+  }
+  const text = String(raw ?? '').trim()
+  if (!text) return []
+  try {
+    const parsed = JSON.parse(text)
+    if (Array.isArray(parsed)) {
+      return parsed
+    }
+    return [parsed]
+  } catch {
+    return []
+  }
+}
+
+const validateNodeJSONFields = (nodes) => {
+  const list = Array.isArray(nodes) ? nodes : []
+  const validNodeIdSet = new Set(list.map(item => String(item?.nodeId || '').trim()).filter(Boolean))
+  const validSegmentIdSet = buildSegmentIdSetFromScript(currentScript.value)
+
+  for (let i = 0; i < list.length; i += 1) {
+    const node = list[i] || {}
+    const nodeLabel = node.title || node.nodeId || `节点${i + 1}`
+
+    const knowledgeError = validateJSONArray(node.knowledgeNodesJson, '知识节点 JSON')
+    if (knowledgeError) {
+      return `${nodeLabel} 的知识节点 JSON 无效：${knowledgeError}`
+    }
+
+    const knowledgeRefError = validateKnowledgeReferences(node.knowledgeNodesJson, validNodeIdSet, validSegmentIdSet)
+    if (knowledgeRefError) {
+      return `${nodeLabel} 的知识节点 JSON 引用无效：${knowledgeRefError}`
+    }
+
+    const segmentsError = validateJSONArray(node.scriptSegmentsJson, '讲稿段落映射 JSON')
+    if (segmentsError) {
+      return `${nodeLabel} 的讲稿段落映射 JSON 无效：${segmentsError}`
+    }
+
+    const segmentRefError = validateSegmentReferences(node.scriptSegmentsJson, validNodeIdSet, validSegmentIdSet)
+    if (segmentRefError) {
+      return `${nodeLabel} 的讲稿段落映射 JSON 引用无效：${segmentRefError}`
+    }
+  }
+  return ''
+}
+
+const buildSegmentIdSetFromScript = (scriptText) => {
+  const segments = String(scriptText || '')
+    .split(/\n{2,}|(?<=[。！？])\s*/)
+    .map(item => item.trim())
+    .filter(Boolean)
+  const ids = segments.map((_, index) => `seg_${index + 1}`)
+  return new Set(ids)
+}
+
+const validateSegmentReferences = (rawValue, validNodeIdSet, validSegmentIdSet) => {
+  const text = String(rawValue ?? '').trim()
+  if (!text) return ''
+  let list = []
+  try {
+    const parsed = JSON.parse(text)
+    list = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return ''
+  }
+
+  const seenSegmentIds = new Set()
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i] || {}
+    const segmentId = String(item.segment_id || '').trim()
+    if (!segmentId) {
+      return `第 ${i + 1} 项缺少 segment_id`
+    }
+    if (seenSegmentIds.has(segmentId)) {
+      return `segment_id ${segmentId} 在同一节点内重复`
+    }
+    seenSegmentIds.add(segmentId)
+    if (validSegmentIdSet.size > 0 && !validSegmentIdSet.has(segmentId)) {
+      return `segment_id ${segmentId} 不在当前讲稿段落范围内`
+    }
+
+    const nodeIDs = Array.isArray(item.node_ids) ? item.node_ids : []
+    if (nodeIDs.length === 0) {
+      return `segment_id ${segmentId} 缺少 node_ids`
+    }
+    for (let j = 0; j < nodeIDs.length; j += 1) {
+      const nodeId = String(nodeIDs[j] || '').trim()
+      if (!nodeId) {
+        return `segment_id ${segmentId} 包含空 node_id`
+      }
+      if (validNodeIdSet.size > 0 && !validNodeIdSet.has(nodeId)) {
+        return `segment_id ${segmentId} 引用了不存在的 node_id ${nodeId}`
+      }
+    }
+  }
+  return ''
+}
+
+const validateKnowledgeReferences = (rawValue, validNodeIdSet, validSegmentIdSet) => {
+  const text = String(rawValue ?? '').trim()
+  if (!text) return ''
+  let list = []
+  try {
+    const parsed = JSON.parse(text)
+    list = Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return ''
+  }
+
+  for (let i = 0; i < list.length; i += 1) {
+    const item = list[i] || {}
+    const nodeId = String(item.node_id || '').trim()
+    if (!nodeId) {
+      return `第 ${i + 1} 项缺少 node_id`
+    }
+    if (validNodeIdSet.size > 0 && !validNodeIdSet.has(nodeId)) {
+      return `node_id ${nodeId} 不在当前页节点范围内`
+    }
+
+    const prerequisites = Array.isArray(item.prerequisites) ? item.prerequisites : []
+    for (let j = 0; j < prerequisites.length; j += 1) {
+      const prereq = String(prerequisites[j] || '').trim()
+      if (!prereq) {
+        return `node_id ${nodeId} 的 prerequisites 包含空值`
+      }
+      if (validNodeIdSet.size > 0 && !validNodeIdSet.has(prereq)) {
+        return `node_id ${nodeId} 的 prerequisites 引用了不存在节点 ${prereq}`
+      }
+    }
+
+    const coverageSpan = Array.isArray(item.coverage_span) ? item.coverage_span : []
+    for (let j = 0; j < coverageSpan.length; j += 1) {
+      const segId = String(coverageSpan[j] || '').trim()
+      if (!segId) {
+        return `node_id ${nodeId} 的 coverage_span 包含空值`
+      }
+      if (validSegmentIdSet.size > 0 && !validSegmentIdSet.has(segId)) {
+        return `node_id ${nodeId} 的 coverage_span 引用了不存在段落 ${segId}`
+      }
+    }
+  }
+
+  return ''
+}
+
+const validateJSONArray = (value, fieldLabel) => {
+  const raw = String(value ?? '').trim()
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) {
+      return `${fieldLabel} 必须是数组格式（[]）`
+    }
+    return ''
+  } catch {
+    return `${fieldLabel} 不是合法 JSON`
   }
 }
 
@@ -462,6 +728,14 @@ const generateAIScript = async () => {
       pageNum: currentEditPage.value
     })
     currentScript.value = data?.data?.content || 'AI生成失败，请重试'
+    const payload = data?.data || {}
+    if (Array.isArray(payload.nodes) && payload.nodes.length > 0) {
+      currentScriptNodes.value = normalizeNodesFromServer(payload.nodes)
+    }
+    if (payload.mappingCoverage) {
+      currentMappingCoverage.value = payload.mappingCoverage
+    }
+    await loadScript(currentCourseId.value, currentEditPage.value)
   } catch (err) {
     currentScript.value = '生成失败：' + err.message
   } finally {
@@ -523,10 +797,30 @@ const loadStudentStats = async (courseId) => {
     studentStats.value = {
       totalQuestions: payload.totalQuestions || 0,
       hotPages: (payload.pageStats || []).map(item => item.page).slice(0, 3),
-      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无'
+      keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无',
+      nodeStats: Array.isArray(payload.nodeStats) ? payload.nodeStats : [],
+      mappingCoverage: payload.mappingCoverage || null,
+      activeSessions: payload.activeSessions || 0,
+      avgTurnsPerSession: Number(payload.avgTurnsPerSession || 0),
+      nodeHeatmap: Array.isArray(payload.nodeHeatmap) ? payload.nodeHeatmap : [],
+      masteryRadar: payload.masteryRadar || { indicators: [], values: [], avgMastery: 0 },
+      classTrend: Array.isArray(payload.classTrend) ? payload.classTrend : [],
+      learningInsights: payload.learningInsights || { reteachNodes: [], prerequisiteGaps: [], summary: '' }
     }
   } catch (err) {
-    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败' }
+    studentStats.value = {
+      totalQuestions: 0,
+      hotPages: [],
+      keyDifficulties: '加载失败',
+      nodeStats: [],
+      mappingCoverage: null,
+      activeSessions: 0,
+      avgTurnsPerSession: 0,
+      nodeHeatmap: [],
+      masteryRadar: { indicators: [], values: [], avgMastery: 0 },
+      classTrend: [],
+      learningInsights: { reteachNodes: [], prerequisiteGaps: [], summary: '' }
+    }
   }
 }
 
@@ -553,6 +847,8 @@ const loadQuestionRecords = async (courseId) => {
       id: item.id,
       studentId: item.user_id || item.userId || '未知',
       page: item.page_index || item.pageIndex || 1,
+      nodeId: item.node_id || item.nodeId || '',
+      nodeTitle: item.node_title || item.nodeTitle || '',
       content: item.question || '',
       answer: item.answer || '',
       time: item.created_at ? new Date(item.created_at).toLocaleString() : ''
@@ -560,6 +856,20 @@ const loadQuestionRecords = async (courseId) => {
   } catch (err) {
     questionRecords.value = []
   }
+}
+
+const focusQuestionNode = async (record) => {
+  if (!record) return
+  const page = Number(record.page || 1) || 1
+  const targetNodeId = String(record.nodeId || '').trim()
+  activeTab.value = 'script'
+  if (page !== currentEditPage.value) {
+    await selectEditPage(page)
+  }
+  if (targetNodeId) {
+    focusNodeRequest.value = { nodeId: targetNodeId, at: Date.now() }
+  }
+  ElMessage.success(`已定位到第 ${page} 页，可继续按节点编辑讲稿`)
 }
 </script>
 
