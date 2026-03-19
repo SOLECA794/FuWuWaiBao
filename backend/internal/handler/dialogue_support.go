@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
@@ -15,7 +16,7 @@ import (
 func ensureDialogueSession(db *gorm.DB, sessionID, userID, courseID string, page int, nodeID string, currentTimeSec int) string {
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
-		sessionID = fmt.Sprintf("sess_%d", time.Now().UnixNano())
+		sessionID = uuid.NewString()
 	}
 
 	now := time.Now()

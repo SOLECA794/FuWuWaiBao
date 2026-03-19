@@ -74,7 +74,7 @@ func (h *StudentHandler) StartSession(c *gin.Context) {
 		return
 	}
 
-	sessionID := "sess_" + uuid.NewString()
+	sessionID := uuid.NewString()
 	syncDialogueSessionState(h.db, sessionID, req.UserID, req.CourseID, 1, "p1_n1", 0)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"sessionId": sessionID, "courseId": req.CourseID}})
 }
@@ -270,7 +270,7 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 	}
 	sessionID := strings.TrimSpace(req.SessionID)
 	if sessionID == "" {
-		sessionID = "sess_" + uuid.NewString()
+		sessionID = uuid.NewString()
 	}
 	userID := strings.TrimSpace(c.GetString("userId"))
 	nodeID := defaultStringValue(req.NodeID, fmt.Sprintf("p%d_n1", req.Page))

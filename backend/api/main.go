@@ -78,6 +78,10 @@ func main() {
 		&model.KnowledgePoint{},
 		&model.Question{},
 		&model.AnswerRecord{},
+		&model.PracticeTask{},
+		&model.PracticeAttempt{},
+		&model.NodeFavorite{},
+		&model.User{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -217,6 +221,7 @@ func main() {
 				teacherV1.GET("/:courseId/stats", teacherHandler.GetClassStats)
 				teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
 				teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
+				teacherV1.GET("/:courseId/node-insights", compatHandler.GetNodeInsightsV1)
 			}
 
 			aiV1 := v1.Group("/ai")
@@ -243,6 +248,13 @@ func main() {
 				studentV1.GET("/coursewares/:courseId/breakpoint", compatHandler.GetBreakpointV1)
 				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
 				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
+				studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
+				studentV1.POST("/favorites", compatHandler.CreateFavoriteV1)
+				studentV1.GET("/favorites", compatHandler.ListFavoritesV1)
+				studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
+				studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
+				studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+				studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
 				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
 			}
 

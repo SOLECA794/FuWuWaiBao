@@ -239,6 +239,7 @@ type StudentNote struct {
 	BaseModel
 	UserID   string `gorm:"size:36;not null;index" json:"user_id"`
 	CourseID string `gorm:"size:36;not null;index" json:"course_id"`
+	NodeID   string `gorm:"size:100;index" json:"node_id"`
 	PageNum  int    `gorm:"not null" json:"page_num"`
 	Note     string `gorm:"type:text" json:"note"`
 }
@@ -285,4 +286,48 @@ type AnswerRecord struct {
 	UserAnswer   string `gorm:"type:text" json:"user_answer"`
 	IsCorrect    bool   `json:"is_correct"`
 	MasteryDelta int    `json:"mastery_delta"` // 掌握度变化
+}
+
+// PracticeTask 练习任务
+type PracticeTask struct {
+	BaseModel
+	UserID      string `gorm:"size:36;not null;index" json:"user_id"`
+	CourseID    string `gorm:"size:36;not null;index" json:"course_id"`
+	NodeID      string `gorm:"size:100;index" json:"node_id"`
+	PageIndex   int    `gorm:"default:1;index" json:"page_index"`
+	Difficulty  int    `gorm:"default:2" json:"difficulty"`
+	QuestionIDs string `gorm:"type:text" json:"question_ids"` // JSON 数组
+	Status      string `gorm:"size:30;default:'pending'" json:"status"`
+}
+
+// PracticeAttempt 练习作答记录
+type PracticeAttempt struct {
+	BaseModel
+	TaskID       string `gorm:"size:36;not null;index" json:"task_id"`
+	UserID       string `gorm:"size:36;not null;index" json:"user_id"`
+	CourseID     string `gorm:"size:36;not null;index" json:"course_id"`
+	NodeID       string `gorm:"size:100;index" json:"node_id"`
+	TotalCount   int    `gorm:"default:0" json:"total_count"`
+	CorrectCount int    `gorm:"default:0" json:"correct_count"`
+	Score        int    `gorm:"default:0" json:"score"`
+	AnswersJSON  string `gorm:"type:text" json:"answers_json"`
+}
+
+// NodeFavorite 节点/页面收藏
+type NodeFavorite struct {
+	BaseModel
+	UserID    string `gorm:"size:36;not null;index:idx_favorite_scope,priority:1" json:"user_id"`
+	CourseID  string `gorm:"size:36;not null;index:idx_favorite_scope,priority:2" json:"course_id"`
+	NodeID    string `gorm:"size:100;index:idx_favorite_scope,priority:3" json:"node_id"`
+	PageIndex int    `gorm:"default:1;index:idx_favorite_scope,priority:4" json:"page_index"`
+	Title     string `gorm:"size:200" json:"title"`
+}
+
+// User 系统用户表（用于登录认证）
+type User struct {
+	BaseModel
+	Username     string `gorm:"size:100;uniqueIndex;not null" json:"username"`
+	PasswordHash string `gorm:"size:255;not null" json:"-"`
+	// 角色：teacher / student
+	Role string `gorm:"size:20;not null;default:'teacher'" json:"role"`
 }
