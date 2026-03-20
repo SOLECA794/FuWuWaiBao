@@ -43,13 +43,33 @@
     </div>
 
     <div class="course-content">
-      <img v-if="courseImg" :src="courseImg" alt="课件内容" class="course-img" />
-      <div v-else class="no-courseware">当前没有可预览课件，请联系教师先发布课件</div>
-      <div
-        v-if="tracePoint"
-        class="trace-highlight"
-        :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
-      ></div>
+      <!-- 脚本和图片切换 -->
+      <div v-if="scriptContent || courseImg" class="content-switcher">
+        <el-radio-group v-model="viewMode" size="small" @change="handleViewModeChange">
+          <el-radio-button v-if="scriptContent" label="script">讲稿</el-radio-button>
+          <el-radio-button v-if="courseImg" label="image">课件</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- 脚本视图 -->
+      <StudentScriptViewer
+        v-if="viewMode === 'script' && scriptContent"
+        :script-content="scriptContent"
+        :is-loading="isScriptLoading"
+        @error="handleScriptError"
+        @warning="handleScriptWarning"
+      />
+
+      <!-- 课件图片视图 -->
+      <div v-if="viewMode === 'image' || !scriptContent">
+        <img v-if="courseImg" :src="courseImg" alt="课件内容" class="course-img" />
+        <div v-else class="no-courseware">当前没有可预览课件，请联系教师先发布课件</div>
+        <div
+          v-if="tracePoint"
+          class="trace-highlight"
+          :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
+        ></div>
+      </div>
     </div>
 
     <div class="course-control">
@@ -96,7 +116,8 @@
 
 <script setup>
 /* eslint-disable no-undef */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import StudentScriptViewer from './StudentScriptViewer.vue'
 
 const props = defineProps({
   currentCourseName: {
@@ -182,10 +203,44 @@ const props = defineProps({
   isPlay: {
     type: Boolean,
     default: false
+  },
+  scriptContent: {
+    type: String,
+    default: ''
+  },
+  isScriptLoading: {
+    type: Boolean,
+    default: false
   }
 })
 
-defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node', 'toggle-tts', 'speak-current-node'])
+defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node', 'toggle-tts', 'speak-current-node', 'script-error', 'script-warning'])
+
+// 内容切换模式
+const viewMode = ref('script') // 'script' 或 'image'
+
+/**
+ * 处理内容模式切换
+ */
+function handleViewModeChange() {
+  // 模式已通过 v-model 更新
+}
+
+/**
+ * 处理脚本渲染错误
+ */
+function handleScriptError(errors) {
+  console.error('[StudentCoursePanel] 脚本错误:', errors)
+  // 可选：发出错误事件给父组件
+}
+
+/**
+ * 处理脚本渲染警告
+ */
+function handleScriptWarning(warnings) {
+  console.warn('[StudentCoursePanel] 脚本警告:', warnings)
+  // 可选：发出警告事件给父组件
+}
 
 const timelinePercent = computed(() => {
   if (!props.pageTimelineDuration) return 0
@@ -372,10 +427,25 @@ const formatTime = (seconds) => {
   border-radius: 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  position: relative;
+  overflow: auto;
+}
+
+.content-switcher {
+  padding: 12px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.course-content > div:not(.content-switcher) {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  overflow: hidden;
 }
 .course-img {
   max-width: 100%;
