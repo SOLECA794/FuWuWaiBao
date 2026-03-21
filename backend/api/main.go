@@ -66,6 +66,9 @@ func main() {
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
 		&model.StudentNote{},
+		&model.StudentFavorite{},
+		&model.PracticeTask{},
+		&model.PracticeAttempt{},
 		&model.WeakPoint{},
 		&model.KnowledgePoint{},
 		&model.Question{},
@@ -150,6 +153,7 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
+		api.GET("/courseware/:courseId/pages", courseHandler.GetCoursePages)
 
 		legacyTeacher := api.Group("/teacher")
 		{
@@ -195,7 +199,7 @@ func main() {
 		v1 := api.Group("/v1")
 		{
 			v1.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
-
+			v1.GET("/courseware/:courseId/pages", courseHandler.GetCoursePages)
 			teacherV1 := v1.Group("/teacher/coursewares")
 			{
 				teacherV1.GET("", teacherHandler.GetCoursewareList)
@@ -236,6 +240,13 @@ func main() {
 				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
 				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
 				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
+			studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
+			studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
+			studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
+			studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
+			studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
+			studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+			studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
 			}
 
 			openLesson := v1.Group("/lesson")
@@ -270,6 +281,9 @@ func main() {
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	for _, route := range r.Routes() {
+		applogger.Infof("Route: %s %s", route.Method, route.Path)
+	}
 	applogger.Sugar.Infof("服务器启动成功，访问地址: http://localhost%s", addr)
 	applogger.Sugar.Infof("健康检查: http://localhost%s/health", addr)
 

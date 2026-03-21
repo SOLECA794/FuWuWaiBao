@@ -375,6 +375,216 @@ func (h *CompatibilityHandler) SaveNoteV1(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"noteId": note.ID}})
 }
 
+func (h *CompatibilityHandler) GetStudentNotesV1(c *gin.Context) {
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	courseID := strings.TrimSpace(c.Query("courseId"))
+	pageNum, _ := strconv.Atoi(c.DefaultQuery("pageNum", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	if pageNum <= 0 {
+		pageNum = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	query := h.db.Model(&model.StudentNote{}).Where("user_id = ?", studentID)
+	if courseID != "" {
+		query = query.Where("course_id = ?", courseID)
+	}
+	var total int64
+	query.Count(&total)
+	notes := []model.StudentNote{}
+	query.Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&notes)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": notes, "total": total, "page": pageNum, "pageSize": pageSize, "totalPages": (total+int64(pageSize)-1)/int64(pageSize)}})
+}
+
+func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
+	var req struct {
+		StudentID string `json:"studentId" binding:"required"`
+		CourseID  string `json:"courseId"`
+		NodeID    string `json:"nodeId"`
+		PageNum   int    `json:"pageNum"`
+		Title     string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	if req.StudentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	favorite := model.StudentFavorite{UserID: req.StudentID, CourseID: req.CourseID, NodeID: req.NodeID, PageNum: req.PageNum, Title: req.Title}
+	existing := model.StudentFavorite{}
+	err := h.db.Where("user_id = ? AND course_id = ? AND node_id = ?", req.StudentID, req.CourseID, req.NodeID).First(&existing).Error
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"favoriteId": existing.ID, "message": "已收藏"}})
+		return
+	}
+	if err := h.db.Create(&favorite).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "收藏失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"favoriteId": favorite.ID}})
+}
+
+func (h *CompatibilityHandler) GetFavoritesV1(c *gin.Context) {
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	courseID := strings.TrimSpace(c.Query("courseId"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	query := h.db.Model(&model.StudentFavorite{}).Where("user_id = ?", studentID)
+	if courseID != "" {
+		query = query.Where("course_id = ?", courseID)
+	}
+	var total int64
+	query.Count(&total)
+	items := []model.StudentFavorite{}
+	query.Order("created_at desc").Offset((page-1)*pageSize).Limit(pageSize).Find(&items)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total+int64(pageSize)-1)/int64(pageSize)}})
+}
+
+func (h *CompatibilityHandler) DeleteFavoriteV1(c *gin.Context) {
+	favoriteID := c.Param("favoriteId")
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	if favoriteID == "" || studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数"})
+		return
+	}
+	fav := model.StudentFavorite{}
+	if err := h.db.First(&fav, "id = ?", favoriteID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "收藏不存在"})
+		return
+	}
+	if fav.UserID != studentID {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "收藏不存在"})
+		return
+	}
+	if err := h.db.Delete(&fav).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
+}
+
+func (h *CompatibilityHandler) GeneratePracticeV1(c *gin.Context) {
+	var req struct {
+		StudentID  string `json:"studentId" binding:"required"`
+		CourseID   string `json:"courseId" binding:"required"`
+		NodeID     string `json:"nodeId"`
+		PageNum    int    `json:"pageNum"`
+		Difficulty int    `json:"difficulty"`
+		Count      int    `json:"count"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	if req.Count <= 0 {
+		req.Count = 3
+	}
+	if req.Difficulty <= 0 {
+		req.Difficulty = 2
+	}
+	if req.PageNum <= 0 {
+		req.PageNum = 1
+	}
+	questions := make([]gin.H, 0, req.Count)
+	for i := 1; i <= req.Count; i++ {
+		q := gin.H{"questionId": fmt.Sprintf("q-%d-%d", time.Now().UnixNano(), i), "content": fmt.Sprintf("请解释第%d页第%d个知识点的含义。", req.PageNum, i), "options": []string{"A. 示例A", "B. 示例B", "C. 示例C", "D. 示例D"}, "answer": "A", "difficulty": req.Difficulty}
+		questions = append(questions, q)
+	}
+	questionJSON, _ := json.Marshal(questions)
+	task := model.PracticeTask{TaskID: "task_" + uuid.NewString(), UserID: req.StudentID, CourseID: req.CourseID, NodeID: req.NodeID, PageNum: req.PageNum, Difficulty: req.Difficulty, Count: req.Count, Questions: string(questionJSON)}
+	if err := h.db.Create(&task).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成练习失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"taskId": task.TaskID, "questions": questions, "questionCount": len(questions)}})
+}
+
+func (h *CompatibilityHandler) SubmitPracticeV1(c *gin.Context) {
+	var req struct {
+		TaskID    string `json:"taskId" binding:"required"`
+		StudentID string `json:"studentId" binding:"required"`
+		Answers   []struct {
+			QuestionID string `json:"questionId"`
+			UserAnswer string `json:"userAnswer"`
+		} `json:"answers" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	var task model.PracticeTask
+	if err := h.db.Where("task_id = ? AND user_id = ?", req.TaskID, req.StudentID).First(&task).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "练习任务不存在"})
+		return
+	}
+	existing := model.PracticeAttempt{}
+	if err := h.db.Where("task_id = ? AND user_id = ?", req.TaskID, req.StudentID).First(&existing).Error; err == nil {
+		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"attemptId": existing.ID, "score": existing.Score, "correctCount": existing.Correct, "totalCount": existing.Total, "details": existing.Details}})
+		return
+	}
+	details := make([]gin.H, 0, len(req.Answers))
+	correctCount := 0
+	for _, answer := range req.Answers {
+		isCorrect := strings.EqualFold(strings.TrimSpace(answer.UserAnswer), "A")
+		if isCorrect {
+			correctCount++
+		}
+		details = append(details, gin.H{"questionId": answer.QuestionID, "userAnswer": answer.UserAnswer, "correct": isCorrect})
+	}
+	totalCount := len(req.Answers)
+	score := 0
+	if totalCount > 0 {
+		score = int(float64(correctCount) / float64(totalCount) * 100)
+	}
+	detailsJSON, _ := json.Marshal(details)
+	attempt := model.PracticeAttempt{TaskID: req.TaskID, UserID: req.StudentID, Score: score, Correct: correctCount, Total: totalCount, Details: string(detailsJSON)}
+	if err := h.db.Create(&attempt).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "提交失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"attemptId": attempt.ID, "score": score, "correctCount": correctCount, "totalCount": totalCount, "details": details}})
+}
+
+func (h *CompatibilityHandler) ExplainNodeV1(c *gin.Context) {
+	nodeID := c.Param("nodeId")
+	var req struct {
+		CourseID string `json:"courseId" binding:"required"`
+		PageNum  int    `json:"pageNum"`
+		Question string `json:"question"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	question := req.Question
+	if question == "" {
+		question = fmt.Sprintf("请讲解节点 %s 的内容", nodeID)
+	}
+	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: question, CurrentPage: req.PageNum, Context: fmt.Sprintf("节点ID:%s 课程ID:%s", nodeID, req.CourseID), Mode: "llm"})
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"code": 503, "message": "AI讲解暂不可用"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"nodeId": nodeID, "explanation": resp.Answer, "sourcePage": resp.SourcePage, "sourceExcerpt": resp.SourceExcerpt}})
+}
+
 func (h *CompatibilityHandler) GetStudyStatsV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	studentID := c.Query("studentId")

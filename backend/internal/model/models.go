@@ -96,6 +96,40 @@ type StudentNote struct {
 	Note     string `gorm:"type:text" json:"note"`
 }
 
+// StudentFavorite 收藏模型
+type StudentFavorite struct {
+	BaseModel
+	UserID   string `gorm:"size:36;not null;index:idx_user_course_node,unique" json:"user_id"`
+	CourseID string `gorm:"size:36;index:idx_user_course_node,unique" json:"course_id"`
+	NodeID   string `gorm:"size:100;index:idx_user_course_node,unique" json:"node_id"`
+	PageNum  int    `gorm:"default:0" json:"page_num"`
+	Title    string `gorm:"size:300" json:"title"`
+}
+
+// PracticeTask 学生练习任务
+type PracticeTask struct {
+	BaseModel
+	TaskID     string `gorm:"size:100;not null;index:idx_task_user,unique" json:"task_id"`
+	UserID     string `gorm:"size:36;not null;index:idx_task_user,unique" json:"user_id"`
+	CourseID   string `gorm:"size:36;index" json:"course_id"`
+	NodeID     string `gorm:"size:100" json:"node_id"`
+	PageNum    int    `json:"page_num"`
+	Difficulty int    `json:"difficulty"`
+	Count      int    `json:"count"`
+	Questions  string `gorm:"type:text" json:"questions"` // JSON字符串
+}
+
+// PracticeAttempt 练习提交记录
+type PracticeAttempt struct {
+	BaseModel
+	TaskID      string `gorm:"size:100;not null;index:idx_attempt_task_user,unique" json:"task_id"`
+	UserID      string `gorm:"size:36;not null;index:idx_attempt_task_user,unique" json:"user_id"`
+	Score       int    `json:"score"`
+	Correct     int    `json:"correct"`
+	Total       int    `json:"total"`
+	Details     string `gorm:"type:text" json:"details"` // JSON字符串
+}
+
 // WeakPoint 薄弱点模型
 type WeakPoint struct {
 	BaseModel
