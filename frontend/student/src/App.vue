@@ -30,6 +30,8 @@
           :current-node-id="currentNodeId"
           :tts-enabled="ttsEnabled"
           :page-summary="pageSummary"
+          :script-content="currentPageMarkdown"
+          :is-script-loading="scriptLoading"
           :trace-point="tracePoint"
           :trace-top="traceTop"
           :trace-left="traceLeft"
@@ -134,6 +136,8 @@ const sessionId = ref('')
 const currentNodeId = ref('p1_n1')
 const playbackNodes = ref([])
 const pageSummary = ref('')
+const currentPageMarkdown = ref('')
+const scriptLoading = ref(false)
 const playbackMode = ref('duration_timeline')
 const playbackAudioMeta = ref(null)
 const playbackState = ref('paused')
@@ -404,13 +408,16 @@ const updateCourseContent = () => {
 }
 
 const loadStudentScript = async () => {
+  scriptLoading.value = true
   if (!courseId.value) {
     currentNodeId.value = 'p1_n1'
     playbackNodes.value = []
     pageSummary.value = ''
+    currentPageMarkdown.value = ''
     playbackMode.value = 'duration_timeline'
     playbackAudioMeta.value = null
     currentTimelineSec.value = 0
+    scriptLoading.value = false
     return
   }
   try {
@@ -419,16 +426,22 @@ const loadStudentScript = async () => {
     const nodes = data?.data?.nodes || []
     playbackNodes.value = nodes
     pageSummary.value = payload.page_summary || ''
+    currentPageMarkdown.value = String(
+      payload.script || payload.content || payload.markdown || payload.raw_script || ''
+    )
     playbackAudioMeta.value = payload.audio_meta || null
     playbackMode.value = payload.playback_mode || payload.audio_meta?.playback_mode || 'duration_timeline'
     applyPlaybackPosition({ nodeId: currentNodeId.value })
   } catch (error) {
     playbackNodes.value = []
     pageSummary.value = ''
+    currentPageMarkdown.value = ''
     playbackMode.value = 'duration_timeline'
     playbackAudioMeta.value = null
     currentNodeId.value = `p${currentPage.value}_n1`
     currentTimelineSec.value = 0
+  } finally {
+    scriptLoading.value = false
   }
 }
 
