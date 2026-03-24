@@ -104,6 +104,7 @@ type StudentFavorite struct {
 	NodeID   string `gorm:"size:100;index:idx_user_course_node,unique" json:"node_id"`
 	PageNum  int    `gorm:"default:0" json:"page_num"`
 	Title    string `gorm:"size:300" json:"title"`
+	Tags     string `gorm:"type:text" json:"tags"` // JSON array of tag strings
 }
 
 // PracticeTask 学生练习任务
@@ -172,4 +173,27 @@ type AnswerRecord struct {
 	UserAnswer   string `gorm:"type:text" json:"user_answer"`
 	IsCorrect    bool   `json:"is_correct"`
 	MasteryDelta int    `json:"mastery_delta"` // 掌握度变化
+}
+
+// ReviewPlan 复习计划模型
+type ReviewPlan struct {
+	BaseModel
+	StudentID      string     `gorm:"size:36;not null;index" json:"student_id"`
+	Name           string     `gorm:"size:200;not null" json:"name"`
+	Description    string     `gorm:"type:text" json:"description"`
+	Frequency      string     `gorm:"size:50;not null" json:"frequency"` // daily, weekly, monthly
+	NextReviewDate *time.Time `json:"next_review_date"`
+	Status         string     `gorm:"size:20;default:'active'" json:"status"` // active, paused, completed
+}
+
+// ReviewPlanItem 复习计划项模型
+type ReviewPlanItem struct {
+	BaseModel
+	ReviewPlanID   string     `gorm:"size:36;not null;index" json:"review_plan_id"`
+	ItemType       string     `gorm:"size:20;not null" json:"item_type"` // note, favorite
+	ItemID         string     `gorm:"size:36;not null" json:"item_id"`
+	Priority       int        `gorm:"default:1" json:"priority"` // 1-5
+	LastReviewedAt *time.Time `json:"last_reviewed_at"`
+	ReviewCount    int        `gorm:"default:0" json:"review_count"`
+	NextReviewDate *time.Time `json:"next_review_date"`
 }

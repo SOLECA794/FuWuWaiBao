@@ -74,6 +74,10 @@
               @node-click="handleNodeClick"
             />
           </el-tab-pane>
+
+          <el-tab-pane label="个人中心" name="personal">
+            <StudentPersonalCenter :student-id="studentId" />
+          </el-tab-pane>
         </el-tabs>
       </section>
     </main>
@@ -101,6 +105,7 @@ import StudentStudyPanel from './components/student/StudentStudyPanel.vue'
 import StudentTracePanel from './components/student/StudentTracePanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
+import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
 
 const backendStatus = ref('checking')
 const backendStatusLabel = computed(() => {

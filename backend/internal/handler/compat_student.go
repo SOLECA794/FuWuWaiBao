@@ -403,11 +403,12 @@ func (h *CompatibilityHandler) GetStudentNotesV1(c *gin.Context) {
 
 func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
 	var req struct {
-		StudentID string `json:"studentId" binding:"required"`
-		CourseID  string `json:"courseId"`
-		NodeID    string `json:"nodeId"`
-		PageNum   int    `json:"pageNum"`
-		Title     string `json:"title"`
+		StudentID string   `json:"studentId" binding:"required"`
+		CourseID  string   `json:"courseId"`
+		NodeID    string   `json:"nodeId"`
+		PageNum   int      `json:"pageNum"`
+		Title     string   `json:"title"`
+		Tags      []string `json:"tags"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -417,10 +418,16 @@ func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
 		return
 	}
-	favorite := model.StudentFavorite{UserID: req.StudentID, CourseID: req.CourseID, NodeID: req.NodeID, PageNum: req.PageNum, Title: req.Title}
+	tagsJSON, _ := json.Marshal(req.Tags)
+	favorite := model.StudentFavorite{UserID: req.StudentID, CourseID: req.CourseID, NodeID: req.NodeID, PageNum: req.PageNum, Title: req.Title, Tags: string(tagsJSON)}
 	existing := model.StudentFavorite{}
 	err := h.db.Where("user_id = ? AND course_id = ? AND node_id = ?", req.StudentID, req.CourseID, req.NodeID).First(&existing).Error
 	if err == nil {
+		// Update tags if provided
+		if len(req.Tags) > 0 {
+			existing.Tags = string(tagsJSON)
+			h.db.Save(&existing)
+		}
 		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"favoriteId": existing.ID, "message": "已收藏"}})
 		return
 	}
@@ -639,4 +646,189 @@ func countStudentNotes(db *gorm.DB, studentID, courseID string) int64 {
 	var total int64
 	db.Model(&model.StudentNote{}).Where("user_id = ? AND course_id = ?", studentID, courseID).Count(&total)
 	return total
+}
+
+// Review Plan Handlers
+
+func (h *CompatibilityHandler) CreateReviewPlanV1(c *gin.Context) {
+	var req struct {
+		StudentID   string `json:"studentId" binding:"required"`
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+		Frequency   string `json:"frequency" binding:"required"` // daily, weekly, monthly
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	plan := model.ReviewPlan{
+		StudentID:   req.StudentID,
+		Name:        req.Name,
+		Description: req.Description,
+		Frequency:   req.Frequency,
+		Status:      "active",
+	}
+	if err := h.db.Create(&plan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建复习计划失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plan})
+}
+
+func (h *CompatibilityHandler) GetReviewPlansV1(c *gin.Context) {
+	studentID := c.Query("studentId")
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	var plans []model.ReviewPlan
+	if err := h.db.Where("student_id = ?", studentID).Order("created_at desc").Find(&plans).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取复习计划失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plans})
+}
+
+func (h *CompatibilityHandler) UpdateReviewPlanV1(c *gin.Context) {
+	planID := c.Param("planId")
+	var req struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Frequency   string `json:"frequency"`
+		Status      string `json:"status"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	var plan model.ReviewPlan
+	if err := h.db.First(&plan, "id = ?", planID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "复习计划不存在"})
+		return
+	}
+	if req.Name != "" {
+		plan.Name = req.Name
+	}
+	if req.Description != "" {
+		plan.Description = req.Description
+	}
+	if req.Frequency != "" {
+		plan.Frequency = req.Frequency
+	}
+	if req.Status != "" {
+		plan.Status = req.Status
+	}
+	if err := h.db.Save(&plan).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习计划失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plan})
+}
+
+func (h *CompatibilityHandler) DeleteReviewPlanV1(c *gin.Context) {
+	planID := c.Param("planId")
+	if err := h.db.Delete(&model.ReviewPlan{}, "id = ?", planID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习计划失败"})
+		return
+	}
+	// Also delete associated items
+	h.db.Delete(&model.ReviewPlanItem{}, "review_plan_id = ?", planID)
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
+}
+
+func (h *CompatibilityHandler) AddReviewPlanItemV1(c *gin.Context) {
+	var req struct {
+		ReviewPlanID string `json:"reviewPlanId" binding:"required"`
+		ItemType     string `json:"itemType" binding:"required"` // note, favorite
+		ItemID       string `json:"itemId" binding:"required"`
+		Priority     int    `json:"priority"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	item := model.ReviewPlanItem{
+		ReviewPlanID: req.ReviewPlanID,
+		ItemType:     req.ItemType,
+		ItemID:       req.ItemID,
+		Priority:     req.Priority,
+	}
+	if err := h.db.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "添加复习项失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": item})
+}
+
+func (h *CompatibilityHandler) GetReviewPlanItemsV1(c *gin.Context) {
+	planID := c.Param("planId")
+	var items []model.ReviewPlanItem
+	if err := h.db.Where("review_plan_id = ?", planID).Order("priority desc, created_at desc").Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取复习项失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": items})
+}
+
+func (h *CompatibilityHandler) UpdateReviewPlanItemV1(c *gin.Context) {
+	itemID := c.Param("itemId")
+	var req struct {
+		Priority       int  `json:"priority"`
+		LastReviewedAt *time.Time `json:"lastReviewedAt"`
+		ReviewCount    int `json:"reviewCount"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+	var item model.ReviewPlanItem
+	if err := h.db.First(&item, "id = ?", itemID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "复习项不存在"})
+		return
+	}
+	if req.Priority > 0 {
+		item.Priority = req.Priority
+	}
+	if req.LastReviewedAt != nil {
+		item.LastReviewedAt = req.LastReviewedAt
+		item.ReviewCount = req.ReviewCount
+	}
+	if err := h.db.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习项失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": item})
+}
+
+func (h *CompatibilityHandler) DeleteReviewPlanItemV1(c *gin.Context) {
+	itemID := c.Param("itemId")
+	if err := h.db.Delete(&model.ReviewPlanItem{}, "id = ?", itemID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习项失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
+}
+
+// Delete Student Note
+func (h *CompatibilityHandler) DeleteStudentNoteV1(c *gin.Context) {
+	noteID := c.Param("noteId")
+	studentID := c.Query("studentId")
+	if noteID == "" || studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数"})
+		return
+	}
+	note := model.StudentNote{}
+	if err := h.db.First(&note, "id = ?", noteID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "笔记不存在"})
+		return
+	}
+	if note.UserID != studentID {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "笔记不存在"})
+		return
+	}
+	if err := h.db.Delete(&note).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }

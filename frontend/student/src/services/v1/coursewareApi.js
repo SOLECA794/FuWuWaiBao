@@ -30,11 +30,16 @@ export const studentCoursewareApi = {
     return requestJson(`/api/v1/student/notes?${query}`)
   },
 
+  // 新增接口：删除笔记
+  deleteNote: (noteId, studentId) => requestJson(`/api/v1/student/notes/${encodeURIComponent(noteId)}?studentId=${encodeURIComponent(studentId)}`, {
+    method: 'DELETE'
+  }),
+
   // 新增接口：新增收藏
-  addFavorite: ({ studentId, courseId, nodeId, pageNum, title }) => requestJson('/api/v1/student/favorites', {
+  addFavorite: ({ studentId, courseId, nodeId, pageNum, title, tags }) => requestJson('/api/v1/student/favorites', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ studentId, courseId, nodeId, pageNum, title })
+    body: JSON.stringify({ studentId, courseId, nodeId, pageNum, title, tags })
   }),
 
   // 新增接口：分页查收藏
@@ -67,5 +72,42 @@ export const studentCoursewareApi = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ courseId, pageNum, question })
+  }),
+
+  // 复习计划相关接口
+  createReviewPlan: ({ studentId, name, description, frequency }) => requestJson('/api/v1/student/review-plans', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId, name, description, frequency })
+  }),
+
+  listReviewPlans: (studentId) => requestJson(`/api/v1/student/review-plans?studentId=${encodeURIComponent(studentId)}`),
+
+  updateReviewPlan: (planId, updates) => requestJson(`/api/v1/student/review-plans/${encodeURIComponent(planId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  }),
+
+  deleteReviewPlan: (planId) => requestJson(`/api/v1/student/review-plans/${encodeURIComponent(planId)}`, {
+    method: 'DELETE'
+  }),
+
+  addReviewPlanItem: ({ reviewPlanId, itemType, itemId, priority }) => requestJson(`/api/v1/student/review-plans/${encodeURIComponent(reviewPlanId)}/items`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reviewPlanId, itemType, itemId, priority })
+  }),
+
+  listReviewPlanItems: (planId) => requestJson(`/api/v1/student/review-plans/${encodeURIComponent(planId)}/items`),
+
+  updateReviewPlanItem: (itemId, updates) => requestJson(`/api/v1/student/review-plan-items/${encodeURIComponent(itemId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  }),
+
+  deleteReviewPlanItem: (itemId) => requestJson(`/api/v1/student/review-plan-items/${encodeURIComponent(itemId)}`, {
+    method: 'DELETE'
   })
 }
