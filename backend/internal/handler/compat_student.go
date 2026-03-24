@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,57 @@ import (
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/service"
 )
+
+type practiceQuestionPayload struct {
+	QuestionID        string   `json:"questionId"`
+	Content           string   `json:"content"`
+	Options           []string `json:"options,omitempty"`
+	Answer            string   `json:"answer,omitempty"`
+	Explanation       string   `json:"explanation,omitempty"`
+	Type              string   `json:"type"`
+	Difficulty        int      `json:"difficulty"`
+	Score             int      `json:"score"`
+	NodeID            string   `json:"nodeId,omitempty"`
+	PageNum           int      `json:"pageNum,omitempty"`
+	CourseID          string   `json:"courseId,omitempty"`
+	KnowledgePointID  string   `json:"knowledgePointId,omitempty"`
+	KnowledgePointIDs []string `json:"knowledgePointIds,omitempty"`
+	ReferenceAnswer   string   `json:"referenceAnswer,omitempty"`
+	SourceType        string   `json:"sourceType,omitempty"`
+}
+
+type practiceSubmitAnswer struct {
+	QuestionID string `json:"questionId"`
+	UserAnswer string `json:"userAnswer"`
+}
+
+type practiceAnswerDetail struct {
+	QuestionID     string   `json:"questionId"`
+	Content        string   `json:"content,omitempty"`
+	UserAnswer     string   `json:"userAnswer"`
+	CorrectAnswer  string   `json:"correctAnswer,omitempty"`
+	IsCorrect      bool     `json:"correct"`
+	Score          float64  `json:"score"`
+	MaxScore       float64  `json:"maxScore"`
+	Explanation    string   `json:"explanation,omitempty"`
+	AIComment      string   `json:"aiComment,omitempty"`
+	QuestionType   string   `json:"questionType"`
+	KnowledgePoint []string `json:"knowledgePoints,omitempty"`
+}
+
+type aiScorePayload struct {
+	Score             float64  `json:"score"`
+	MaxScore          float64  `json:"maxScore"`
+	IsCorrect         bool     `json:"isCorrect"`
+	Comment           string   `json:"comment"`
+	ReferenceAnswer   string   `json:"referenceAnswer"`
+	KnowledgePoints   []string `json:"knowledgePoints"`
+	MasteryDelta      int      `json:"masteryDelta"`
+	ReviewStatus      string   `json:"reviewStatus"`
+	Explanation       string   `json:"explanation"`
+	NormalizedAnswer  string   `json:"normalizedAnswer"`
+	NormalizedCorrect string   `json:"normalizedCorrect"`
+}
 
 func (h *CompatibilityHandler) GetStudentCoursewareList(c *gin.Context) {
 	var courses []model.Course
@@ -272,7 +324,19 @@ func (h *CompatibilityHandler) GenerateWeakPointTestV1(c *gin.Context) {
 		return
 	}
 	optionsJSON, _ := json.Marshal(testData.Options)
-	questionRecord := model.Question{WeakPointID: weakPointID, QuestionType: defaultString(req.QuestionType, "single"), Content: testData.Content, Options: string(optionsJSON), Answer: testData.Answer, Explanation: testData.Explanation, Difficulty: 2}
+	questionRecord := model.Question{
+		WeakPointID:  weakPointID,
+		CourseID:     "",
+		PageNum:      page,
+		QuestionType: defaultString(req.QuestionType, "single"),
+		SourceType:   "ai",
+		Content:      testData.Content,
+		Options:      string(optionsJSON),
+		Answer:       testData.Answer,
+		Explanation:  testData.Explanation,
+		Difficulty:   2,
+		Score:        100,
+	}
 	if err := h.db.Create(&questionRecord).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存题目失败"})
 		return
@@ -295,18 +359,34 @@ func (h *CompatibilityHandler) CheckAnswerV1(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "题目不存在"})
 		return
 	}
-	correctAnswer := strings.TrimSpace(question.Answer)
-	userAnswer := strings.TrimSpace(req.UserAnswer)
-	isCorrect := strings.EqualFold(userAnswer, correctAnswer)
-	if !isCorrect && len(correctAnswer) == 1 {
-		isCorrect = strings.HasPrefix(strings.ToUpper(userAnswer), strings.ToUpper(correctAnswer))
+	scoreResult := h.scoreQuestion(c, question, req.UserAnswer)
+	answerRecord := model.AnswerRecord{
+		StudentID:       req.StudentID,
+		QuestionID:      questionID,
+		UserAnswer:      req.UserAnswer,
+		IsCorrect:       scoreResult.IsCorrect,
+		Score:           scoreResult.Score,
+		MaxScore:        scoreResult.MaxScore,
+		AIComment:       scoreResult.Comment,
+		ReviewStatus:    scoreResult.ReviewStatus,
+		KnowledgePoints: mustJSON(scoreResult.KnowledgePoints),
+		MasteryDelta:    scoreResult.MasteryDelta,
 	}
-	masteryDelta := -5
-	if isCorrect {
-		masteryDelta = 10
-	}
-	_ = h.db.Create(&model.AnswerRecord{StudentID: req.StudentID, QuestionID: questionID, UserAnswer: req.UserAnswer, IsCorrect: isCorrect, MasteryDelta: masteryDelta}).Error
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"isCorrect": isCorrect, "correctAnswer": correctAnswer, "explanation": question.Explanation, "masteryDelta": masteryDelta}})
+	_ = h.db.Create(&answerRecord).Error
+	c.JSON(http.StatusOK, gin.H{
+		"code": 200,
+		"data": gin.H{
+			"isCorrect":       scoreResult.IsCorrect,
+			"correctAnswer":   blankIfSubjective(question),
+			"explanation":     firstNonEmpty(scoreResult.Explanation, question.Explanation),
+			"masteryDelta":    scoreResult.MasteryDelta,
+			"score":           scoreResult.Score,
+			"maxScore":        scoreResult.MaxScore,
+			"aiComment":       scoreResult.Comment,
+			"reviewStatus":    scoreResult.ReviewStatus,
+			"referenceAnswer": scoreResult.ReferenceAnswer,
+		},
+	})
 }
 
 func (h *CompatibilityHandler) GetBreakpointV1(c *gin.Context) {
@@ -398,7 +478,7 @@ func (h *CompatibilityHandler) GetStudentNotesV1(c *gin.Context) {
 	query.Count(&total)
 	notes := []model.StudentNote{}
 	query.Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&notes)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": notes, "total": total, "page": pageNum, "pageSize": pageSize, "totalPages": (total+int64(pageSize)-1)/int64(pageSize)}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": notes, "total": total, "page": pageNum, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
 }
 
 func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
@@ -423,7 +503,6 @@ func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
 	existing := model.StudentFavorite{}
 	err := h.db.Where("user_id = ? AND course_id = ? AND node_id = ?", req.StudentID, req.CourseID, req.NodeID).First(&existing).Error
 	if err == nil {
-		// Update tags if provided
 		if len(req.Tags) > 0 {
 			existing.Tags = string(tagsJSON)
 			h.db.Save(&existing)
@@ -461,7 +540,7 @@ func (h *CompatibilityHandler) GetFavoritesV1(c *gin.Context) {
 	query.Count(&total)
 	items := []model.StudentFavorite{}
 	query.Order("created_at desc").Offset((page-1)*pageSize).Limit(pageSize).Find(&items)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total+int64(pageSize)-1)/int64(pageSize)}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
 }
 
 func (h *CompatibilityHandler) DeleteFavoriteV1(c *gin.Context) {
@@ -503,34 +582,40 @@ func (h *CompatibilityHandler) GeneratePracticeV1(c *gin.Context) {
 	if req.Count <= 0 {
 		req.Count = 3
 	}
+	if req.Count > 20 {
+		req.Count = 20
+	}
 	if req.Difficulty <= 0 {
 		req.Difficulty = 2
 	}
 	if req.PageNum <= 0 {
 		req.PageNum = 1
 	}
-	questions := make([]gin.H, 0, req.Count)
-	for i := 1; i <= req.Count; i++ {
-		q := gin.H{"questionId": fmt.Sprintf("q-%d-%d", time.Now().UnixNano(), i), "content": fmt.Sprintf("请解释第%d页第%d个知识点的含义。", req.PageNum, i), "options": []string{"A. 示例A", "B. 示例B", "C. 示例C", "D. 示例D"}, "answer": "A", "difficulty": req.Difficulty}
-		questions = append(questions, q)
-	}
+
+	questions := h.buildPracticeQuestions(c, req.StudentID, req.CourseID, req.NodeID, req.PageNum, req.Difficulty, req.Count)
 	questionJSON, _ := json.Marshal(questions)
-	task := model.PracticeTask{TaskID: "task_" + uuid.NewString(), UserID: req.StudentID, CourseID: req.CourseID, NodeID: req.NodeID, PageNum: req.PageNum, Difficulty: req.Difficulty, Count: req.Count, Questions: string(questionJSON)}
+	task := model.PracticeTask{
+		TaskID:      "task_" + uuid.NewString(),
+		UserID:      req.StudentID,
+		CourseID:    req.CourseID,
+		NodeID:      req.NodeID,
+		PageNum:     req.PageNum,
+		Difficulty:  req.Difficulty,
+		Count:       len(questions),
+		Questions:   string(questionJSON),
+	}
 	if err := h.db.Create(&task).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成练习失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"taskId": task.TaskID, "questions": questions, "questionCount": len(questions)}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"taskId": task.TaskID, "questions": sanitizePracticeQuestions(questions), "questionCount": len(questions)}})
 }
 
 func (h *CompatibilityHandler) SubmitPracticeV1(c *gin.Context) {
 	var req struct {
-		TaskID    string `json:"taskId" binding:"required"`
-		StudentID string `json:"studentId" binding:"required"`
-		Answers   []struct {
-			QuestionID string `json:"questionId"`
-			UserAnswer string `json:"userAnswer"`
-		} `json:"answers" binding:"required"`
+		TaskID    string                 `json:"taskId" binding:"required"`
+		StudentID string                 `json:"studentId" binding:"required"`
+		Answers   []practiceSubmitAnswer `json:"answers" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -546,27 +631,256 @@ func (h *CompatibilityHandler) SubmitPracticeV1(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"attemptId": existing.ID, "score": existing.Score, "correctCount": existing.Correct, "totalCount": existing.Total, "details": existing.Details}})
 		return
 	}
-	details := make([]gin.H, 0, len(req.Answers))
+
+	questions := make([]practiceQuestionPayload, 0)
+	if err := json.Unmarshal([]byte(task.Questions), &questions); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "练习数据损坏"})
+		return
+	}
+	questionMap := make(map[string]practiceQuestionPayload, len(questions))
+	for _, q := range questions {
+		questionMap[q.QuestionID] = q
+	}
+
+	details := make([]practiceAnswerDetail, 0, len(req.Answers))
 	correctCount := 0
+	totalScore := 0.0
+	maxScoreTotal := 0.0
+	attemptID := uuid.NewString()
+
 	for _, answer := range req.Answers {
-		isCorrect := strings.EqualFold(strings.TrimSpace(answer.UserAnswer), "A")
-		if isCorrect {
+		q, ok := questionMap[answer.QuestionID]
+		if !ok {
+			continue
+		}
+
+		questionModel, _ := h.ensureQuestionRecord(task, q)
+		scoreResult := h.scoreQuestion(c, questionModel, answer.UserAnswer)
+		maxScoreTotal += scoreResult.MaxScore
+		totalScore += scoreResult.Score
+		if scoreResult.IsCorrect {
 			correctCount++
 		}
-		details = append(details, gin.H{"questionId": answer.QuestionID, "userAnswer": answer.UserAnswer, "correct": isCorrect})
+
+		detail := practiceAnswerDetail{
+			QuestionID:     answer.QuestionID,
+			Content:        q.Content,
+			UserAnswer:     answer.UserAnswer,
+			CorrectAnswer:  blankIfSubjective(questionModel),
+			IsCorrect:      scoreResult.IsCorrect,
+			Score:          scoreResult.Score,
+			MaxScore:       scoreResult.MaxScore,
+			Explanation:    firstNonEmpty(scoreResult.Explanation, questionModel.Explanation),
+			AIComment:      scoreResult.Comment,
+			QuestionType:   questionModel.QuestionType,
+			KnowledgePoint: scoreResult.KnowledgePoints,
+		}
+		details = append(details, detail)
+
+		record := model.AnswerRecord{
+			BaseModel:       model.BaseModel{ID: uuid.NewString()},
+			StudentID:       req.StudentID,
+			QuestionID:      questionModel.ID,
+			TaskID:          req.TaskID,
+			AttemptID:       attemptID,
+			UserAnswer:      answer.UserAnswer,
+			IsCorrect:       scoreResult.IsCorrect,
+			Score:           scoreResult.Score,
+			MaxScore:        scoreResult.MaxScore,
+			AIComment:       scoreResult.Comment,
+			ReviewStatus:    scoreResult.ReviewStatus,
+			KnowledgePoints: mustJSON(scoreResult.KnowledgePoints),
+			MasteryDelta:    scoreResult.MasteryDelta,
+		}
+		_ = h.db.Create(&record).Error
+		h.upsertWeakPoint(req.StudentID, task.CourseID, task.NodeID, q.PageNum, detail, questionModel)
 	}
-	totalCount := len(req.Answers)
+
+	sort.Slice(details, func(i, j int) bool {
+		return details[i].QuestionID < details[j].QuestionID
+	})
+
+	totalCount := len(details)
 	score := 0
-	if totalCount > 0 {
-		score = int(float64(correctCount) / float64(totalCount) * 100)
+	if maxScoreTotal > 0 {
+		score = int(totalScore / maxScoreTotal * 100)
 	}
 	detailsJSON, _ := json.Marshal(details)
-	attempt := model.PracticeAttempt{TaskID: req.TaskID, UserID: req.StudentID, Score: score, Correct: correctCount, Total: totalCount, Details: string(detailsJSON)}
+	attempt := model.PracticeAttempt{
+		TaskID:  req.TaskID,
+		UserID:  req.StudentID,
+		Score:   score,
+		Correct: correctCount,
+		Total:   totalCount,
+		Details: string(detailsJSON),
+	}
 	if err := h.db.Create(&attempt).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "提交失败"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"attemptId": attempt.ID, "score": score, "correctCount": correctCount, "totalCount": totalCount, "details": details}})
+}
+
+func (h *CompatibilityHandler) GetPracticeHistoryV1(c *gin.Context) {
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	courseID := strings.TrimSpace(c.Query("courseId"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	query := h.db.Model(&model.PracticeTask{}).Where("user_id = ?", studentID)
+	if courseID != "" {
+		query = query.Where("course_id = ?", courseID)
+	}
+	var total int64
+	query.Count(&total)
+
+	var tasks []model.PracticeTask
+	if err := query.Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&tasks).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询练习历史失败"})
+		return
+	}
+
+	items := make([]gin.H, 0, len(tasks))
+	for _, task := range tasks {
+		var attempt model.PracticeAttempt
+		_ = h.db.Where("task_id = ? AND user_id = ?", task.TaskID, studentID).First(&attempt).Error
+		items = append(items, gin.H{
+			"taskId":      task.TaskID,
+			"courseId":    task.CourseID,
+			"nodeId":      task.NodeID,
+			"pageNum":     task.PageNum,
+			"difficulty":  task.Difficulty,
+			"questionCnt": task.Count,
+			"createdAt":   task.CreatedAt,
+			"attempt": gin.H{
+				"attemptId":    attempt.ID,
+				"score":        attempt.Score,
+				"correctCount": attempt.Correct,
+				"totalCount":   attempt.Total,
+				"submittedAt":  attempt.CreatedAt,
+			},
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize}})
+}
+
+func (h *CompatibilityHandler) GetWrongQuestionsV1(c *gin.Context) {
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	courseID := strings.TrimSpace(c.Query("courseId"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("pageSize", "20"))
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 studentId"})
+		return
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	query := h.db.Model(&model.AnswerRecord{}).Where("student_id = ? AND is_correct = ?", studentID, false)
+	var total int64
+	query.Count(&total)
+
+	var records []model.AnswerRecord
+	if err := query.Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&records).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "查询错题失败"})
+		return
+	}
+
+	items := make([]gin.H, 0, len(records))
+	for _, record := range records {
+		var question model.Question
+		if err := h.db.First(&question, "id = ?", record.QuestionID).Error; err != nil {
+			continue
+		}
+		if courseID != "" && question.CourseID != courseID {
+			continue
+		}
+		options := parseStringArray(question.Options)
+		items = append(items, gin.H{
+			"recordId":         record.ID,
+			"questionId":       question.ID,
+			"taskId":           record.TaskID,
+			"courseId":         question.CourseID,
+			"nodeId":           question.NodeID,
+			"pageNum":          question.PageNum,
+			"questionType":     question.QuestionType,
+			"content":          question.Content,
+			"options":          options,
+			"userAnswer":       record.UserAnswer,
+			"correctAnswer":    blankIfSubjective(question),
+			"explanation":      question.Explanation,
+			"score":            record.Score,
+			"maxScore":         record.MaxScore,
+			"aiComment":        record.AIComment,
+			"reviewStatus":     record.ReviewStatus,
+			"knowledgePoints":  parseStringArray(record.KnowledgePoints),
+			"createdAt":        record.CreatedAt,
+			"referenceAnswer":  question.AIReferenceAnswer,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize}})
+}
+
+func (h *CompatibilityHandler) RetryWrongQuestionV1(c *gin.Context) {
+	questionID := c.Param("questionId")
+	var req struct {
+		StudentID string `json:"studentId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		return
+	}
+
+	var question model.Question
+	if err := h.db.First(&question, "id = ?", questionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "题目不存在"})
+		return
+	}
+
+	payload := practiceQuestionPayload{
+		QuestionID:       question.ID,
+		Content:          question.Content,
+		Options:          parseStringArray(question.Options),
+		Type:             question.QuestionType,
+		Difficulty:       question.Difficulty,
+		Score:            question.Score,
+		NodeID:           question.NodeID,
+		PageNum:          question.PageNum,
+		CourseID:         question.CourseID,
+		KnowledgePointID: question.KnowledgePointID,
+		ReferenceAnswer:  question.AIReferenceAnswer,
+		SourceType:       "retry",
+	}
+	taskQuestions := []practiceQuestionPayload{payload}
+	taskQuestionsJSON, _ := json.Marshal(taskQuestions)
+	task := model.PracticeTask{
+		TaskID:      "task_" + uuid.NewString(),
+		UserID:      req.StudentID,
+		CourseID:    question.CourseID,
+		NodeID:      question.NodeID,
+		PageNum:     question.PageNum,
+		Difficulty:  question.Difficulty,
+		Count:       1,
+		Questions:   string(taskQuestionsJSON),
+	}
+	if err := h.db.Create(&task).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成重做任务失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"taskId": task.TaskID, "questions": sanitizePracticeQuestions(taskQuestions)}})
 }
 
 func (h *CompatibilityHandler) ExplainNodeV1(c *gin.Context) {
@@ -655,7 +969,7 @@ func (h *CompatibilityHandler) CreateReviewPlanV1(c *gin.Context) {
 		StudentID   string `json:"studentId" binding:"required"`
 		Name        string `json:"name" binding:"required"`
 		Description string `json:"description"`
-		Frequency   string `json:"frequency" binding:"required"` // daily, weekly, monthly
+		Frequency   string `json:"frequency" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -731,7 +1045,6 @@ func (h *CompatibilityHandler) DeleteReviewPlanV1(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习计划失败"})
 		return
 	}
-	// Also delete associated items
 	h.db.Delete(&model.ReviewPlanItem{}, "review_plan_id = ?", planID)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }
@@ -739,7 +1052,7 @@ func (h *CompatibilityHandler) DeleteReviewPlanV1(c *gin.Context) {
 func (h *CompatibilityHandler) AddReviewPlanItemV1(c *gin.Context) {
 	var req struct {
 		ReviewPlanID string `json:"reviewPlanId" binding:"required"`
-		ItemType     string `json:"itemType" binding:"required"` // note, favorite
+		ItemType     string `json:"itemType" binding:"required"`
 		ItemID       string `json:"itemId" binding:"required"`
 		Priority     int    `json:"priority"`
 	}
@@ -773,9 +1086,9 @@ func (h *CompatibilityHandler) GetReviewPlanItemsV1(c *gin.Context) {
 func (h *CompatibilityHandler) UpdateReviewPlanItemV1(c *gin.Context) {
 	itemID := c.Param("itemId")
 	var req struct {
-		Priority       int  `json:"priority"`
+		Priority       int        `json:"priority"`
 		LastReviewedAt *time.Time `json:"lastReviewedAt"`
-		ReviewCount    int `json:"reviewCount"`
+		ReviewCount    int        `json:"reviewCount"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
@@ -832,3 +1145,555 @@ func (h *CompatibilityHandler) DeleteStudentNoteV1(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }
+
+func (h *CompatibilityHandler) buildPracticeQuestions(c *gin.Context, studentID, courseID, nodeID string, pageNum, difficulty, count int) []practiceQuestionPayload {
+	existing := h.queryQuestionBank(courseID, nodeID, pageNum, difficulty, count)
+	if len(existing) > 0 {
+		return existing
+	}
+
+	questions := h.generatePracticeByAI(c, courseID, nodeID, pageNum, difficulty, count)
+	if len(questions) > 0 {
+		return questions
+	}
+
+	return h.generateFallbackPractice(courseID, nodeID, pageNum, difficulty, count)
+}
+
+func (h *CompatibilityHandler) queryQuestionBank(courseID, nodeID string, pageNum, difficulty, count int) []practiceQuestionPayload {
+	query := h.db.Model(&model.Question{}).Where("course_id = ?", courseID)
+	if nodeID != "" {
+		query = query.Where("node_id = ?", nodeID)
+	}
+	if pageNum > 0 {
+		query = query.Where("page_num = ?", pageNum)
+	}
+	if difficulty > 0 {
+		query = query.Where("difficulty <= ?", difficulty+1)
+	}
+	var questions []model.Question
+	if err := query.Order("updated_at desc").Limit(count).Find(&questions).Error; err != nil || len(questions) == 0 {
+		return nil
+	}
+	result := make([]practiceQuestionPayload, 0, len(questions))
+	for _, q := range questions {
+		result = append(result, practiceQuestionPayload{
+			QuestionID:       q.ID,
+			Content:          q.Content,
+			Options:          parseStringArray(q.Options),
+			Answer:           q.Answer,
+			Explanation:      q.Explanation,
+			Type:             normalizeQuestionType(q.QuestionType),
+			Difficulty:       defaultInt(q.Difficulty, difficulty),
+			Score:            defaultInt(q.Score, 100),
+			NodeID:           q.NodeID,
+			PageNum:          q.PageNum,
+			CourseID:         q.CourseID,
+			KnowledgePointID: q.KnowledgePointID,
+			ReferenceAnswer:  q.AIReferenceAnswer,
+			SourceType:       firstNonEmpty(q.SourceType, "bank"),
+		})
+	}
+	return result
+}
+
+func (h *CompatibilityHandler) generatePracticeByAI(c *gin.Context, courseID, nodeID string, pageNum, difficulty, count int) []practiceQuestionPayload {
+	if h.aiClient == nil {
+		return nil
+	}
+	contextText := h.buildPracticeContext(courseID, nodeID, pageNum)
+	prompt := fmt.Sprintf("请围绕课程课件内容生成 %d 道练习题，返回严格JSON数组。每个元素结构：{\"content\":\"题干\",\"type\":\"single|multiple|judge|subjective\",\"options\":[\"A.xxx\"],\"answer\":\"标准答案\",\"explanation\":\"解析\",\"score\":100,\"referenceAnswer\":\"主观题参考答案\"}。如果是主观题，options 为空数组。难度为 %d。", count, difficulty)
+	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    prompt,
+		CurrentPage: pageNum,
+		Context:     contextText,
+		Mode:        "llm",
+	})
+	if err != nil {
+		return nil
+	}
+	parsed := parsePracticeQuestionsFromAI(resp.Answer)
+	if len(parsed) == 0 {
+		return nil
+	}
+	result := make([]practiceQuestionPayload, 0, len(parsed))
+	for _, item := range parsed {
+		record := model.Question{
+			CourseID:          courseID,
+			NodeID:            nodeID,
+			PageNum:           pageNum,
+			QuestionType:      normalizeQuestionType(item.Type),
+			SourceType:        "ai",
+			Content:           item.Content,
+			Options:           mustJSON(item.Options),
+			Answer:            item.Answer,
+			Explanation:       item.Explanation,
+			Difficulty:        difficulty,
+			Score:             defaultInt(item.Score, 100),
+			AIReferenceAnswer: firstNonEmpty(item.ReferenceAnswer, item.Answer),
+		}
+		if err := h.db.Create(&record).Error; err != nil {
+			continue
+		}
+		result = append(result, practiceQuestionPayload{
+			QuestionID:      record.ID,
+			Content:         record.Content,
+			Options:         item.Options,
+			Answer:          record.Answer,
+			Explanation:     record.Explanation,
+			Type:            record.QuestionType,
+			Difficulty:      record.Difficulty,
+			Score:           defaultInt(record.Score, 100),
+			NodeID:          record.NodeID,
+			PageNum:         record.PageNum,
+			CourseID:        record.CourseID,
+			ReferenceAnswer: record.AIReferenceAnswer,
+			SourceType:      record.SourceType,
+		})
+	}
+	return result
+}
+
+func (h *CompatibilityHandler) generateFallbackPractice(courseID, nodeID string, pageNum, difficulty, count int) []practiceQuestionPayload {
+	result := make([]practiceQuestionPayload, 0, count)
+	for i := 1; i <= count; i++ {
+		qType := "single"
+		options := []string{"A. 核心概念", "B. 无关概念", "C. 错误用法", "D. 干扰项"}
+		answer := "A"
+		referenceAnswer := ""
+		if i == count {
+			qType = "subjective"
+			options = nil
+			answer = "请结合课件内容说明关键概念、使用方式与适用场景。"
+			referenceAnswer = answer
+		}
+		record := model.Question{
+			CourseID:          courseID,
+			NodeID:            nodeID,
+			PageNum:           pageNum,
+			QuestionType:      qType,
+			SourceType:        "practice",
+			Content:           buildFallbackQuestionContent(pageNum, i, qType),
+			Options:           mustJSON(options),
+			Answer:            answer,
+			Explanation:       "建议回看对应课件页内容后再作答。",
+			Difficulty:        difficulty,
+			Score:             100,
+			AIReferenceAnswer: referenceAnswer,
+		}
+		_ = h.db.Create(&record).Error
+		result = append(result, practiceQuestionPayload{
+			QuestionID:      firstNonEmpty(record.ID, fmt.Sprintf("temp-%d-%d", time.Now().UnixNano(), i)),
+			Content:         record.Content,
+			Options:         options,
+			Answer:          answer,
+			Explanation:     record.Explanation,
+			Type:            qType,
+			Difficulty:      difficulty,
+			Score:           100,
+			NodeID:          nodeID,
+			PageNum:         pageNum,
+			CourseID:        courseID,
+			ReferenceAnswer: referenceAnswer,
+			SourceType:      "practice",
+		})
+	}
+	return result
+}
+
+func (h *CompatibilityHandler) ensureQuestionRecord(task model.PracticeTask, payload practiceQuestionPayload) (model.Question, error) {
+	var question model.Question
+	if payload.QuestionID != "" {
+		if err := h.db.First(&question, "id = ?", payload.QuestionID).Error; err == nil {
+			return question, nil
+		}
+	}
+	question = model.Question{
+		BaseModel:         model.BaseModel{ID: uuid.NewString()},
+		CourseID:          task.CourseID,
+		NodeID:            firstNonEmpty(payload.NodeID, task.NodeID),
+		PageNum:           defaultInt(payload.PageNum, task.PageNum),
+		QuestionType:      normalizeQuestionType(payload.Type),
+		SourceType:        firstNonEmpty(payload.SourceType, "practice"),
+		Content:           payload.Content,
+		Options:           mustJSON(payload.Options),
+		Answer:            payload.Answer,
+		Explanation:       payload.Explanation,
+		Difficulty:        defaultInt(payload.Difficulty, task.Difficulty),
+		Score:             defaultInt(payload.Score, 100),
+		KnowledgePointID:  payload.KnowledgePointID,
+		AIReferenceAnswer: payload.ReferenceAnswer,
+	}
+	err := h.db.Create(&question).Error
+	return question, err
+}
+
+func (h *CompatibilityHandler) buildPracticeContext(courseID, nodeID string, pageNum int) string {
+	parts := make([]string, 0, 3)
+	var page model.CoursePage
+	if pageNum > 0 {
+		if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&page).Error; err == nil {
+			parts = append(parts, page.ScriptText)
+		}
+	}
+	if nodeID != "" {
+		var node model.MindMapNode
+		if err := h.db.Where("course_id = ? AND id = ?", courseID, nodeID).First(&node).Error; err == nil {
+			parts = append(parts, node.Title+"："+node.Content)
+		}
+	}
+	var points []model.KnowledgePoint
+	query := h.db.Where("course_id = ?", courseID)
+	if err := query.Order("level asc, created_at asc").Limit(10).Find(&points).Error; err == nil {
+		for _, point := range points {
+			parts = append(parts, point.Name+"："+point.Content)
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+func (h *CompatibilityHandler) scoreQuestion(c *gin.Context, question model.Question, userAnswer string) aiScorePayload {
+	question.QuestionType = normalizeQuestionType(question.QuestionType)
+	if isObjectiveQuestion(question.QuestionType) {
+		return scoreObjectiveQuestion(question, userAnswer)
+	}
+	return h.scoreSubjectiveQuestion(c, question, userAnswer)
+}
+
+func scoreObjectiveQuestion(question model.Question, userAnswer string) aiScorePayload {
+	correct := normalizeAnswer(question.Answer)
+	user := normalizeAnswer(userAnswer)
+	isCorrect := false
+	switch question.QuestionType {
+	case "multiple":
+		isCorrect = normalizeMultiAnswer(user) == normalizeMultiAnswer(correct)
+	case "judge":
+		isCorrect = normalizeJudgeAnswer(user) == normalizeJudgeAnswer(correct)
+	default:
+		isCorrect = user == correct || strings.HasPrefix(user, correct)
+	}
+	score := 0.0
+	if isCorrect {
+		score = float64(defaultInt(question.Score, 100))
+	}
+	masteryDelta := -5
+	comment := "答案不正确，建议回顾对应知识点。"
+	if isCorrect {
+		masteryDelta = 10
+		comment = "回答正确，掌握较好。"
+	}
+	return aiScorePayload{
+		Score:             score,
+		MaxScore:          float64(defaultInt(question.Score, 100)),
+		IsCorrect:         isCorrect,
+		Comment:           comment,
+		ReferenceAnswer:   question.Answer,
+		KnowledgePoints:   compactStrings([]string{question.KnowledgePointID, question.NodeID}),
+		MasteryDelta:      masteryDelta,
+		ReviewStatus:      "auto",
+		Explanation:       question.Explanation,
+		NormalizedAnswer:  user,
+		NormalizedCorrect: correct,
+	}
+}
+
+func (h *CompatibilityHandler) scoreSubjectiveQuestion(c *gin.Context, question model.Question, userAnswer string) aiScorePayload {
+	maxScore := float64(defaultInt(question.Score, 100))
+	reference := firstNonEmpty(question.AIReferenceAnswer, question.Answer)
+	base := fallbackSubjectiveScore(question, userAnswer)
+	base.MaxScore = maxScore
+	base.ReferenceAnswer = reference
+	base.KnowledgePoints = compactStrings([]string{question.KnowledgePointID, question.NodeID})
+
+	if h.aiClient == nil {
+		return base
+	}
+
+	prompt := fmt.Sprintf("你是判题助手。请对以下主观题进行评分并只返回严格JSON对象：{\"score\":0-100,\"comment\":\"评语\",\"isCorrect\":true/false,\"masteryDelta\":-20到20,\"referenceAnswer\":\"参考答案\"}。题目：%s\n参考答案：%s\n学生答案：%s", question.Content, reference, userAnswer)
+	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+		Question:    prompt,
+		CurrentPage: max(question.PageNum, 1),
+		Context:     firstNonEmpty(question.Explanation, question.Content),
+		Mode:        "llm",
+	})
+	if err != nil {
+		return base
+	}
+
+	type judgeResult struct {
+		Score           float64 `json:"score"`
+		Comment         string  `json:"comment"`
+		IsCorrect       bool    `json:"isCorrect"`
+		MasteryDelta    int     `json:"masteryDelta"`
+		ReferenceAnswer string  `json:"referenceAnswer"`
+	}
+	payload := judgeResult{}
+	if err := json.Unmarshal([]byte(cleanAIJSON(resp.Answer)), &payload); err != nil {
+		return base
+	}
+	if payload.Score < 0 || payload.Score > maxScore {
+		payload.Score = base.Score
+	}
+	if strings.TrimSpace(payload.Comment) == "" {
+		payload.Comment = base.Comment
+	}
+	if strings.TrimSpace(payload.ReferenceAnswer) == "" {
+		payload.ReferenceAnswer = reference
+	}
+	return aiScorePayload{
+		Score:           payload.Score,
+		MaxScore:        maxScore,
+		IsCorrect:       payload.IsCorrect || payload.Score >= maxScore*0.6,
+		Comment:         payload.Comment,
+		ReferenceAnswer: payload.ReferenceAnswer,
+		KnowledgePoints: base.KnowledgePoints,
+		MasteryDelta:    clampInt(payload.MasteryDelta, -20, 20),
+		ReviewStatus:    "auto",
+		Explanation:     firstNonEmpty(question.Explanation, "主观题已完成智能评分。"),
+	}
+}
+
+func fallbackSubjectiveScore(question model.Question, userAnswer string) aiScorePayload {
+	maxScore := float64(defaultInt(question.Score, 100))
+	ref := normalizeFreeText(firstNonEmpty(question.AIReferenceAnswer, question.Answer))
+	ans := normalizeFreeText(userAnswer)
+	refWords := strings.Fields(ref)
+	matchCount := 0
+	for _, word := range refWords {
+		if word != "" && strings.Contains(ans, word) {
+			matchCount++
+		}
+	}
+	score := 0.0
+	if len(refWords) > 0 {
+		score = float64(matchCount) / float64(len(refWords)) * maxScore
+	}
+	if score > maxScore {
+		score = maxScore
+	}
+	isCorrect := score >= maxScore*0.6
+	masteryDelta := -4
+	comment := "答案覆盖不完整，建议结合参考答案补充关键点。"
+	if isCorrect {
+		masteryDelta = 8
+		comment = "答案基本覆盖关键点。"
+	}
+	return aiScorePayload{
+		Score:        score,
+		MaxScore:     maxScore,
+		IsCorrect:    isCorrect,
+		Comment:      comment,
+		MasteryDelta: masteryDelta,
+		ReviewStatus: "auto",
+		Explanation:  firstNonEmpty(question.Explanation, "主观题已按关键点覆盖度进行评分。"),
+	}
+}
+
+func (h *CompatibilityHandler) upsertWeakPoint(studentID, courseID, nodeID string, pageNum int, detail practiceAnswerDetail, question model.Question) {
+	if detail.IsCorrect {
+		return
+	}
+	name := firstNonEmpty(question.KnowledgePointID, nodeID)
+	if name == "" {
+		name = fmt.Sprintf("第%d页练习题", pageNum)
+	}
+	description := fmt.Sprintf("题目：%s；最近一次作答：%s", detail.Content, detail.UserAnswer)
+	var weak model.WeakPoint
+	err := h.db.Where("student_id = ? AND course_id = ? AND name = ?", studentID, courseID, name).First(&weak).Error
+	if err == nil {
+		newCount := weak.Count + 1
+		newMastery := weak.MasteryLevel - 5
+		if newMastery < 0 {
+			newMastery = 0
+		}
+		_ = h.db.Model(&weak).Updates(map[string]any{
+			"count":         newCount,
+			"mastery_level": newMastery,
+			"description":   description,
+		}).Error
+		return
+	}
+	weak = model.WeakPoint{
+		StudentID:    studentID,
+		CourseID:     courseID,
+		Name:         name,
+		Description:  description,
+		Count:        1,
+		MasteryLevel: 55,
+	}
+	_ = h.db.Create(&weak).Error
+}
+
+func sanitizePracticeQuestions(questions []practiceQuestionPayload) []gin.H {
+	items := make([]gin.H, 0, len(questions))
+	for _, q := range questions {
+		items = append(items, gin.H{
+			"questionId":       q.QuestionID,
+			"content":          q.Content,
+			"options":          q.Options,
+			"type":             q.Type,
+			"difficulty":       q.Difficulty,
+			"score":            q.Score,
+			"nodeId":           q.NodeID,
+			"pageNum":          q.PageNum,
+			"courseId":         q.CourseID,
+			"knowledgePointId": q.KnowledgePointID,
+			"referenceAnswer":  blankReferenceForObjective(q.Type, q.ReferenceAnswer),
+			"sourceType":       q.SourceType,
+		})
+	}
+	return items
+}
+
+func parseStringArray(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var arr []string
+	if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+		return arr
+	}
+	return nil
+}
+
+func parsePracticeQuestionsFromAI(raw string) []practiceQuestionPayload {
+	cleaned := cleanAIJSON(raw)
+	var items []practiceQuestionPayload
+	if err := json.Unmarshal([]byte(cleaned), &items); err == nil && len(items) > 0 {
+		return items
+	}
+	var wrapper struct {
+		Questions []practiceQuestionPayload `json:"questions"`
+	}
+	if err := json.Unmarshal([]byte(cleaned), &wrapper); err == nil && len(wrapper.Questions) > 0 {
+		return wrapper.Questions
+	}
+	return nil
+}
+
+func cleanAIJSON(raw string) string {
+	cleaned := strings.TrimSpace(raw)
+	if strings.HasPrefix(cleaned, "```json") {
+		cleaned = strings.TrimPrefix(cleaned, "```json")
+	}
+	if strings.HasPrefix(cleaned, "```") {
+		cleaned = strings.TrimPrefix(cleaned, "```")
+	}
+	if strings.HasSuffix(cleaned, "```") {
+		cleaned = strings.TrimSuffix(cleaned, "```")
+	}
+	return strings.TrimSpace(cleaned)
+}
+
+func normalizeQuestionType(t string) string {
+	switch strings.ToLower(strings.TrimSpace(t)) {
+	case "multiple", "multi":
+		return "multiple"
+	case "judge", "boolean", "tf":
+		return "judge"
+	case "fill", "blank":
+		return "fill"
+	case "subjective", "essay", "open":
+		return "subjective"
+	default:
+		return "single"
+	}
+}
+
+func isObjectiveQuestion(t string) bool {
+	switch normalizeQuestionType(t) {
+	case "single", "multiple", "judge", "fill":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeAnswer(v string) string {
+	return strings.ToUpper(strings.TrimSpace(strings.ReplaceAll(v, " ", "")))
+}
+
+func normalizeMultiAnswer(v string) string {
+	parts := strings.Split(normalizeAnswer(v), "")
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			filtered = append(filtered, part)
+		}
+	}
+	sort.Strings(filtered)
+	return strings.Join(filtered, "")
+}
+
+func normalizeJudgeAnswer(v string) string {
+	s := strings.ToLower(strings.TrimSpace(v))
+	switch s {
+	case "true", "t", "对", "正确", "yes", "y", "1":
+		return "true"
+	case "false", "f", "错", "错误", "no", "n", "0":
+		return "false"
+	default:
+		return s
+	}
+}
+
+func normalizeFreeText(v string) string {
+	replacer := strings.NewReplacer("，", " ", "。", " ", "；", " ", ";", " ", ",", " ", "\n", " ", "\t", " ")
+	return strings.ToLower(strings.TrimSpace(replacer.Replace(v)))
+}
+
+func buildFallbackQuestionContent(pageNum, index int, qType string) string {
+	if qType == "subjective" {
+		return fmt.Sprintf("请概述第%d页第%d个核心知识点，并说明其典型应用场景。", pageNum, index)
+	}
+	return fmt.Sprintf("关于第%d页第%d个知识点，下列哪项表述最准确？", pageNum, index)
+}
+
+func blankIfSubjective(question model.Question) string {
+	if isObjectiveQuestion(question.QuestionType) {
+		return question.Answer
+	}
+	return ""
+}
+
+func blankReferenceForObjective(questionType, reference string) string {
+	if isObjectiveQuestion(questionType) {
+		return ""
+	}
+	return reference
+}
+
+func defaultInt(v, fallback int) int {
+	if v > 0 {
+		return v
+	}
+	return fallback
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func mustJSON(v any) string {
+	data, _ := json.Marshal(v)
+	return string(data)
+}
+
+func compactStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
