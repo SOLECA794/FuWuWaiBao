@@ -73,6 +73,8 @@ func main() {
 		&model.KnowledgePoint{},
 		&model.Question{},
 		&model.AnswerRecord{},
+		&model.ReviewPlan{},
+		&model.ReviewPlanItem{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -246,6 +248,15 @@ func main() {
 			studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
 			studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
 			studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+			studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
+			studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
+			studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
+			studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
+			studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
+			studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
+			studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
+			studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
+			studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
 			studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
 			}
 
