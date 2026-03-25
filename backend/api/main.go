@@ -86,18 +86,10 @@ func main() {
 
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
 
-	redisClient, err := repository.InitRedis(&cfg.Redis)
-	if err != nil {
+	if _, err := repository.InitRedis(&cfg.Redis); err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
 	applogger.Info("Redis连接成功")
-
-	// 启动任务调度器
-	err = taskSchedulerService.Start()
-	if err != nil {
-		applogger.Sugar.Fatalf("启动任务调度器失败: %v", err)
-	}
-	applogger.Info("任务调度器启动成功")
 
 	minioClient, err := oss.NewMinioClient(&cfg.OSS)
 	if err != nil {
@@ -109,9 +101,13 @@ func main() {
 	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
 
 	// 初始化新的服务
-	knowledgeMapService := service.NewKnowledgeMapService(db, redisClient)
-	notificationService := service.NewNotificationService(db, redisClient)
-	taskSchedulerService := service.NewTaskSchedulerService(db, redisClient)
+	knowledgeMapService := service.NewKnowledgeMapService(db)
+	notificationService := service.NewNotificationService(db)
+	taskSchedulerService := service.NewTaskSchedulerService(db)
+	if err := taskSchedulerService.Start(); err != nil {
+		applogger.Sugar.Fatalf("启动任务调度器失败: %v", err)
+	}
+	applogger.Info("任务调度器启动成功")
 
 	courseHandler := handler.NewCourseHandler(courseService, db)
 	teacherHandler := handler.NewTeacherHandler(db, aiClient)
@@ -262,60 +258,60 @@ func main() {
 				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
 				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
 				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
-			studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
-			studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
-			studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
-			studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
-			studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
-			studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
-			studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
-			studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
-			studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
-			studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
-			studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
-			studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
-			studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
-			studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
-			studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
-			studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
+				studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
+				studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
+				studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
+				studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
+				studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
+				studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+				studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
+				studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
+				studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
+				studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
+				studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
+				studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
+				studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
+				studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
+				studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
+				studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
 
-			// 知识图谱相关路由
-			knowledgeMap := studentV1.Group("/knowledge-map")
-			{
-				knowledgeMap.GET("", knowledgeMapHandler.GetKnowledgeMap)
-				knowledgeMap.GET("/point", knowledgeMapHandler.GetKnowledgePointMastery)
-				knowledgeMap.POST("/update", knowledgeMapHandler.UpdateMasteryScore)
-				knowledgeMap.GET("/weak-points", knowledgeMapHandler.GetWeakKnowledgePoints)
-				knowledgeMap.GET("/strong-points", knowledgeMapHandler.GetStrongKnowledgePoints)
-				knowledgeMap.GET("/progress", knowledgeMapHandler.AnalyzeLearningProgress)
-				knowledgeMap.GET("/recommendations", knowledgeMapHandler.RecommendNextStudy)
-			}
+				// 知识图谱相关路由
+				knowledgeMap := studentV1.Group("/knowledge-map")
+				{
+					knowledgeMap.GET("", knowledgeMapHandler.GetKnowledgeMap)
+					knowledgeMap.GET("/point", knowledgeMapHandler.GetKnowledgePointMastery)
+					knowledgeMap.POST("/update", knowledgeMapHandler.UpdateMasteryScore)
+					knowledgeMap.GET("/weak-points", knowledgeMapHandler.GetWeakKnowledgePoints)
+					knowledgeMap.GET("/strong-points", knowledgeMapHandler.GetStrongKnowledgePoints)
+					knowledgeMap.GET("/progress", knowledgeMapHandler.AnalyzeLearningProgress)
+					knowledgeMap.GET("/recommendations", knowledgeMapHandler.RecommendNextStudy)
+				}
 
-			// 通知相关路由
-			notifications := v1.Group("/notifications")
-			{
-				notifications.POST("", notificationHandler.CreateNotification)
-				notifications.GET("", notificationHandler.GetNotifications)
-				notifications.GET("/:id", notificationHandler.GetNotification)
-				notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
-				notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
-				notifications.DELETE("/:id", notificationHandler.DeleteNotification)
-				notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
-				notifications.POST("/send-immediate", notificationHandler.SendImmediateNotification)
-			}
+				// 通知相关路由
+				notifications := v1.Group("/notifications")
+				{
+					notifications.POST("", notificationHandler.CreateNotification)
+					notifications.GET("", notificationHandler.GetNotifications)
+					notifications.GET("/:id", notificationHandler.GetNotification)
+					notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+					notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
+					notifications.DELETE("/:id", notificationHandler.DeleteNotification)
+					notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+					notifications.POST("/send-immediate", notificationHandler.SendImmediateNotification)
+				}
 
-			// 任务调度相关路由
-			tasks := v1.Group("/tasks")
-			{
-				tasks.POST("/scheduled", taskSchedulerHandler.CreateScheduledTask)
-				tasks.GET("/scheduled", taskSchedulerHandler.GetScheduledTasks)
-				tasks.GET("/scheduled/:id", taskSchedulerHandler.GetScheduledTask)
-				tasks.PUT("/scheduled/:id", taskSchedulerHandler.UpdateScheduledTask)
-				tasks.DELETE("/scheduled/:id", taskSchedulerHandler.DeleteScheduledTask)
-				tasks.POST("/scheduled/:id/execute", taskSchedulerHandler.ExecuteTaskNow)
-				tasks.GET("/statuses", taskSchedulerHandler.GetTaskStatuses)
-				tasks.GET("/statuses/:id", taskSchedulerHandler.GetTaskStatus)
-			}
+				// 任务调度相关路由
+				tasks := v1.Group("/tasks")
+				{
+					tasks.POST("/scheduled", taskSchedulerHandler.CreateScheduledTask)
+					tasks.GET("/scheduled", taskSchedulerHandler.GetScheduledTasks)
+					tasks.GET("/scheduled/:id", taskSchedulerHandler.GetScheduledTask)
+					tasks.PUT("/scheduled/:id", taskSchedulerHandler.UpdateScheduledTask)
+					tasks.DELETE("/scheduled/:id", taskSchedulerHandler.DeleteScheduledTask)
+					tasks.POST("/scheduled/:id/execute", taskSchedulerHandler.ExecuteTaskNow)
+					tasks.GET("/statuses", taskSchedulerHandler.GetTaskStatuses)
+					tasks.GET("/statuses/:id", taskSchedulerHandler.GetTaskStatus)
+				}
 			}
 
 			openLesson := v1.Group("/lesson")

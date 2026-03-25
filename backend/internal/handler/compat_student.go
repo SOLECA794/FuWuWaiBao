@@ -539,7 +539,7 @@ func (h *CompatibilityHandler) GetFavoritesV1(c *gin.Context) {
 	var total int64
 	query.Count(&total)
 	items := []model.StudentFavorite{}
-	query.Order("created_at desc").Offset((page-1)*pageSize).Limit(pageSize).Find(&items)
+	query.Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
 }
 
@@ -595,14 +595,14 @@ func (h *CompatibilityHandler) GeneratePracticeV1(c *gin.Context) {
 	questions := h.buildPracticeQuestions(c, req.StudentID, req.CourseID, req.NodeID, req.PageNum, req.Difficulty, req.Count)
 	questionJSON, _ := json.Marshal(questions)
 	task := model.PracticeTask{
-		TaskID:      "task_" + uuid.NewString(),
-		UserID:      req.StudentID,
-		CourseID:    req.CourseID,
-		NodeID:      req.NodeID,
-		PageNum:     req.PageNum,
-		Difficulty:  req.Difficulty,
-		Count:       len(questions),
-		Questions:   string(questionJSON),
+		TaskID:     "task_" + uuid.NewString(),
+		UserID:     req.StudentID,
+		CourseID:   req.CourseID,
+		NodeID:     req.NodeID,
+		PageNum:    req.PageNum,
+		Difficulty: req.Difficulty,
+		Count:      len(questions),
+		Questions:  string(questionJSON),
 	}
 	if err := h.db.Create(&task).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成练习失败"})
@@ -810,25 +810,25 @@ func (h *CompatibilityHandler) GetWrongQuestionsV1(c *gin.Context) {
 		}
 		options := parseStringArray(question.Options)
 		items = append(items, gin.H{
-			"recordId":         record.ID,
-			"questionId":       question.ID,
-			"taskId":           record.TaskID,
-			"courseId":         question.CourseID,
-			"nodeId":           question.NodeID,
-			"pageNum":          question.PageNum,
-			"questionType":     question.QuestionType,
-			"content":          question.Content,
-			"options":          options,
-			"userAnswer":       record.UserAnswer,
-			"correctAnswer":    blankIfSubjective(question),
-			"explanation":      question.Explanation,
-			"score":            record.Score,
-			"maxScore":         record.MaxScore,
-			"aiComment":        record.AIComment,
-			"reviewStatus":     record.ReviewStatus,
-			"knowledgePoints":  parseStringArray(record.KnowledgePoints),
-			"createdAt":        record.CreatedAt,
-			"referenceAnswer":  question.AIReferenceAnswer,
+			"recordId":        record.ID,
+			"questionId":      question.ID,
+			"taskId":          record.TaskID,
+			"courseId":        question.CourseID,
+			"nodeId":          question.NodeID,
+			"pageNum":         question.PageNum,
+			"questionType":    question.QuestionType,
+			"content":         question.Content,
+			"options":         options,
+			"userAnswer":      record.UserAnswer,
+			"correctAnswer":   blankIfSubjective(question),
+			"explanation":     question.Explanation,
+			"score":           record.Score,
+			"maxScore":        record.MaxScore,
+			"aiComment":       record.AIComment,
+			"reviewStatus":    record.ReviewStatus,
+			"knowledgePoints": parseStringArray(record.KnowledgePoints),
+			"createdAt":       record.CreatedAt,
+			"referenceAnswer": question.AIReferenceAnswer,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize}})
@@ -867,14 +867,14 @@ func (h *CompatibilityHandler) RetryWrongQuestionV1(c *gin.Context) {
 	taskQuestions := []practiceQuestionPayload{payload}
 	taskQuestionsJSON, _ := json.Marshal(taskQuestions)
 	task := model.PracticeTask{
-		TaskID:      "task_" + uuid.NewString(),
-		UserID:      req.StudentID,
-		CourseID:    question.CourseID,
-		NodeID:      question.NodeID,
-		PageNum:     question.PageNum,
-		Difficulty:  question.Difficulty,
-		Count:       1,
-		Questions:   string(taskQuestionsJSON),
+		TaskID:     "task_" + uuid.NewString(),
+		UserID:     req.StudentID,
+		CourseID:   question.CourseID,
+		NodeID:     question.NodeID,
+		PageNum:    question.PageNum,
+		Difficulty: question.Difficulty,
+		Count:      1,
+		Questions:  string(taskQuestionsJSON),
 	}
 	if err := h.db.Create(&task).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "生成重做任务失败"})
@@ -1670,6 +1670,16 @@ func defaultInt(v, fallback int) int {
 	return fallback
 }
 
+func clampInt(v, minValue, maxValue int) int {
+	if v < minValue {
+		return minValue
+	}
+	if v > maxValue {
+		return maxValue
+	}
+	return v
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -1697,3 +1707,6 @@ func compactStrings(values []string) []string {
 		}
 		seen[value] = struct{}{}
 		result = append(result, value)
+	}
+	return result
+}

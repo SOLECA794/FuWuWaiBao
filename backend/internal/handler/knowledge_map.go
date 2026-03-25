@@ -3,11 +3,9 @@ package handler
 import (
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/service"
 )
 

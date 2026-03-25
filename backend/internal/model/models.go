@@ -123,12 +123,12 @@ type PracticeTask struct {
 // PracticeAttempt 练习提交记录
 type PracticeAttempt struct {
 	BaseModel
-	TaskID      string `gorm:"size:100;not null;index:idx_attempt_task_user,unique" json:"task_id"`
-	UserID      string `gorm:"size:36;not null;index:idx_attempt_task_user,unique" json:"user_id"`
-	Score       int    `json:"score"`
-	Correct     int    `json:"correct"`
-	Total       int    `json:"total"`
-	Details     string `gorm:"type:text" json:"details"` // JSON字符串
+	TaskID  string `gorm:"size:100;not null;index:idx_attempt_task_user,unique" json:"task_id"`
+	UserID  string `gorm:"size:36;not null;index:idx_attempt_task_user,unique" json:"user_id"`
+	Score   int    `json:"score"`
+	Correct int    `json:"correct"`
+	Total   int    `json:"total"`
+	Details string `gorm:"type:text" json:"details"` // JSON字符串
 }
 
 // WeakPoint 薄弱点模型
@@ -161,15 +161,15 @@ type Question struct {
 	CourseID          string `gorm:"size:36;index" json:"course_id"`
 	NodeID            string `gorm:"size:100;index" json:"node_id"`
 	PageNum           int    `gorm:"default:0;index" json:"page_num"`
-	QuestionType      string `gorm:"size:20" json:"question_type"`                   // single/multiple/judge/fill/subjective
-	SourceType        string `gorm:"size:20;default:'manual'" json:"source_type"`    // manual, ai, practice
+	QuestionType      string `gorm:"size:20" json:"question_type"`                // single/multiple/judge/fill/subjective
+	SourceType        string `gorm:"size:20;default:'manual'" json:"source_type"` // manual, ai, practice
 	Content           string `gorm:"type:text;not null" json:"content"`
-	Options           string `gorm:"type:text" json:"options"`                       // JSON格式的选项
-	Answer            string `gorm:"type:text;not null" json:"-"`                    // 正确答案
-	Explanation       string `gorm:"type:text" json:"explanation"`                   // 解析
-	Difficulty        int    `gorm:"default:1" json:"difficulty"`                    // 1-5
+	Options           string `gorm:"type:text" json:"options"`     // JSON格式的选项
+	Answer            string `gorm:"type:text;not null" json:"-"`  // 正确答案
+	Explanation       string `gorm:"type:text" json:"explanation"` // 解析
+	Difficulty        int    `gorm:"default:1" json:"difficulty"`  // 1-5
 	Score             int    `gorm:"default:100" json:"score"`
-	Metadata          string `gorm:"type:text" json:"metadata"`                      // JSON扩展字段
+	Metadata          string `gorm:"type:text" json:"metadata"` // JSON扩展字段
 	AIReferenceAnswer string `gorm:"type:text" json:"ai_reference_answer"`
 }
 
@@ -186,8 +186,8 @@ type AnswerRecord struct {
 	MaxScore        float64 `gorm:"default:100" json:"max_score"`
 	AIComment       string  `gorm:"type:text" json:"ai_comment"`
 	ReviewStatus    string  `gorm:"size:20;default:'pending'" json:"review_status"` // pending, auto, manual
-	KnowledgePoints string  `gorm:"type:text" json:"knowledge_points"`               // JSON数组
-	MasteryDelta    int     `json:"mastery_delta"`                                   // 掌握度变化
+	KnowledgePoints string  `gorm:"type:text" json:"knowledge_points"`              // JSON数组
+	MasteryDelta    int     `json:"mastery_delta"`                                  // 掌握度变化
 }
 
 // ReviewPlan 复习计划模型
@@ -216,26 +216,29 @@ type ReviewPlanItem struct {
 // StudentKnowledgeMap 学生知识图谱模型
 type StudentKnowledgeMap struct {
 	BaseModel
-	StudentID         string  `gorm:"size:36;not null;index:idx_student_knowledge,unique" json:"student_id"`
-	KnowledgePointID  string  `gorm:"size:36;not null;index:idx_student_knowledge,unique" json:"knowledge_point_id"`
-	MasteryScore      float32 `gorm:"type:decimal(5,4);default:0.0" json:"mastery_score"` // 0.0-1.0
-	ConfidenceLevel   float32 `gorm:"type:decimal(5,4);default:0.0" json:"confidence_level"` // 置信度
-	AttemptCount      int     `gorm:"default:0" json:"attempt_count"`
-	CorrectCount      int     `gorm:"default:0" json:"correct_count"`
-	LastUpdated       time.Time `json:"last_updated"`
-	LearningCurve     string  `gorm:"type:text" json:"learning_curve"` // JSON: 时间序列数据
-	StrengthAreas     string  `gorm:"type:text" json:"strength_areas"` // JSON: 强项领域
-	WeakAreas         string  `gorm:"type:text" json:"weak_areas"` // JSON: 薄弱领域
+	StudentID        string         `gorm:"size:36;not null;index:idx_student_knowledge,unique" json:"student_id"`
+	KnowledgePointID string         `gorm:"size:36;not null;index:idx_student_knowledge,unique" json:"knowledge_point_id"`
+	MasteryScore     float32        `gorm:"type:decimal(5,4);default:0.0" json:"mastery_score"`    // 0.0-1.0
+	ConfidenceLevel  float32        `gorm:"type:decimal(5,4);default:0.0" json:"confidence_level"` // 置信度
+	AttemptCount     int            `gorm:"default:0" json:"attempt_count"`
+	CorrectCount     int            `gorm:"default:0" json:"correct_count"`
+	LastUpdated      time.Time      `json:"last_updated"`
+	LearningCurve    string         `gorm:"type:text" json:"learning_curve"` // JSON: 时间序列数据
+	StrengthAreas    string         `gorm:"type:text" json:"strength_areas"` // JSON: 强项领域
+	WeakAreas        string         `gorm:"type:text" json:"weak_areas"`     // JSON: 薄弱领域
+	KnowledgePoint   KnowledgePoint `gorm:"foreignKey:KnowledgePointID;references:ID" json:"knowledge_point,omitempty"`
 }
 
 // ScheduledTask 定时任务模型
 type ScheduledTask struct {
 	BaseModel
 	TaskType     string     `gorm:"size:50;not null;index" json:"task_type"` // review_plan, practice_generation, notification
-	TaskData     string     `gorm:"type:text;not null" json:"task_data"` // JSON: 任务参数
+	TaskData     string     `gorm:"type:text;not null" json:"task_data"`     // JSON: 任务参数
+	CronExpr     string     `gorm:"size:100" json:"cron_expr"`
+	Description  string     `gorm:"size:255" json:"description"`
 	ScheduledAt  time.Time  `gorm:"not null;index" json:"scheduled_at"`
-	Status       string     `gorm:"size:20;default:'pending'" json:"status"` // pending, processing, completed, failed
-	Priority     int        `gorm:"default:1" json:"priority"` // 1-5
+	Status       string     `gorm:"size:20;default:'pending'" json:"status"` // pending, queued, processing, completed, failed
+	Priority     int        `gorm:"default:1" json:"priority"`               // 1-5
 	MaxRetries   int        `gorm:"default:3" json:"max_retries"`
 	RetryCount   int        `gorm:"default:0" json:"retry_count"`
 	LastAttempt  *time.Time `json:"last_attempt"`
@@ -247,29 +250,29 @@ type ScheduledTask struct {
 // Notification 消息提醒模型
 type Notification struct {
 	BaseModel
-	StudentID    string    `gorm:"size:36;not null;index" json:"student_id"`
-	Title        string    `gorm:"size:200;not null" json:"title"`
-	Content      string    `gorm:"type:text;not null" json:"content"`
-	Type         string    `gorm:"size:50;not null" json:"type"` // review_reminder, practice_due, achievement, system
-	Priority     string    `gorm:"size:20;default:'normal'" json:"priority"` // low, normal, high, urgent
-	Status       string    `gorm:"size:20;default:'unread'" json:"status"` // unread, read, archived
-	RelatedID    string    `gorm:"size:36" json:"related_id"` // 关联对象ID
-	RelatedType  string    `gorm:"size:50" json:"related_type"` // review_plan, practice_task, etc.
-	ScheduledAt  *time.Time `json:"scheduled_at"` // 定时发送时间
-	SentAt       *time.Time `json:"sent_at"` // 实际发送时间
-	Channels     string    `gorm:"type:text" json:"channels"` // JSON: 发送渠道 [app, email, sms]
+	StudentID   string     `gorm:"size:36;not null;index" json:"student_id"`
+	Title       string     `gorm:"size:200;not null" json:"title"`
+	Content     string     `gorm:"type:text;not null" json:"content"`
+	Type        string     `gorm:"size:50;not null" json:"type"`             // review_reminder, practice_due, achievement, system
+	Priority    string     `gorm:"size:20;default:'normal'" json:"priority"` // low, normal, high, urgent
+	Status      string     `gorm:"size:20;default:'unread'" json:"status"`   // scheduled, unread, read, archived
+	RelatedID   string     `gorm:"size:36" json:"related_id"`                // 关联对象ID
+	RelatedType string     `gorm:"size:50" json:"related_type"`              // review_plan, practice_task, etc.
+	ScheduledAt *time.Time `json:"scheduled_at"`                             // 定时发送时间
+	SentAt      *time.Time `json:"sent_at"`                                  // 实际发送时间
+	Channels    string     `gorm:"type:text" json:"channels"`                // JSON: 发送渠道 [app, email, sms]
 }
 
 // TaskStatus 任务状态模型
 type TaskStatus struct {
 	BaseModel
-	TaskID       string    `gorm:"size:36;not null;index" json:"task_id"`
-	TaskType     string    `gorm:"size:50;not null;index" json:"task_type"`
-	StudentID    string    `gorm:"size:36;not null;index" json:"student_id"`
-	Status       string    `gorm:"size:20;not null" json:"status"` // pending, running, completed, failed, cancelled
-	Progress     int       `gorm:"default:0" json:"progress"` // 0-100
-	Message      string    `gorm:"type:text" json:"message"`
-	StartTime    *time.Time `json:"start_time"`
-	EndTime      *time.Time `json:"end_time"`
-	Metadata     string    `gorm:"type:text" json:"metadata"` // JSON: 额外信息
+	TaskID    string     `gorm:"size:36;not null;index" json:"task_id"`
+	TaskType  string     `gorm:"size:50;not null;index" json:"task_type"`
+	StudentID string     `gorm:"size:36;not null;index" json:"student_id"`
+	Status    string     `gorm:"size:20;not null" json:"status"` // pending, running, completed, failed, cancelled
+	Progress  int        `gorm:"default:0" json:"progress"`      // 0-100
+	Message   string     `gorm:"type:text" json:"message"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
+	Metadata  string     `gorm:"type:text" json:"metadata"` // JSON: 额外信息
 }

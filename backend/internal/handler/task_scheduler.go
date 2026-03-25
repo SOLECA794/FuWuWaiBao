@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -25,13 +27,14 @@ func NewTaskSchedulerHandler(taskSchedulerService *service.TaskSchedulerService)
 // CreateScheduledTask 创建定时任务
 func (tsh *TaskSchedulerHandler) CreateScheduledTask(c *gin.Context) {
 	var req struct {
-		UserID      uint   `json:"userId" binding:"required"`
-		TaskType    string `json:"taskType" binding:"required"`
-		TaskData    string `json:"taskData" binding:"required"`
-		CronExpr    string `json:"cronExpr" binding:"required"`
-		Description string `json:"description"`
-		MaxRetries  int    `json:"maxRetries"`
-		Priority    int    `json:"priority"`
+		UserID      interface{} `json:"userId"`
+		StudentID   string      `json:"studentId"`
+		TaskType    string      `json:"taskType" binding:"required"`
+		TaskData    string      `json:"taskData" binding:"required"`
+		CronExpr    string      `json:"cronExpr" binding:"required"`
+		Description string      `json:"description"`
+		MaxRetries  int         `json:"maxRetries"`
+		Priority    int         `json:"priority"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -39,19 +42,24 @@ func (tsh *TaskSchedulerHandler) CreateScheduledTask(c *gin.Context) {
 		return
 	}
 
+	studentID := resolveTaskRequestID(req.StudentID, req.UserID)
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 userId 或 studentId"})
+		return
+	}
+
 	task := &model.ScheduledTask{
-		UserID:      req.UserID,
+		StudentID:   studentID,
 		TaskType:    req.TaskType,
 		TaskData:    req.TaskData,
 		CronExpr:    req.CronExpr,
 		Description: req.Description,
-		Status:      "active",
+		Status:      "pending",
 		MaxRetries:  req.MaxRetries,
 		Priority:    req.Priority,
 	}
 
-	err := tsh.taskSchedulerService.CreateScheduledTask(task)
-	if err != nil {
+	if err := tsh.taskSchedulerService.CreateScheduledTask(task); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建定时任务失败"})
 		return
 	}
@@ -61,35 +69,29 @@ func (tsh *TaskSchedulerHandler) CreateScheduledTask(c *gin.Context) {
 
 // GetScheduledTasks 获取定时任务列表
 func (tsh *TaskSchedulerHandler) GetScheduledTasks(c *gin.Context) {
-	userIDStr := c.Query("userId")
+	userIDStr := firstTaskNonEmpty(c.Query("studentId"), c.Query("userId"))
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("pageSize", "20")
 	status := c.Query("status")
 
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 userId"})
-		return
-	}
-
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "userId 参数无效"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 userId 或 studentId"})
 		return
 	}
 
 	page, err := strconv.Atoi(pageStr)
-	if err != nil {
+	if err != nil || page <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "page 参数无效"})
 		return
 	}
 
 	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil {
+	if err != nil || pageSize <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "pageSize 参数无效"})
 		return
 	}
 
-	tasks, total, err := tsh.taskSchedulerService.GetScheduledTasks(uint(userID), status, page, pageSize)
+	tasks, total, err := tsh.taskSchedulerService.GetScheduledTasks(userIDStr, status, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取定时任务列表失败"})
 		return
@@ -98,9 +100,9 @@ func (tsh *TaskSchedulerHandler) GetScheduledTasks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"list":  tasks,
-			"total": total,
-			"page":  page,
+			"list":     tasks,
+			"total":    total,
+			"page":     page,
 			"pageSize": pageSize,
 		},
 	})
@@ -108,15 +110,13 @@ func (tsh *TaskSchedulerHandler) GetScheduledTasks(c *gin.Context) {
 
 // GetScheduledTask 获取单个定时任务详情
 func (tsh *TaskSchedulerHandler) GetScheduledTask(c *gin.Context) {
-	taskIDStr := c.Param("id")
-
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
-	if err != nil {
+	taskID := strings.TrimSpace(c.Param("id"))
+	if taskID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "任务ID无效"})
 		return
 	}
 
-	task, err := tsh.taskSchedulerService.GetScheduledTask(uint(taskID))
+	task, err := tsh.taskSchedulerService.GetScheduledTask(taskID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "定时任务不存在"})
 		return
@@ -127,10 +127,8 @@ func (tsh *TaskSchedulerHandler) GetScheduledTask(c *gin.Context) {
 
 // UpdateScheduledTask 更新定时任务
 func (tsh *TaskSchedulerHandler) UpdateScheduledTask(c *gin.Context) {
-	taskIDStr := c.Param("id")
-
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
-	if err != nil {
+	taskID := strings.TrimSpace(c.Param("id"))
+	if taskID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "任务ID无效"})
 		return
 	}
@@ -165,8 +163,7 @@ func (tsh *TaskSchedulerHandler) UpdateScheduledTask(c *gin.Context) {
 		updates["priority"] = req.Priority
 	}
 
-	err = tsh.taskSchedulerService.UpdateScheduledTask(uint(taskID), updates)
-	if err != nil {
+	if err := tsh.taskSchedulerService.UpdateScheduledTask(taskID, updates); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新定时任务失败"})
 		return
 	}
@@ -176,16 +173,13 @@ func (tsh *TaskSchedulerHandler) UpdateScheduledTask(c *gin.Context) {
 
 // DeleteScheduledTask 删除定时任务
 func (tsh *TaskSchedulerHandler) DeleteScheduledTask(c *gin.Context) {
-	taskIDStr := c.Param("id")
-
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
-	if err != nil {
+	taskID := strings.TrimSpace(c.Param("id"))
+	if taskID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "任务ID无效"})
 		return
 	}
 
-	err = tsh.taskSchedulerService.DeleteScheduledTask(uint(taskID))
-	if err != nil {
+	if err := tsh.taskSchedulerService.DeleteScheduledTask(taskID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除定时任务失败"})
 		return
 	}
@@ -195,16 +189,13 @@ func (tsh *TaskSchedulerHandler) DeleteScheduledTask(c *gin.Context) {
 
 // ExecuteTaskNow 立即执行任务
 func (tsh *TaskSchedulerHandler) ExecuteTaskNow(c *gin.Context) {
-	taskIDStr := c.Param("id")
-
-	taskID, err := strconv.ParseUint(taskIDStr, 10, 32)
-	if err != nil {
+	taskID := strings.TrimSpace(c.Param("id"))
+	if taskID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "任务ID无效"})
 		return
 	}
 
-	err = tsh.taskSchedulerService.ExecuteTaskNow(uint(taskID))
-	if err != nil {
+	if err := tsh.taskSchedulerService.ExecuteTaskNow(taskID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "执行任务失败"})
 		return
 	}
@@ -214,35 +205,29 @@ func (tsh *TaskSchedulerHandler) ExecuteTaskNow(c *gin.Context) {
 
 // GetTaskStatuses 获取任务执行状态列表
 func (tsh *TaskSchedulerHandler) GetTaskStatuses(c *gin.Context) {
-	userIDStr := c.Query("userId")
+	userIDStr := firstTaskNonEmpty(c.Query("studentId"), c.Query("userId"))
 	pageStr := c.DefaultQuery("page", "1")
 	pageSizeStr := c.DefaultQuery("pageSize", "20")
 	status := c.Query("status")
 
 	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 userId"})
-		return
-	}
-
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "userId 参数无效"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 userId 或 studentId"})
 		return
 	}
 
 	page, err := strconv.Atoi(pageStr)
-	if err != nil {
+	if err != nil || page <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "page 参数无效"})
 		return
 	}
 
 	pageSize, err := strconv.Atoi(pageSizeStr)
-	if err != nil {
+	if err != nil || pageSize <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "pageSize 参数无效"})
 		return
 	}
 
-	statuses, total, err := tsh.taskSchedulerService.GetTaskStatuses(uint(userID), status, page, pageSize)
+	statuses, total, err := tsh.taskSchedulerService.GetTaskStatuses(userIDStr, status, page, pageSize)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取任务状态列表失败"})
 		return
@@ -251,9 +236,9 @@ func (tsh *TaskSchedulerHandler) GetTaskStatuses(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"list":  statuses,
-			"total": total,
-			"page":  page,
+			"list":     statuses,
+			"total":    total,
+			"page":     page,
 			"pageSize": pageSize,
 		},
 	})
@@ -261,19 +246,59 @@ func (tsh *TaskSchedulerHandler) GetTaskStatuses(c *gin.Context) {
 
 // GetTaskStatus 获取单个任务执行状态
 func (tsh *TaskSchedulerHandler) GetTaskStatus(c *gin.Context) {
-	statusIDStr := c.Param("id")
-
-	statusID, err := strconv.ParseUint(statusIDStr, 10, 32)
-	if err != nil {
+	statusID := strings.TrimSpace(c.Param("id"))
+	if statusID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "状态ID无效"})
 		return
 	}
 
-	status, err := tsh.taskSchedulerService.GetTaskStatus(uint(statusID))
+	status, err := tsh.taskSchedulerService.GetTaskStatus(statusID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "任务状态不存在"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": status})
+}
+
+func resolveTaskRequestID(studentID string, raw interface{}) string {
+	if trimmed := strings.TrimSpace(studentID); trimmed != "" {
+		return trimmed
+	}
+
+	switch v := raw.(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(v)
+	case float64:
+		if v == float64(int64(v)) {
+			return strconv.FormatInt(int64(v), 10)
+		}
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case float32:
+		if v == float32(int64(v)) {
+			return strconv.FormatInt(int64(v), 10)
+		}
+		return strconv.FormatFloat(float64(v), 'f', -1, 32)
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case uint:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+}
+
+func firstTaskNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
 }

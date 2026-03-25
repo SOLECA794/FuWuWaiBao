@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -20,41 +21,66 @@ func NewNotificationService(db *gorm.DB) *NotificationService {
 }
 
 // CreateNotification 创建通知
-func (ns *NotificationService) CreateNotification(studentID, title, content, notificationType, priority string, relatedID, relatedType string) (*model.Notification, error) {
-	notification := &model.Notification{
-		StudentID:   studentID,
-		Title:       title,
-		Content:     content,
-		Type:        notificationType,
-		Priority:    priority,
-		Status:      "unread",
-		RelatedID:   relatedID,
-		RelatedType: relatedType,
-		Channels:    `["app"]`, // 默认通过app推送
+func (ns *NotificationService) CreateNotification(notification *model.Notification) error {
+	if notification == nil {
+		return errors.New("notification is nil")
+	}
+	if notification.StudentID == "" {
+		return errors.New("student_id is required")
 	}
 
-	if err := ns.db.Create(notification).Error; err != nil {
-		return nil, err
+	if notification.Priority == "" {
+		notification.Priority = "normal"
+	}
+	if notification.Channels == "" {
+		notification.Channels = marshalNotificationChannels(nil)
 	}
 
-	return notification, nil
+	now := time.Now()
+	if notification.ScheduledAt != nil && notification.ScheduledAt.After(now) {
+		if notification.Status == "" {
+			notification.Status = "scheduled"
+		}
+	} else {
+		if notification.Status == "" || notification.Status == "pending" {
+			notification.Status = "unread"
+		}
+		if notification.SentAt == nil {
+			notification.SentAt = &now
+		}
+	}
+
+	return ns.db.Create(notification).Error
 }
 
 // GetNotifications 获取用户通知
-func (ns *NotificationService) GetNotifications(studentID string, status string, limit, offset int) ([]model.Notification, error) {
+func (ns *NotificationService) GetNotifications(studentID string, status string, page, pageSize int) ([]model.Notification, int64, error) {
 	var notifications []model.Notification
-	query := ns.db.Where("student_id = ?", studentID)
-
+	query := ns.db.Model(&model.Notification{}).Where("student_id = ?", studentID)
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
 
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
 	err := query.Order("created_at DESC").
-		Limit(limit).
+		Limit(pageSize).
 		Offset(offset).
 		Find(&notifications).Error
+	return notifications, total, err
+}
 
-	return notifications, err
+// GetNotification 获取单个通知
+func (ns *NotificationService) GetNotification(notificationID string) (*model.Notification, error) {
+	var notification model.Notification
+	if err := ns.db.First(&notification, "id = ?", notificationID).Error; err != nil {
+		return nil, err
+	}
+	return &notification, nil
 }
 
 // MarkAsRead 标记通知为已读
@@ -80,6 +106,11 @@ func (ns *NotificationService) GetUnreadCount(studentID string) (int64, error) {
 	return count, err
 }
 
+// DeleteNotification 删除通知
+func (ns *NotificationService) DeleteNotification(notificationID string) error {
+	return ns.db.Delete(&model.Notification{}, "id = ?", notificationID).Error
+}
+
 // ScheduleNotification 调度定时通知
 func (ns *NotificationService) ScheduleNotification(studentID, title, content, notificationType, priority string, scheduledAt time.Time, relatedID, relatedType string) error {
 	notification := &model.Notification{
@@ -88,21 +119,18 @@ func (ns *NotificationService) ScheduleNotification(studentID, title, content, n
 		Content:     content,
 		Type:        notificationType,
 		Priority:    priority,
-		Status:      "scheduled",
 		RelatedID:   relatedID,
 		RelatedType: relatedType,
 		ScheduledAt: &scheduledAt,
-		Channels:    `["app"]`,
+		Channels:    marshalNotificationChannels(nil),
 	}
-
-	return ns.db.Create(notification).Error
+	return ns.CreateNotification(notification)
 }
 
 // ProcessScheduledNotifications 处理定时通知
 func (ns *NotificationService) ProcessScheduledNotifications() error {
 	var notifications []model.Notification
 	now := time.Now()
-
 	err := ns.db.Where("status = ? AND scheduled_at <= ?", "scheduled", now).
 		Find(&notifications).Error
 	if err != nil {
@@ -110,16 +138,15 @@ func (ns *NotificationService) ProcessScheduledNotifications() error {
 	}
 
 	for _, notification := range notifications {
-		// 标记为未读并设置发送时间
 		sentAt := time.Now()
 		updates := map[string]interface{}{
 			"status":  "unread",
 			"sent_at": sentAt,
 		}
-
-		ns.db.Model(&notification).Updates(updates)
+		if err := ns.db.Model(&notification).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -134,25 +161,17 @@ func (ns *NotificationService) ArchiveOldNotifications(days int) error {
 // GetNotificationStats 获取通知统计
 func (ns *NotificationService) GetNotificationStats(studentID string) (map[string]interface{}, error) {
 	var stats struct {
-		Total     int64
-		Unread    int64
-		Read      int64
-		Archived  int64
+		Total    int64
+		Unread   int64
+		Read     int64
+		Archived int64
 	}
 
-	// 总数
 	ns.db.Model(&model.Notification{}).Where("student_id = ?", studentID).Count(&stats.Total)
-
-	// 未读数
 	ns.db.Model(&model.Notification{}).Where("student_id = ? AND status = ?", studentID, "unread").Count(&stats.Unread)
-
-	// 已读数
 	ns.db.Model(&model.Notification{}).Where("student_id = ? AND status = ?", studentID, "read").Count(&stats.Read)
-
-	// 归档数
 	ns.db.Model(&model.Notification{}).Where("student_id = ? AND status = ?", studentID, "archived").Count(&stats.Archived)
 
-	// 类型统计
 	var typeStats []struct {
 		Type  string
 		Count int64
@@ -163,44 +182,52 @@ func (ns *NotificationService) GetNotificationStats(studentID string) (map[strin
 		Group("type").
 		Find(&typeStats)
 
-	typeCountMap := make(map[string]int64)
+	typeCountMap := make(map[string]int64, len(typeStats))
 	for _, ts := range typeStats {
 		typeCountMap[ts.Type] = ts.Count
 	}
 
 	return map[string]interface{}{
-		"total":     stats.Total,
-		"unread":    stats.Unread,
-		"read":      stats.Read,
-		"archived":  stats.Archived,
-		"by_type":   typeCountMap,
+		"total":    stats.Total,
+		"unread":   stats.Unread,
+		"read":     stats.Read,
+		"archived": stats.Archived,
+		"by_type":  typeCountMap,
 	}, nil
 }
 
 // SendPushNotification 发送推送通知（模拟实现）
 func (ns *NotificationService) SendPushNotification(notification *model.Notification) error {
-	// 这里应该集成实际的推送服务，如：
-	// - Firebase Cloud Messaging (FCM)
-	// - Apple Push Notification Service (APNS)
-	// - 华为推送
-	// - 小米推送
-	// - 等等
-
-	// 暂时记录日志
-	// log.Printf("Sending push notification to student %s: %s", notification.StudentID, notification.Title)
-
-	// 标记为已发送
 	now := time.Now()
 	notification.SentAt = &now
-
+	if notification.Status == "scheduled" || notification.Status == "" {
+		notification.Status = "unread"
+	}
 	return ns.db.Save(notification).Error
+}
+
+// SendImmediateNotification 立即发送通知
+func (ns *NotificationService) SendImmediateNotification(studentID, title, content, notificationType string, channels []string) (*model.Notification, error) {
+	now := time.Now()
+	notification := &model.Notification{
+		StudentID: studentID,
+		Title:     title,
+		Content:   content,
+		Type:      notificationType,
+		Priority:  "normal",
+		Status:    "unread",
+		Channels:  marshalNotificationChannels(channels),
+		SentAt:    &now,
+	}
+	if err := ns.CreateNotification(notification); err != nil {
+		return nil, err
+	}
+	return notification, nil
 }
 
 // BatchSendNotifications 批量发送通知
 func (ns *NotificationService) BatchSendNotifications() error {
 	var notifications []model.Notification
-
-	// 获取待发送的通知（未读且未发送）
 	err := ns.db.Where("status = ? AND sent_at IS NULL", "unread").
 		Find(&notifications).Error
 	if err != nil {
@@ -209,10 +236,16 @@ func (ns *NotificationService) BatchSendNotifications() error {
 
 	for _, notification := range notifications {
 		if err := ns.SendPushNotification(&notification); err != nil {
-			// 记录发送失败，但不中断其他通知
 			continue
 		}
 	}
-
 	return nil
+}
+
+func marshalNotificationChannels(channels []string) string {
+	if len(channels) == 0 {
+		channels = []string{"app"}
+	}
+	data, _ := json.Marshal(channels)
+	return string(data)
 }
