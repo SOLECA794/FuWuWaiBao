@@ -35,6 +35,10 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
           </div>
+          <div class="menu-item" :class="{ active: activeTab === 'iteration' }" @click="activeTab = 'iteration'" title="学情迭代">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path><path d="M22 12.5a10 10 0 0 1-18.8 2.2"></path></svg>
+            <span v-show="!isLeftMenuCollapsed">学情迭代</span>
+          </div>
           <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -110,7 +114,18 @@
           ></TeacherQuestionsPanel>
         </div>
 
-        <div v-else class="tab-container">
+        <div v-else-if="activeTab === 'iteration'" class="tab-container">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件以使用学情迭代功能</div>
+          </div>
+          <CourseIterationPanel
+            v-else
+            :current-course-id="currentCourseId"
+            @script-generated="handleIterationScriptGenerated"
+          ></CourseIterationPanel>
+        </div>
+
+        <div v-else-if="activeTab === 'card'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
             <div class="empty-tip">请先在右侧选择或上传一个课件查看卡点分析</div>
           </div>
@@ -122,6 +137,10 @@
             :card-data="cardData"
             @update:chart-type="chartType = $event"
           ></TeacherCardAnalysisPanel>
+        </div>
+
+        <div v-else class="tab-container">
+            <PlatformManagementPanel />
         </div>
       </div>
 
@@ -181,6 +200,7 @@ import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
 import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
+import CourseIterationPanel from './components/teacher/CourseIterationPanel.vue'
 
 const isLoggedIn = ref(false)
 const loggedInUsername = ref('')
@@ -585,6 +605,25 @@ function resolveCourseId(courseInput) {
     return String(courseInput.id || courseInput.courseId || '')
   }
   return ''
+}
+
+/**
+ * 处理学情迭代面板生成的讲稿
+ */
+const handleIterationScriptGenerated = (scriptData) => {
+  if (!scriptData || !scriptData.content) {
+    alert('讲稿生成失败')
+    return
+  }
+
+  // 将生成的讲稿内容更新到编辑区
+  currentScript.value = scriptData.content
+  currentScriptNodes.value = normalizeNodes(scriptData.nodeTree || [], currentEditPage.value, scriptData.content)
+
+  // 可选：自动切换到编辑讲稿标签页
+  activeTab.value = 'script'
+
+  alert('讲稿已生成并加载到编辑区，请继续编辑')
 }
 </script>
 
