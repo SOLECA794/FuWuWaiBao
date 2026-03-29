@@ -220,7 +220,8 @@ let autosaveTimer = null
 
 const handleLoginSuccess = (user) => {
   if (user.role === 'student') {
-    window.location.href = 'http://localhost:8080'
+    const studentId = encodeURIComponent((user.username || 'xuesheng').trim() || 'xuesheng')
+    window.location.href = `http://localhost:8080/?studentId=${studentId}`
     return
   }
   loggedInUsername.value = user.username

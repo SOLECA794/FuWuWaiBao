@@ -175,7 +175,8 @@ func bindEnv(v *viper.Viper) {
 		"oss.secret_key":    {"MINIO_SECRET_KEY", "OSS_SECRET_KEY"},
 		"oss.bucket":        {"MINIO_BUCKET", "OSS_BUCKET"},
 		"oss.use_ssl":       {"MINIO_USE_SSL", "OSS_USE_SSL"},
-		"ai.base_url":       {"AI_BASE_URL"},
+		// 后端优先使用本地 AI 引擎地址，再回退到通用 AI_BASE_URL。
+		"ai.base_url":       {"AI_ENGINE_BASE_URL", "AI_BASE_URL"},
 		"ai.api_key":        {"AI_API_KEY"},
 		"ai.model":          {"AI_MODEL"},
 		"log.level":         {"LOG_LEVEL"},

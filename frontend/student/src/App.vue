@@ -122,6 +122,21 @@ import StudentTracePanel from './components/student/StudentTracePanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 
+const resolveStudentId = () => {
+  const queryId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('studentId')
+    : ''
+  const normalizedQueryId = String(queryId || '').trim().toLowerCase()
+  const cachedId = typeof window !== 'undefined'
+    ? String(window.localStorage.getItem('fuww_student_id') || '').trim().toLowerCase()
+    : ''
+  const finalId = normalizedQueryId || cachedId || 'xuesheng'
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('fuww_student_id', finalId)
+  }
+  return finalId
+}
+
 const backendStatus = ref('checking')
 const backendStatusLabel = computed(() => {
   if (backendStatus.value === 'online') return '在线'
@@ -130,7 +145,7 @@ const backendStatusLabel = computed(() => {
 })
 let backendHealthTimer = null
 
-const studentId = ref('student001')
+const studentId = ref(resolveStudentId())
 const courseId = ref('')
 const sessionId = ref('')
 const currentNodeId = ref('p1_n1')
@@ -592,6 +607,7 @@ const sendMultiModalQuestion = async () => {
     try {
       const fallbackResp = await studentV1Api.qa.ask({
         courseId: courseId.value,
+        studentId: studentId.value,
         pageNum: currentPage.value,
         nodeId: currentNodeId.value,
         question: question.value
