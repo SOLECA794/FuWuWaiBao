@@ -31,6 +31,10 @@
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
             </button>
+            <button class="menu-item" :class="{ active: activeSection === 'personal' }" @click="activeSection = 'personal'" title="个人中心">
+              <span class="menu-icon">我</span>
+              <span v-show="!isMenuCollapsed">个人中心</span>
+            </button>
           </div>
         </aside>
 
@@ -205,6 +209,10 @@
               @node-click="handleNodeClick"
             />
           </div>
+
+          <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
+            <StudentPersonalCenter :student-id="studentId" />
+          </div>
           </transition>
         </section>
       </main>
@@ -232,6 +240,7 @@ import StudentStudyPanel from './components/student/StudentStudyPanel.vue'
 import StudentTracePanel from './components/student/StudentTracePanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
+import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
 
 const resolveStudentId = () => {
   const queryId = typeof window !== 'undefined'
@@ -273,7 +282,8 @@ const sectionMetas = {
   classroom: { tag: 'Learning', title: '课堂学习', desc: '左看结构，中间看课件，右侧直接提问，学习流程一屏完成。' },
   analytics: { tag: 'Analytics', title: '学习分析', desc: '聚焦薄弱点与练习反馈，快速找到下一步学习重点。' },
   trace: { tag: 'Trace', title: '溯源定位', desc: '把问题定位到具体页面与节点，避免泛泛追问。' },
-  knowledge: { tag: 'Knowledge', title: '知识拆解', desc: '把资料拆成知识树，便于回看和定位关键概念。' }
+  knowledge: { tag: 'Knowledge', title: '知识拆解', desc: '把资料拆成知识树，便于回看和定位关键概念。' },
+  personal: { tag: 'Profile', title: '个人中心', desc: '查看个人学习画像、收藏与练习记录。' }
 }
 const activeSectionMeta = computed(() => sectionMetas[activeSection.value] || sectionMetas.classroom)
 const isMenuCollapsed = ref(false)

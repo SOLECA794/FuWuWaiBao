@@ -74,14 +74,21 @@ func main() {
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
 		&model.StudentNote{},
+		&model.StudentFavorite{},
+		&model.PracticeTask{},
+		&model.PracticeAttempt{},
 		&model.WeakPoint{},
 		&model.KnowledgePoint{},
 		&model.Question{},
 		&model.AnswerRecord{},
-		&model.PracticeTask{},
-		&model.PracticeAttempt{},
 		&model.NodeFavorite{},
 		&model.User{},
+		&model.ReviewPlan{},
+		&model.ReviewPlanItem{},
+		&model.StudentKnowledgeMap{},
+		&model.ScheduledTask{},
+		&model.Notification{},
+		&model.TaskStatus{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -93,11 +100,9 @@ func main() {
 
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
 
-	redisClient, err := repository.InitRedis(&cfg.Redis)
-	if err != nil {
+	if _, err := repository.InitRedis(&cfg.Redis); err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
-	_ = redisClient
 	applogger.Info("Redis连接成功")
 
 	minioClient, err := oss.NewMinioClient(&cfg.OSS)
@@ -109,12 +114,26 @@ func main() {
 	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
 	courseService := service.NewCourseService(db, minioClient, aiClient)
 
+	// 初始化新的服务
+	knowledgeMapService := service.NewKnowledgeMapService(db)
+	notificationService := service.NewNotificationService(db)
+	taskSchedulerService := service.NewTaskSchedulerService(db)
+	if err := taskSchedulerService.Start(); err != nil {
+		applogger.Sugar.Fatalf("启动任务调度器失败: %v", err)
+	}
+	applogger.Info("任务调度器启动成功")
+
 	courseHandler := handler.NewCourseHandler(courseService, db)
 	teacherHandler := handler.NewTeacherHandler(db, aiClient)
 	studentHandler := handler.NewStudentHandler(db, aiClient)
 	weakPointHandler := handler.NewWeakPointHandler(db, aiClient)
 	compatHandler := handler.NewCompatibilityHandler(db, aiClient, courseService)
 	authHandler := handler.NewAuthHandler(db)
+
+	// 初始化新的处理器
+	knowledgeMapHandler := handler.NewKnowledgeMapHandler(knowledgeMapService)
+	notificationHandler := handler.NewNotificationHandler(notificationService, taskSchedulerService)
+	taskSchedulerHandler := handler.NewTaskSchedulerHandler(taskSchedulerService)
 
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -167,6 +186,7 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
+		api.GET("/courseware/:courseId/pages", courseHandler.GetCoursePages)
 
 		legacyTeacher := api.Group("/teacher")
 		{
@@ -218,7 +238,7 @@ func main() {
 			}
 
 			v1.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
-
+			v1.GET("/courseware/:courseId/pages", courseHandler.GetCoursePages)
 			teacherV1 := v1.Group("/teacher/coursewares")
 			{
 				teacherV1.GET("", teacherHandler.GetCoursewareList)
@@ -259,14 +279,64 @@ func main() {
 				studentV1.GET("/coursewares/:courseId/breakpoint", compatHandler.GetBreakpointV1)
 				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
 				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
+				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
 				studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
-				studentV1.POST("/favorites", compatHandler.CreateFavoriteV1)
-				studentV1.GET("/favorites", compatHandler.ListFavoritesV1)
+				studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
+				studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
 				studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
 				studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
 				studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+				studentV1.GET("/practice/history", compatHandler.GetPracticeHistoryV1)
+				studentV1.GET("/practice/wrong-questions", compatHandler.GetWrongQuestionsV1)
+				studentV1.POST("/practice/wrong-questions/:questionId/retry", compatHandler.RetryWrongQuestionV1)
+				studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
+				studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
+				studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
+				studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
+				studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
+				studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
+				studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
+				studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
+				studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
 				studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
-				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
+
+				// 知识图谱相关路由
+				knowledgeMap := studentV1.Group("/knowledge-map")
+				{
+					knowledgeMap.GET("", knowledgeMapHandler.GetKnowledgeMap)
+					knowledgeMap.GET("/point", knowledgeMapHandler.GetKnowledgePointMastery)
+					knowledgeMap.POST("/update", knowledgeMapHandler.UpdateMasteryScore)
+					knowledgeMap.GET("/weak-points", knowledgeMapHandler.GetWeakKnowledgePoints)
+					knowledgeMap.GET("/strong-points", knowledgeMapHandler.GetStrongKnowledgePoints)
+					knowledgeMap.GET("/progress", knowledgeMapHandler.AnalyzeLearningProgress)
+					knowledgeMap.GET("/recommendations", knowledgeMapHandler.RecommendNextStudy)
+				}
+
+				// 通知相关路由
+				notifications := v1.Group("/notifications")
+				{
+					notifications.POST("", notificationHandler.CreateNotification)
+					notifications.GET("", notificationHandler.GetNotifications)
+					notifications.GET("/:id", notificationHandler.GetNotification)
+					notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+					notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
+					notifications.DELETE("/:id", notificationHandler.DeleteNotification)
+					notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+					notifications.POST("/send-immediate", notificationHandler.SendImmediateNotification)
+				}
+
+				// 任务调度相关路由
+				tasks := v1.Group("/tasks")
+				{
+					tasks.POST("/scheduled", taskSchedulerHandler.CreateScheduledTask)
+					tasks.GET("/scheduled", taskSchedulerHandler.GetScheduledTasks)
+					tasks.GET("/scheduled/:id", taskSchedulerHandler.GetScheduledTask)
+					tasks.PUT("/scheduled/:id", taskSchedulerHandler.UpdateScheduledTask)
+					tasks.DELETE("/scheduled/:id", taskSchedulerHandler.DeleteScheduledTask)
+					tasks.POST("/scheduled/:id/execute", taskSchedulerHandler.ExecuteTaskNow)
+					tasks.GET("/statuses", taskSchedulerHandler.GetTaskStatuses)
+					tasks.GET("/statuses/:id", taskSchedulerHandler.GetTaskStatus)
+				}
 			}
 
 			openLesson := v1.Group("/lesson")
@@ -319,6 +389,9 @@ func main() {
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	for _, route := range r.Routes() {
+		applogger.Infof("Route: %s %s", route.Method, route.Path)
+	}
 	applogger.Sugar.Infof("服务器启动成功，访问地址: http://localhost%s", addr)
 	applogger.Sugar.Infof("健康检查: http://localhost%s/health", addr)
 
