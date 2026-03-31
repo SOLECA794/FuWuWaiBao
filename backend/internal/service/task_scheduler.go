@@ -171,6 +171,74 @@ func (ts *TaskSchedulerService) DeleteScheduledTask(taskID string) error {
 	return ts.db.Delete(&model.ScheduledTask{}, "id = ?", taskID).Error
 }
 
+// SyncNotificationTask 为定时通知创建或更新对应的调度任务
+func (ts *TaskSchedulerService) SyncNotificationTask(notification *model.Notification) error {
+	if notification == nil || strings.TrimSpace(notification.ID) == "" {
+		return nil
+	}
+
+	now := time.Now()
+	if notification.ScheduledAt == nil || !notification.ScheduledAt.After(now) || !strings.EqualFold(notification.Status, "scheduled") {
+		return ts.DeleteNotificationTasks(notification.ID)
+	}
+
+	taskDataBytes, err := json.Marshal(map[string]any{
+		"notification_id": notification.ID,
+		"student_id":      notification.StudentID,
+		"title":           notification.Title,
+		"type":            notification.Type,
+	})
+	if err != nil {
+		return err
+	}
+
+	description := firstString(strings.TrimSpace(notification.Title), "定时通知")
+	taskData := string(taskDataBytes)
+
+	var task model.ScheduledTask
+	err = ts.notificationTaskQuery(notification.ID).Order("created_at desc").First(&task).Error
+	if err == nil {
+		return ts.db.Model(&model.ScheduledTask{}).Where("id = ?", task.ID).Updates(map[string]any{
+			"student_id":    notification.StudentID,
+			"task_data":     taskData,
+			"description":   description,
+			"scheduled_at":  *notification.ScheduledAt,
+			"status":        "pending",
+			"priority":      1,
+			"max_retries":   3,
+			"retry_count":   0,
+			"last_attempt":  nil,
+			"next_attempt":  nil,
+			"error_message": "",
+		}).Error
+	}
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	task = model.ScheduledTask{
+		TaskType:    "notification",
+		TaskData:    taskData,
+		Description: description,
+		ScheduledAt: *notification.ScheduledAt,
+		Status:      "pending",
+		Priority:    1,
+		MaxRetries:  3,
+		StudentID:   notification.StudentID,
+	}
+	return ts.db.Create(&task).Error
+}
+
+// DeleteNotificationTasks 删除通知关联的待执行调度任务
+func (ts *TaskSchedulerService) DeleteNotificationTasks(notificationID string) error {
+	if strings.TrimSpace(notificationID) == "" {
+		return nil
+	}
+	return ts.notificationTaskQuery(notificationID).
+		Where("status IN ?", []string{"pending", "queued", "processing", "failed"}).
+		Delete(&model.ScheduledTask{}).Error
+}
+
 // ExecuteTaskNow 立即执行任务
 func (ts *TaskSchedulerService) ExecuteTaskNow(taskID string) error {
 	task, err := ts.GetScheduledTask(taskID)
@@ -721,4 +789,10 @@ func parseCronValue(raw string, weekday bool) (int, error) {
 		return 0, nil
 	}
 	return value, nil
+}
+
+func (ts *TaskSchedulerService) notificationTaskQuery(notificationID string) *gorm.DB {
+	pattern := fmt.Sprintf("%%\"notification_id\":\"%s\"%%", notificationID)
+	altPattern := fmt.Sprintf("%%\"notificationId\":\"%s\"%%", notificationID)
+	return ts.db.Where("task_type = ? AND (task_data LIKE ? OR task_data LIKE ?)", "notification", pattern, altPattern)
 }

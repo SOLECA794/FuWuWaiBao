@@ -67,6 +67,22 @@ export const studentCoursewareApi = {
     body: JSON.stringify({ taskId, studentId, answers })
   }),
 
+  getPracticeHistory: ({ studentId, courseId, page, pageSize }) => {
+    const query = buildQuery({ studentId, courseId, page, pageSize })
+    return requestJson(`/api/v1/student/practice/history?${query}`)
+  },
+
+  getWrongQuestions: ({ studentId, courseId, page, pageSize }) => {
+    const query = buildQuery({ studentId, courseId, page, pageSize })
+    return requestJson(`/api/v1/student/practice/wrong-questions?${query}`)
+  },
+
+  retryWrongQuestion: ({ questionId, studentId }) => requestJson(`/api/v1/student/practice/wrong-questions/${encodeURIComponent(questionId)}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId })
+  }),
+
   // 新增接口：节点专项讲解
   explainNode: ({ nodeId, courseId, pageNum, question }) => requestJson(`/api/v1/student/nodes/${encodeURIComponent(nodeId)}/explain`, {
     method: 'POST',
