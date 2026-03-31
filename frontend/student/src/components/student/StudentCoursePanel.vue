@@ -2,41 +2,30 @@
   <div class="course-card">
     <div class="course-header">
       <div>
-        <div class="header-label">当前讲授</div>
-        <h3>{{ currentCourseName || '暂无课程' }} - 第{{ currentPage }}页</h3>
+        <div class="header-label">课堂内容</div>
+        <h3>{{ currentCourseName || '暂无课程' }} · 第{{ currentPage }}页</h3>
       </div>
       <div class="course-tag">
-        <el-tag size="small" effect="dark">课件学习</el-tag>
+        <el-tag size="small" effect="dark">学习中</el-tag>
         <span class="page-count">{{ currentPage }}/{{ totalPage }}</span>
       </div>
     </div>
 
-    <div class="progress-strip">
-      <div class="progress-meta">
-        <span>学习进度 {{ progressPercent }}%</span>
-        <span>{{ isPlay ? '讲授进行中' : '等待继续' }}</span>
+    <div class="status-strip">
+      <div class="status-row">
+        <span class="status-pill">进度 {{ progressPercent }}%</span>
+        <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
+        <span class="status-pill" v-if="currentNodeTitle">节点 {{ currentNodeTitle }}</span>
+        <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatTime(currentTimelineSec) }} / {{ formatTime(pageTimelineDuration) }}</span>
       </div>
-      <div class="progress-track">
+      <div class="status-track" v-if="pageTimelineDuration > 0">
+        <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
+      </div>
+      <div class="status-track" v-else>
         <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
       </div>
-    </div>
-
-    <div class="playback-strip" v-if="pageTimelineDuration > 0">
-      <div class="playback-head">
-        <div>
-          <div class="playback-title">讲授时间轴</div>
-          <div class="playback-subtitle">当前节点 {{ currentNodeTitle || '未定位节点' }}</div>
-        </div>
-        <div class="playback-meta-group">
-          <span class="playback-mode-badge" :class="playbackModeClass">{{ playbackModeLabel }}</span>
-          <div class="playback-time">{{ formatTime(currentTimelineSec) }} / {{ formatTime(pageTimelineDuration) }}</div>
-        </div>
-      </div>
-      <div class="playback-track">
-        <div class="playback-fill" :style="{ width: timelinePercent + '%' }"></div>
-      </div>
-      <div class="playback-node-meta" v-if="activeNodeDuration > 0">
-        <span>节点进度 {{ formatTime(activeNodeElapsedSec) }} / {{ formatTime(activeNodeDuration) }}</span>
+      <div class="status-note" v-if="audioStatusText || activeNodeDuration > 0">
+        <span v-if="activeNodeDuration > 0">节点 {{ formatTime(activeNodeElapsedSec) }} / {{ formatTime(activeNodeDuration) }}</span>
         <span>{{ activeNodeTypeLabel }}</span>
         <span v-if="audioStatusText">{{ audioStatusText }}</span>
       </div>
@@ -46,8 +35,8 @@
       <!-- 脚本和图片切换 -->
       <div v-if="scriptContent || courseImg" class="content-switcher">
         <el-radio-group v-model="viewMode" size="small" @change="handleViewModeChange">
-          <el-radio-button v-if="scriptContent" label="script">讲稿</el-radio-button>
-          <el-radio-button v-if="courseImg" label="image">课件</el-radio-button>
+          <el-radio-button v-if="scriptContent" value="script">讲稿</el-radio-button>
+          <el-radio-button v-if="courseImg" value="image">课件</el-radio-button>
         </el-radio-group>
       </div>
 
@@ -85,32 +74,7 @@
       </el-button>
       <el-button @click="$emit('next-page')" icon="el-icon-arrow-right" size="small">下一页</el-button>
     </div>
-    <div class="page-summary" v-if="pageSummary">
-      <h4>本页摘要</h4>
-      <p>{{ pageSummary }}</p>
-    </div>
-    <div class="node-panel" v-if="playbackNodes.length">
-      <div class="node-panel-header">
-        <h4>讲授节点</h4>
-        <span>{{ playbackNodes.length }} 段</span>
-      </div>
-      <div class="node-list">
-        <button
-          v-for="node in playbackNodes"
-          :key="node.node_id"
-          class="node-chip"
-          :class="{ active: node.node_id === currentNodeId }"
-          @click="$emit('select-node', node.node_id)"
-        >
-          <div class="node-chip-head">
-            <strong>{{ node.title || node.node_id }}</strong>
-            <span class="node-type" :class="node.type">{{ nodeTypeLabel(node.type) }}</span>
-          </div>
-          <span>{{ node.text }}</span>
-        </button>
-      </div>
-    </div>
-    <div class="control-tip">支持自动记录断点，切页后将实时同步学习进度</div>
+    <div class="control-tip">系统会自动记录到当前页，下次可直接续学。</div>
   </div>
 </template>
 
@@ -319,107 +283,50 @@ const formatTime = (seconds) => {
   font-size: 13px;
   color: #475569;
 }
-.progress-strip {
+.status-strip {
   margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: linear-gradient(90deg, rgba(15, 118, 110, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%);
-  border: 1px solid rgba(14, 165, 233, 0.14);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 250, 247, 0.96) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
-.progress-meta {
+.status-row {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #0f172a;
-  font-weight: 600;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
 }
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #3b5d54;
+  background: #edf4f0;
+  border: 1px solid #d5e4dc;
+}
+
+.status-track,
 .progress-track {
   height: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.7);
   overflow: hidden;
 }
+.status-fill,
 .progress-fill {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
 }
-.playback-strip {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.03) 0%, rgba(255, 255, 255, 0.78) 100%);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-}
-.playback-head {
+.status-note {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-.playback-title {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0369a1;
-}
-.playback-subtitle {
-  margin-top: 4px;
-  font-size: 14px;
-  color: #0f172a;
-  font-weight: 600;
-}
-.playback-time {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-.playback-meta-group {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-}
-.playback-mode-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 58px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.playback-mode-badge.duration {
-  color: #075985;
-  background: rgba(14, 165, 233, 0.12);
-}
-.playback-mode-badge.audio {
-  color: #065f46;
-  background: rgba(16, 185, 129, 0.14);
-}
-.playback-track {
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(226, 232, 240, 0.9);
-  overflow: hidden;
-}
-.playback-fill {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #0ea5e9 0%, #2563eb 100%);
-}
-.playback-node-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
+  margin-top: 7px;
   font-size: 12px;
-  color: #475569;
+  color: #628075;
 }
 .course-content {
   flex: 1;
@@ -428,41 +335,6 @@ const formatTime = (seconds) => {
   border: 1px solid rgba(226, 232, 240, 0.9);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  position: relative;
-  overflow: auto;
-}
-
-.content-switcher {
-  padding: 12px;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-  display: flex;
-  justify-content: flex-end;
-}
-
-.course-content > div:not(.content-switcher) {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.course-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.no-courseware {
-  font-size: 14px;
-  color: #64748b;
-}
-.trace-highlight {
-  position: absolute;
-  width: 180px;
-  height: 100px;
-  border: 3px solid #ff6633;
-  background: rgba(255, 102, 51, 0.1);
-  pointer-events: none;
   border-radius: 6px;
   animation: flash 1.2s infinite;
 }
