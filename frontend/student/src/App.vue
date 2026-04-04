@@ -1,5 +1,6 @@
 <template>
-  <div class="student-app">
+  <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+  <div v-else class="student-app">
     <div class="ambient-layer">
       <span class="orb orb-a"></span>
       <span class="orb orb-b"></span>
@@ -44,7 +45,10 @@
               <span class="section-tag">{{ activeSectionMeta.tag }}</span>
               <h2>{{ activeSectionMeta.title }}</h2>
             </div>
-            <p>{{ activeSectionMeta.desc }}</p>
+            <div class="section-header-actions">
+              <p>{{ activeSectionMeta.desc }}</p>
+              <button class="logout-btn" @click="handleLogout">退出登录</button>
+            </div>
           </section>
 
           <transition name="page-fade" mode="out-in">
@@ -197,6 +201,10 @@
             </section>
           </div>
 
+          <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
+            <StudentPersonalCenter :student-id="studentId" />
+          </div>
+
           <div v-else key="knowledge" class="page-layout single-col">
             <StudentKnowledgePanel
               :uploaded-file="uploadedFile"
@@ -208,10 +216,6 @@
               @parse-knowledge="parseKnowledge"
               @node-click="handleNodeClick"
             />
-          </div>
-
-          <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
-            <StudentPersonalCenter :student-id="studentId" />
           </div>
           </transition>
         </section>
@@ -241,6 +245,7 @@ import StudentTracePanel from './components/student/StudentTracePanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
+import HomeLogin from './components/HomeLogin.vue'
 
 const resolveStudentId = () => {
   const queryId = typeof window !== 'undefined'
@@ -257,10 +262,21 @@ const resolveStudentId = () => {
   return finalId
 }
 
+const resolveTeacherOrigin = () => {
+  if (typeof window === 'undefined') return 'http://localhost:5173'
+  const cached = String(window.localStorage.getItem('fuww_teacher_origin') || '').trim()
+  if (cached) return cached
+  const protocol = window.location.protocol || 'http:'
+  const hostname = window.location.hostname || 'localhost'
+  return `${protocol}//${hostname}:5173`
+}
+
+const isLoggedIn = ref(false)
+
 const backendStatus = ref('checking')
 let backendHealthTimer = null
 
-const studentId = ref(resolveStudentId())
+const studentId = ref('')
 const courseId = ref('')
 const sessionId = ref('')
 const currentNodeId = ref('p1_n1')
@@ -853,11 +869,75 @@ const openTraceMode = () => {
   traceLog.value = `已定位：第 ${currentPage.value} 页 → 当前节点 ${currentNodeId.value}${sourceNode ? `（最近问答来源节点 ${sourceNode}）` : ''}`
 }
 
-onMounted(() => {
+const startStudentWorkspace = () => {
   checkBackendHealth()
+  if (backendHealthTimer) {
+    window.clearInterval(backendHealthTimer)
+  }
   backendHealthTimer = window.setInterval(checkBackendHealth, 30000)
   startPlaybackTimer()
-  initializeCourseContext()
+  void initializeCourseContext()
+}
+
+const handleLoginSuccess = (user) => {
+  const role = String(user?.role || '').trim().toLowerCase()
+  const username = String(user?.username || '').trim().toLowerCase() || 'xuesheng'
+
+  if (role === 'teacher') {
+    const teacherOrigin = resolveTeacherOrigin()
+    const encodedUsername = encodeURIComponent(username)
+    window.location.href = `${teacherOrigin}/?role=teacher&username=${encodedUsername}`
+    return
+  }
+
+  isLoggedIn.value = true
+  studentId.value = username
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('fuww_student_id', username)
+    window.localStorage.setItem('fuww_student_origin', window.location.origin)
+  }
+  startStudentWorkspace()
+}
+
+const handleLogout = () => {
+  isLoggedIn.value = false
+  studentId.value = ''
+  question.value = ''
+  aiReply.value = ''
+  qaHistory.value = []
+  isPlay.value = false
+  stopPlaybackTimer()
+  stopSpeechNarration()
+  stopStreamTypewriter()
+  if (backendHealthTimer) {
+    window.clearInterval(backendHealthTimer)
+    backendHealthTimer = null
+  }
+}
+
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('fuww_student_origin', window.location.origin)
+    const params = new URLSearchParams(window.location.search)
+    const role = String(params.get('role') || '').trim().toLowerCase()
+    const username = String(params.get('username') || '').trim().toLowerCase()
+
+    if (role && username) {
+      if (role === 'teacher') {
+        const teacherOrigin = resolveTeacherOrigin()
+        window.location.replace(`${teacherOrigin}/?role=teacher&username=${encodeURIComponent(username)}`)
+        return
+      }
+      isLoggedIn.value = true
+      studentId.value = username
+      window.localStorage.setItem('fuww_student_id', username)
+      window.history.replaceState({}, document.title, window.location.pathname)
+      startStudentWorkspace()
+      return
+    }
+
+    studentId.value = resolveStudentId()
+  }
 })
 
 onUnmounted(() => {
@@ -1354,6 +1434,31 @@ const checkAnswer = async (option) => {
   margin-top: 4px;
   color: #6b8178;
   font-size: 12px;
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-header-actions p {
+  margin: 4px 0 0;
+}
+
+.logout-btn {
+  border: 1px solid #cfe0d7;
+  background: #ffffff;
+  color: #2f605a;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.logout-btn:hover {
+  border-color: #2f605a;
 }
 
 .page-layout {

@@ -68,11 +68,14 @@ type OSSConfig struct {
 }
 
 type AIConfig struct {
-	Provider string        `mapstructure:"provider"`
-	BaseURL  string        `mapstructure:"base_url"`
-	APIKey   string        `mapstructure:"api_key"`
-	Model    string        `mapstructure:"model"`
-	Timeout  time.Duration `mapstructure:"timeout"`
+	Provider     string        `mapstructure:"provider"`
+	BaseURL      string        `mapstructure:"base_url"`
+	APIKey       string        `mapstructure:"api_key"`
+	Model        string        `mapstructure:"model"`
+	Timeout      time.Duration `mapstructure:"timeout"`
+	UseDify      bool          `mapstructure:"use_dify"`
+	DifyBaseURL  string        `mapstructure:"dify_base_url"`
+	DifyAPIKey   string        `mapstructure:"dify_api_key"`
 }
 
 type LogConfig struct {
@@ -143,6 +146,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ai.api_key", "")
 	v.SetDefault("ai.model", "")
 	v.SetDefault("ai.timeout", "30s")
+	v.SetDefault("ai.use_dify", false)
+	v.SetDefault("ai.dify_base_url", "http://127.0.0.1:18001")
+	v.SetDefault("ai.dify_api_key", "")
 
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.filename", "logs/app.log")

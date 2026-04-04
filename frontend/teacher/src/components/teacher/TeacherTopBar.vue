@@ -15,7 +15,7 @@
         </div>
         <div class="account-actions">
           <span class="teacher-name">{{ username }}</span>
-          <button class="logout-btn" @click="$emit('logout')">识性登录</button>
+          <button class="logout-btn" @click="$emit('logout')">退出登录</button>
         </div>
       </div>
     </div>

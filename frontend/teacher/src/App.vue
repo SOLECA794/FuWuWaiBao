@@ -6,7 +6,7 @@
         :backend-status-class="backendStatusClass"
         :backend-status-text="backendStatusText"
         :username="loggedInUsername"
-        @logout="isLoggedIn = false"
+        @logout="handleLogout"
       />
 
       <div class="main-content">
@@ -206,6 +206,22 @@ const isLoggedIn = ref(false)
 const loggedInUsername = ref('')
 const activeTab = ref('script')
 
+const resolveTeacherOrigin = () => {
+  if (typeof window === 'undefined') return 'http://localhost:5173'
+  const protocol = window.location.protocol || 'http:'
+  const hostname = window.location.hostname || 'localhost'
+  return `${protocol}//${hostname}:5173`
+}
+
+const resolveStudentOrigin = () => {
+  if (typeof window === 'undefined') return 'http://localhost:8081'
+  const cached = String(window.localStorage.getItem('fuww_student_origin') || '').trim()
+  if (cached) return cached
+  const protocol = window.location.protocol || 'http:'
+  const hostname = window.location.hostname || 'localhost'
+  return `${protocol}//${hostname}:8081`
+}
+
 const coursewareList = ref([])
 const currentCourseId = ref('')
 const currentCourseName = ref('')
@@ -240,13 +256,45 @@ let autosaveTimer = null
 
 const handleLoginSuccess = (user) => {
   if (user.role === 'student') {
-    const studentId = encodeURIComponent((user.username || 'xuesheng').trim() || 'xuesheng')
-    window.location.href = `http://localhost:8080/?studentId=${studentId}`
+    const normalizedUsername = (user.username || 'xuesheng').trim() || 'xuesheng'
+    const studentId = encodeURIComponent(normalizedUsername)
+    const encodedUsername = encodeURIComponent(normalizedUsername)
+    const studentOrigin = resolveStudentOrigin()
+    window.location.href = `${studentOrigin}/?studentId=${studentId}&role=student&username=${encodedUsername}`
     return
   }
   loggedInUsername.value = user.username
   isLoggedIn.value = true
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('fuww_teacher_origin', window.location.origin)
+  }
   void bootstrapAfterLogin()
+}
+
+const applyAutoLoginFromQuery = () => {
+  if (typeof window === 'undefined') return false
+  const params = new URLSearchParams(window.location.search)
+  const role = String(params.get('role') || '').trim().toLowerCase()
+  const username = String(params.get('username') || '').trim().toLowerCase()
+  if (!role || !username) return false
+
+  if (role === 'student') {
+    const studentOrigin = resolveStudentOrigin()
+    const studentId = encodeURIComponent(username)
+    window.location.replace(`${studentOrigin}/?studentId=${studentId}&role=student&username=${encodeURIComponent(username)}`)
+    return true
+  }
+
+  loggedInUsername.value = username
+  isLoggedIn.value = true
+  void bootstrapAfterLogin()
+  window.history.replaceState({}, document.title, window.location.pathname)
+  return true
+}
+
+const handleLogout = () => {
+  loggedInUsername.value = ''
+  isLoggedIn.value = false
 }
 
 const bootstrapAfterLogin = async () => {
@@ -275,6 +323,10 @@ const realPreviewUrl = computed(() => {
 })
 
 onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem('fuww_teacher_origin', window.location.origin || resolveTeacherOrigin())
+  }
+  if (applyAutoLoginFromQuery()) return
   checkBackendHealth()
   backendHealthTimer = window.setInterval(checkBackendHealth, 30 * 1000)
 })

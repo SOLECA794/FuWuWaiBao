@@ -10,15 +10,17 @@ import (
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 	"smart-teaching-backend/pkg/logger"
 )
 
 type AIHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewAIHandler(db *gorm.DB) *AIHandler {
-	return &AIHandler{db: db}
+func NewAIHandler(db *gorm.DB, aiClient service.AIEngine) *AIHandler {
+	return &AIHandler{db: db, aiClient: aiClient}
 }
 
 // 3.1 获取课件知识图谱
@@ -110,13 +112,30 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 		context = nodeScopedContext
 	}
 
-	// TODO: 调用 AI 服务获取答案
-	answer := generateAIAnswer(req.Question, context)
+	// 使用 AI 客户端获取真实答案（已配置为 Dify 或本地引擎）
+	answer := ""
+	if h.aiClient != nil {
+		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+			Question:    req.Question,
+			CurrentPage: req.PageNum,
+			Context:     context,
+			Mode:        "llm",
+		})
+		if err == nil && strings.TrimSpace(resp.Answer) != "" {
+			answer = resp.Answer
+		}
+	}
+	
+	// 如果 AI 调用失败，使用 fallback
+	if answer == "" {
+		answer = generateAIAnswer(req.Question, context)
+	}
+	
 	if req.TracePoint != nil {
 		answer = "针对坐标(" +
 			strconv.FormatFloat(req.TracePoint.X, 'f', 2, 64) + "," +
 			strconv.FormatFloat(req.TracePoint.Y, 'f', 2, 64) +
-			")的解答：" + req.Question
+			")的解答：" + answer
 	}
 
 	// 记录提问日志

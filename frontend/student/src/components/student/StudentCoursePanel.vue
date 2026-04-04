@@ -211,15 +211,6 @@ const timelinePercent = computed(() => {
   return Math.min(100, Math.max(0, Math.round((props.currentTimelineSec / props.pageTimelineDuration) * 100)))
 })
 
-const playbackModeLabel = computed(() => {
-  if (props.playbackMode === 'audio_timeline') return '音频轨'
-  return '时间轴'
-})
-
-const playbackModeClass = computed(() => {
-  return props.playbackMode === 'audio_timeline' ? 'audio' : 'duration'
-})
-
 const audioStatusText = computed(() => {
   const status = props.playbackAudioMeta?.audio_status
   const duration = Number(props.playbackAudioMeta?.audio_duration_sec || 0)
@@ -230,12 +221,6 @@ const audioStatusText = computed(() => {
   if (status === 'processing') return '音频生成中'
   return '使用时长驱动讲解'
 })
-
-const nodeTypeLabel = (type) => {
-  if (type === 'opening') return '开场'
-  if (type === 'transition') return '过渡'
-  return '讲解'
-}
 
 const formatTime = (seconds) => {
   const normalized = Math.max(0, Math.floor(seconds || 0))

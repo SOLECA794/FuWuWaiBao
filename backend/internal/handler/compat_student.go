@@ -2076,6 +2076,26 @@ func parsePracticeQuestionsFromAI(raw string) []practiceQuestionPayload {
 	return nil
 }
 
+// parsePracticeAttemptDetails 解析练习尝试详情
+func parsePracticeAttemptDetails(detailsJSON string) map[string]interface{} {
+	var details map[string]interface{}
+	if detailsJSON == "" {
+		return map[string]interface{}{}
+	}
+	if err := json.Unmarshal([]byte(detailsJSON), &details); err != nil {
+		return map[string]interface{}{}
+	}
+	return details
+}
+
+// ternaryString 条件返回字符串
+func ternaryString(condition bool, trueVal, falseVal string) string {
+	if condition {
+		return trueVal
+	}
+	return falseVal
+}
+
 func cleanAIJSON(raw string) string {
 	cleaned := strings.TrimSpace(raw)
 	if strings.HasPrefix(cleaned, "```json") {

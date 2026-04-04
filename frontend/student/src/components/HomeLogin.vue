@@ -4,18 +4,18 @@
     <div class="wave-bg">
       <svg class="wave-svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id="sg1" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#d4e3e1" stop-opacity="0.6" />
             <stop offset="100%" stop-color="#8FC1B5" stop-opacity="0.3" />
           </linearGradient>
-          <linearGradient id="g2" x1="100%" y1="0%" x2="0%" y2="100%">
+          <linearGradient id="sg2" x1="100%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stop-color="#2F605A" stop-opacity="0.12" />
             <stop offset="100%" stop-color="#8FC1B5" stop-opacity="0.08" />
           </linearGradient>
         </defs>
-        <path class="wave1" d="M-100,400 C200,280 400,520 700,380 C1000,240 1200,460 1540,360 L1540,900 L-100,900 Z" fill="url(#g1)" />
-        <path class="wave2" d="M-100,520 C300,380 500,620 800,480 C1100,340 1300,540 1540,450 L1540,900 L-100,900 Z" fill="url(#g2)" />
-        <path class="wave3" d="M-100,640 C250,500 550,700 900,580 C1150,480 1350,640 1540,560 L1540,900 L-100,900 Z" fill="url(#g1)" opacity="0.5"/>
+        <path class="wave1" d="M-100,400 C200,280 400,520 700,380 C1000,240 1200,460 1540,360 L1540,900 L-100,900 Z" fill="url(#sg1)" />
+        <path class="wave2" d="M-100,520 C300,380 500,620 800,480 C1100,340 1300,540 1540,450 L1540,900 L-100,900 Z" fill="url(#sg2)" />
+        <path class="wave3" d="M-100,640 C250,500 550,700 900,580 C1150,480 1350,640 1540,560 L1540,900 L-100,900 Z" fill="url(#sg1)" opacity="0.5"/>
       </svg>
     </div>
 
@@ -24,7 +24,6 @@
     <div class="blob blob2"></div>
     <div class="blob blob3"></div>
 
-    <!-- 顶部导航 -->
     <header class="site-header">
       <div class="brand-logo">
         <span class="logo-icon">🎓</span>
@@ -32,9 +31,7 @@
       </div>
     </header>
 
-    <!-- 主体：左文字 + 右卡片 -->
     <main class="hero">
-      <!-- 左侧文案 -->
       <div class="hero-left">
         <span class="badge">智慧教育 · 赋能未来</span>
         <h1 class="hero-title">
@@ -61,15 +58,11 @@
         </div>
       </div>
 
-      <!-- 右侧登录 / 注册卡片 -->
       <div class="login-card">
         <div class="card-inner">
           <h2 class="card-title">{{ isRegisterMode ? '注册新账号' : '欢迎回来' }}</h2>
-          <p class="card-sub">
-            {{ isRegisterMode ? '创建一个教师或学生账号' : '请登录您的账号继续使用' }}
-          </p>
+          <p class="card-sub">{{ isRegisterMode ? '创建一个教师或学生账号' : '请登录您的账号继续使用' }}</p>
 
-          <!-- 登录表单 -->
           <form v-if="!isRegisterMode" @submit.prevent="handleLogin" class="form">
             <div class="field">
               <label>账号</label>
@@ -78,7 +71,6 @@
                 <input type="text" v-model="username" placeholder="教师账号 / 学生账号" autocomplete="username" required />
               </div>
             </div>
-
             <div class="field">
               <label>密码</label>
               <div class="input-wrap">
@@ -97,13 +89,10 @@
 
             <button type="submit" class="submit" :disabled="loading">
               <span v-if="!loading">登 录</span>
-              <span v-else class="loading-dots">
-                <span></span><span></span><span></span>
-              </span>
+              <span v-else class="loading-dots"><span></span><span></span><span></span></span>
             </button>
           </form>
 
-          <!-- 注册表单 -->
           <form v-else @submit.prevent="handleRegister" class="form">
             <div class="field">
               <label>账号</label>
@@ -112,7 +101,6 @@
                 <input type="text" v-model="username" placeholder="设置登录账号（推荐英文）" autocomplete="username" required />
               </div>
             </div>
-
             <div class="field">
               <label>密码</label>
               <div class="input-wrap">
@@ -120,7 +108,6 @@
                 <input type="password" v-model="password" placeholder="至少 4 位密码" autocomplete="new-password" required />
               </div>
             </div>
-
             <div class="field">
               <label>角色</label>
               <div class="role-radio-group">
@@ -134,17 +121,13 @@
                 </label>
               </div>
             </div>
-
             <button type="submit" class="submit" :disabled="loading">
               <span v-if="!loading">注 册</span>
-              <span v-else class="loading-dots">
-                <span></span><span></span><span></span>
-              </span>
+              <span v-else class="loading-dots"><span></span><span></span><span></span></span>
             </button>
           </form>
 
           <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-
           <p class="login-hint">
             <span v-if="!isRegisterMode">
               没有账号？
@@ -162,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, defineEmits } from 'vue'
 import { API_BASE } from '../config/api'
 
 const emit = defineEmits(['login-success'])
@@ -171,7 +154,7 @@ const password = ref('')
 const remember = ref(false)
 const loading = ref(false)
 const isRegisterMode = ref(false)
-const role = ref('teacher')
+const role = ref('student')
 const errorMessage = ref('')
 
 const tryLocalLoginFallback = () => {
@@ -216,7 +199,7 @@ const handleLogin = async () => {
       throw new Error(payload.message || `登录失败 (${res.status})`)
     }
     const data = payload.data || {}
-    emit('login-success', { username: data.username || username.value, role: data.role || 'teacher' })
+    emit('login-success', { username: data.username || username.value, role: data.role || 'student' })
   } catch (err) {
     if (String(err?.message || '').includes('Failed to fetch')) {
       try {
@@ -264,7 +247,6 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-/* ---- Reset & base ---- */
 .page {
   width: 100vw;
   min-height: 100vh;
@@ -273,10 +255,9 @@ const handleRegister = async () => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  font-family: 'Inter', 'PingFang SC', '-apple-system', sans-serif;
+  font-family: 'PingFang SC', '-apple-system', sans-serif;
 }
 
-/* ---- Wave background ---- */
 .wave-bg {
   position: absolute;
   inset: 0;
@@ -293,10 +274,12 @@ const handleRegister = async () => {
   animation: wave-flow 12s ease-in-out infinite alternate;
   transform-origin: 50% 50%;
 }
+
 .wave2 {
   animation: wave-flow 9s ease-in-out infinite alternate-reverse;
   transform-origin: 50% 50%;
 }
+
 .wave3 {
   animation: wave-flow 15s ease-in-out infinite alternate;
   transform-origin: 50% 50%;
@@ -308,7 +291,6 @@ const handleRegister = async () => {
   100% { d: path("M-100,440 C180,310 450,560 730,400 C1010,240 1260,480 1540,380 L1540,900 L-100,900 Z"); }
 }
 
-/* ---- Floating blobs ---- */
 .blob {
   position: absolute;
   border-radius: 50%;
@@ -354,7 +336,6 @@ const handleRegister = async () => {
   66%  { transform: translate(-16px, 20px) scale(0.96); }
 }
 
-/* ---- Header ---- */
 .site-header {
   position: relative;
   z-index: 10;
@@ -381,7 +362,6 @@ const handleRegister = async () => {
   letter-spacing: 0.5px;
 }
 
-/* ---- Hero ---- */
 .hero {
   position: relative;
   z-index: 10;
@@ -393,7 +373,6 @@ const handleRegister = async () => {
   padding: 40px 80px 80px;
 }
 
-/* ---- Left ---- */
 .hero-left {
   flex: 1;
   max-width: 520px;
@@ -478,7 +457,6 @@ const handleRegister = async () => {
   flex-shrink: 0;
 }
 
-/* ---- Login card ---- */
 .login-card {
   flex: 0 0 420px;
   animation: fade-in-right 0.8s ease 0.15s both;
@@ -588,7 +566,9 @@ const handleRegister = async () => {
   text-decoration: none;
 }
 
-.link:hover { text-decoration: underline; }
+.link:hover {
+  text-decoration: underline;
+}
 
 .submit {
   height: 48px;
@@ -621,7 +601,6 @@ const handleRegister = async () => {
   box-shadow: none;
 }
 
-/* Loading dots */
 .loading-dots {
   display: flex;
   gap: 5px;
@@ -672,5 +651,44 @@ const handleRegister = async () => {
   gap: 6px;
   font-size: 13px;
   color: #475569;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    flex-direction: column;
+    padding: 20px 24px 50px;
+    gap: 32px;
+  }
+
+  .site-header {
+    padding: 16px 22px;
+  }
+
+  .hero-left {
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .hero-desc {
+    margin-inline: auto;
+  }
+
+  .features {
+    justify-content: center;
+  }
+
+  .hero-title {
+    font-size: 38px;
+  }
+
+  .login-card {
+    width: min(100%, 460px);
+    flex: none;
+  }
+
+  .card-inner {
+    padding: 36px 28px;
+    border-radius: 24px;
+  }
 }
 </style>

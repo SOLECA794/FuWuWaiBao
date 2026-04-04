@@ -111,7 +111,19 @@ func main() {
 	}
 	applogger.Info("MinIO连接成功")
 
-	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+	// 根据配置选择 AI 客户端（Dify 或本地 AI 引擎）
+	var aiClient service.AIEngine
+	if cfg.AI.UseDify {
+		if cfg.AI.DifyBaseURL == "" {
+			cfg.AI.DifyBaseURL = "http://127.0.0.1:18001"
+		}
+		aiClient = service.NewDifyClient(cfg.AI.DifyBaseURL, cfg.AI.DifyAPIKey)
+		applogger.Sugar.Infof("使用 Dify AI 客户端: %s", cfg.AI.DifyBaseURL)
+	} else {
+		aiClient = service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+		applogger.Sugar.Infof("使用本地 AI 引擎客户端: %s", cfg.AI.BaseURL)
+	}
+
 	courseService := service.NewCourseService(db, minioClient, aiClient)
 
 	// 初始化新的服务
