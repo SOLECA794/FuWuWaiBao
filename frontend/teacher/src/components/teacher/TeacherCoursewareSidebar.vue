@@ -24,7 +24,7 @@
           <span class="course-name" :title="course.name">{{ course.name }}</span>
           <div class="course-actions">
             <span v-if="course.published" class="published-tag">已发布</span>
-            <button @click.stop="$emit('delete-course', course)" class="del-btn" :disabled="courseListLoading">删除</button>
+            <button @click.stop="$emit('delete-course', course.id)" class="del-btn" :disabled="courseListLoading">删除</button>
           </div>
         </div>
         <div v-if="coursewareList.length === 0" class="empty-list-tip">

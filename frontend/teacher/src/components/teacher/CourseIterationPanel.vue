@@ -131,11 +131,11 @@
           <button
             class="generate-btn"
             @click="generateScript"
-            :disabled="scriptGenerating || nodeTree.length === 0"
+            :disabled="isGenerating || nodeTree.length === 0"
           >
-            <span v-if="scriptGenerating" class="spinner">⌛</span>
+            <span v-if="isGenerating" class="spinner">⌛</span>
             <span v-else>▶</span>
-            {{ scriptGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
+            {{ isGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
           </button>
         </div>
 
@@ -229,17 +229,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
+import { teacherV1Service } from '../../services/teacher.v1'
 
 // ============ Props & Emits ============
-defineProps({
+const props = defineProps({
   currentCourseId: {
     type: String,
     default: ''
+  },
+  questionRecords: {
+    type: Array,
+    default: () => []
   }
 })
 
-const emit = defineEmits(['script-generated'])
+const emit = defineEmits(['update:script'])
 
 // ============ Mock 数据 ============
 
@@ -256,15 +261,13 @@ const pendingNodes = ref([
 ])
 
 // 3. 待关联的学生案例
-const pendingCases = ref([
-  { id: 'c1', content: '为什么选第一个元素做基准会退化成O(n^2)？', student: '张三', boundNodeId: null },
-  { id: 'c2', content: '递归的参数传递怎么理解？', student: '李四', boundNodeId: null }
-])
+const pendingCases = ref([])
 
 // ============ 状态管理 ============
 
 // 当前大纲树（会动态变化）
 const nodeTree = ref([...basicNodeTree.value])
+const nodeList = nodeTree
 
 // 拖拽状态
 const draggedNodeId = ref(null)
@@ -277,7 +280,7 @@ const activeSelectorIdx = ref(null)
 const bindingMap = ref({})
 
 // 讲稿生成状态
-const scriptGenerating = ref(false)
+const isGenerating = ref(false)
 
 // ============ 计算属性 ============
 
@@ -287,6 +290,28 @@ const getNodeCaseCount = (nodeId) => {
 }
 
 // ============ 方法 ============
+
+watch(
+  () => props.questionRecords,
+  (records) => {
+    const list = Array.isArray(records) ? records : []
+    pendingCases.value = list
+      .map((item, index) => {
+        const rawId = String(item?.id || '').trim()
+        const content = String(item?.content || '').trim()
+        const student = String(item?.studentId || item?.userId || '未知学生').trim()
+        if (!content) return null
+        return {
+          id: rawId || `q_${index + 1}_${Date.now()}`,
+          content,
+          student,
+          boundNodeId: null
+        }
+      })
+      .filter(Boolean)
+  },
+  { immediate: true, deep: true }
+)
 
 /**
  * 拖拽开始：记录被拖动的建议节点
@@ -449,71 +474,35 @@ const addManualNode = () => {
 }
 
 /**
- * 生成讲稿（模拟调用后端）
+ * 生成讲稿（调用后端接口）
  */
 const generateScript = async () => {
-  if (nodeTree.value.length === 0) {
+  if (nodeList.value.length === 0) {
     alert('请先添加至少一个节点到大纲中')
     return
   }
 
-  scriptGenerating.value = true
+  isGenerating.value = true
 
   try {
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const nodeOrder = nodeList.value
+      .map(node => String(node?.id || '').trim())
+      .filter(Boolean)
 
-    // 构建讲稿数据
-    const scriptContent = buildScriptMarkdown()
-
-    // 触发事件，交由父组件处理
-    emit('script-generated', {
-      content: scriptContent,
-      nodeTree: nodeTree.value,
-      bindingMap: bindingMap.value
+    const res = await teacherV1Service.generateIterationScript({
+      courseId: props.currentCourseId,
+      nodeOrder
     })
+
+    emit('update:script', res.data)
 
     alert('讲稿生成成功！')
   } catch (err) {
     console.error('生成讲稿失败:', err)
     alert('生成讲稿失败，请重试')
   } finally {
-    scriptGenerating.value = false
+    isGenerating.value = false
   }
-}
-
-/**
- * 构建 Markdown 讲稿内容
- */
-const buildScriptMarkdown = () => {
-  let markdown = '# 下节课讲稿大纲\n\n'
-
-  nodeTree.value.forEach((node, idx) => {
-    markdown += `## ${idx + 1}. ${node.title}\n`
-
-    if (node.fromIteration) {
-      markdown += `> **来源**: 基于学情迭代自动推荐\n\n`
-    }
-
-    // 添加关联案例
-    const cases = bindingMap.value[node.id] || []
-    if (cases.length > 0) {
-      markdown += `**关联案例**:\n`
-      cases.forEach(caseId => {
-        const caseContent = findCaseContent(caseId)
-        markdown += `- ${caseContent}\n`
-      })
-      markdown += '\n'
-    }
-
-    markdown += `### 学习目标\n- 掌握${node.title}的核心要点\n\n`
-    markdown += `### 教学活动\n- 讲解（5-10分钟）\n- 案例分析（10分钟）\n- 练习与反馈（5分钟）\n\n`
-  })
-
-  markdown += '---\n'
-  markdown += '**生成时间**: ' + new Date().toLocaleString() + '\n'
-
-  return markdown
 }
 </script>
 

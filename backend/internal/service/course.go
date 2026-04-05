@@ -87,6 +87,12 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 		}
 	}
 
+	// 即使 AI 不可用，也保证至少有一页可预览占位图，避免前端完全无预览。
+	if err := s.ensurePreviewFallback(tx, course); err != nil {
+		tx.Rollback()
+		return nil, fmt.Errorf("创建预览兜底失败: %w", err)
+	}
+
 	// 无论 AI 是否可用，至少要把课件元信息和文件 URL 落库
 	if err := tx.Save(course).Error; err != nil {
 		tx.Rollback()
@@ -101,6 +107,40 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 	logger.Infof("课件上传成功: %s, URL: %s", course.ID, fileURL)
 
 	return course, nil
+}
+
+func (s *courseService) ensurePreviewFallback(tx *gorm.DB, course *model.Course) error {
+	if course == nil {
+		return fmt.Errorf("course 不能为空")
+	}
+
+	var pageCount int64
+	if err := tx.Model(&model.CoursePage{}).Where("course_id = ?", course.ID).Count(&pageCount).Error; err != nil {
+		return err
+	}
+	if pageCount > 0 {
+		if course.TotalPage <= 0 {
+			course.TotalPage = int(pageCount)
+		}
+		return nil
+	}
+
+	if course.TotalPage <= 0 {
+		course.TotalPage = 1
+	}
+
+	placeholderURL := fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, 1)
+	page := model.CoursePage{
+		CourseID:   course.ID,
+		PageIndex:  1,
+		ImageURL:   placeholderURL,
+		SourceText: "课件解析服务暂不可用，当前为占位预览。",
+	}
+	if err := tx.Create(&page).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // enrichCourseWithAI 使用 AI 引擎为课件生成解析页、预览图和教学节点。

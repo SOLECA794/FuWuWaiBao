@@ -16,7 +16,7 @@
           ‹
         </button>
         <div class="slide-canvas">
-          <iframe v-if="previewUrl" :src="previewUrl" title="课件预览" class="preview-iframe"></iframe>
+          <img v-if="previewUrl" :src="previewUrl" alt="课件预览" class="preview-image" />
           <div class="preview-placeholder" v-else>
             <span>第 {{ currentEditPage }} 页</span>
             <small>当前课件暂未生成预览图</small>
@@ -331,9 +331,28 @@ function estimateDuration(text) {
 .viewer-stage {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 18px 20px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #b4c8bc #edf4ef;
+}
+
+.viewer-stage::-webkit-scrollbar {
+  width: 8px;
+}
+
+.viewer-stage::-webkit-scrollbar-track {
+  background: #edf4ef;
+  border-radius: 999px;
+}
+
+.viewer-stage::-webkit-scrollbar-thumb {
+  background: #b4c8bc;
+  border-radius: 999px;
 }
 
 .stage-head {
@@ -396,8 +415,8 @@ function estimateDuration(text) {
 }
 
 .slide-canvas {
-  width: min(100%, 620px);
-  min-height: 290px;
+  width: min(100%, 820px);
+  min-height: 430px;
   background: #eef4f1;
   border: 1px solid #ceddd4;
   border-radius: 12px;
@@ -405,9 +424,9 @@ function estimateDuration(text) {
   box-sizing: border-box;
 }
 
-.preview-iframe {
+.preview-image {
   width: 100%;
-  min-height: 260px;
+  min-height: 390px;
   border-radius: 8px;
   background: #fbfdfc;
   border: 1px solid #d6e3dc;
@@ -572,8 +591,8 @@ button:disabled {
 }
 
 .copilot-panel {
-  flex: 0 0 340px;
-  width: 340px;
+  flex: 0 0 280px;
+  width: 280px;
   border-left: 1px solid #d8e4dc;
   background: #f8fbf9;
   padding: 14px 12px;

@@ -50,7 +50,7 @@
       />
 
       <!-- 课件图片视图 -->
-      <div v-if="viewMode === 'image' || !scriptContent">
+      <div v-if="viewMode === 'image' || !scriptContent" class="course-image-view">
         <img v-if="courseImg" :src="courseImg" alt="课件内容" class="course-img" />
         <div v-else class="no-courseware">当前没有可预览课件，请联系教师先发布课件</div>
         <div
@@ -320,13 +320,48 @@ const formatTime = (seconds) => {
   border: 1px solid rgba(226, 232, 240, 0.9);
   display: flex;
   flex-direction: column;
-  border-radius: 6px;
-  animation: flash 1.2s infinite;
 }
-@keyframes flash {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-  100% { opacity: 0.4; }
+
+.course-image-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.course-img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: min(72vh, calc(100vh - 360px));
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #ffffff;
+}
+
+.no-courseware {
+  margin: auto;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+
+.trace-highlight {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid rgba(239, 68, 68, 0.95);
+  background: rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 .course-control {
   margin-top: 16px;
