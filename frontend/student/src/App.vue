@@ -1,6 +1,69 @@
 <template>
   <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+  <div v-else-if="!hasCourseSelected" class="course-selection-page">
+    <StudentTopBar
+      :backend-status-class="backendStatusClass"
+      :backend-status-text="backendStatusText"
+      :username="studentId"
+      @logout="handleLogout"
+    />
+    <div class="selection-layout">
+      <aside class="selection-user-sidebar">
+        <div class="user-avatar">{{ (studentId || '学').slice(0, 1).toUpperCase() }}</div>
+        <div class="user-name">{{ studentId || '学生' }}</div>
+        <div class="user-subtitle">我的学习空间</div>
+
+        <el-button class="refresh-btn" @click="loadCourseSelectionData" :loading="selectionLoading">刷新资源</el-button>
+      </aside>
+
+      <section class="selection-main-panel" v-loading="selectionLoading">
+        <div class="selection-head">
+          <div>
+            <h2>选择你要学习的课件</h2>
+            <p>左侧是用户栏，右侧平铺展示你的选课。点击任一卡片会直接进入学习页面。</p>
+          </div>
+        </div>
+
+        <div class="selection-filters">
+          <el-select v-model="selectedTeachingCourseId" placeholder="筛选课程" filterable>
+            <el-option v-for="item in selectionCourseOptions" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+          <el-select v-model="selectedCourseClassId" placeholder="筛选教学班级" filterable>
+            <el-option v-for="item in filteredSelectionClassOptions" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </div>
+
+        <div class="course-tile-grid">
+          <button
+            v-for="card in selectionDisplayCards"
+            :key="card.id"
+            class="course-tile"
+            :class="{ active: selectedCoursewareId === card.id, mock: card.mock }"
+            @click="pickCoursewareCard(card)"
+          >
+            <div class="tile-badge">{{ card.mock ? '占位选课' : '我的选课' }}</div>
+            <h3>{{ card.name }}</h3>
+            <p>{{ card.desc }}</p>
+            <div class="tile-meta">
+              <span>{{ card.courseName || '未绑定课程' }}</span>
+              <span>{{ card.className || '未绑定班级' }}</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="selection-tip" v-if="selectionDisplayCards.length === 0">
+          暂无可展示课件，请点击“刷新资源”重试。
+        </div>
+      </section>
+    </div>
+  </div>
   <div v-else class="student-app">
+    <StudentTopBar
+      :backend-status-class="backendStatusClass"
+      :backend-status-text="backendStatusText"
+      :username="studentId"
+      @logout="handleLogout"
+    />
     <div class="ambient-layer">
       <span class="orb orb-a"></span>
       <span class="orb orb-b"></span>
@@ -47,6 +110,7 @@
             </div>
             <div class="section-header-actions">
               <p>{{ activeSectionMeta.desc }}</p>
+              <button class="outline-btn" @click="backToSelectionPage">返回选课页</button>
               <button class="logout-btn" @click="handleLogout">退出登录</button>
             </div>
           </section>
@@ -245,6 +309,7 @@ import StudentTracePanel from './components/student/StudentTracePanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
+import StudentTopBar from './components/StudentTopBar.vue'
 import HomeLogin from './components/HomeLogin.vue'
 
 const resolveStudentId = () => {
@@ -272,9 +337,29 @@ const resolveTeacherOrigin = () => {
 }
 
 const isLoggedIn = ref(false)
+const hasCourseSelected = ref(false)
+const selectionLoading = ref(false)
+const selectionCourseOptions = ref([])
+const selectionClassOptions = ref([])
+const selectionCoursewares = ref([])
+const selectedTeachingCourseId = ref('')
+const selectedCourseClassId = ref('')
+const selectedCoursewareId = ref('')
 
 const backendStatus = ref('checking')
 let backendHealthTimer = null
+
+const backendStatusText = computed(() => {
+  if (backendStatus.value === 'online') return '在线'
+  if (backendStatus.value === 'offline') return '离线'
+  return '检测中'
+})
+
+const backendStatusClass = computed(() => {
+  if (backendStatus.value === 'online') return 'online'
+  if (backendStatus.value === 'offline') return 'offline'
+  return 'checking'
+})
 
 const studentId = ref('')
 const courseId = ref('')
@@ -304,6 +389,42 @@ const sectionMetas = {
 const activeSectionMeta = computed(() => sectionMetas[activeSection.value] || sectionMetas.classroom)
 const isMenuCollapsed = ref(false)
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
+const filteredSelectionClassOptions = computed(() => {
+  if (!selectedTeachingCourseId.value) return selectionClassOptions.value
+  return selectionClassOptions.value.filter((item) => item.teachingCourseId === selectedTeachingCourseId.value)
+})
+
+const filteredSelectionCoursewares = computed(() => {
+  return selectionCoursewares.value.filter((item) => {
+    const courseMatch = !selectedTeachingCourseId.value || item.teachingCourseId === selectedTeachingCourseId.value
+    const classMatch = !selectedCourseClassId.value || item.courseClassId === selectedCourseClassId.value
+    return courseMatch && classMatch
+  })
+})
+
+const selectionDisplayCards = computed(() => {
+  const realCards = filteredSelectionCoursewares.value.map((item, index) => ({
+    ...item,
+    mock: false,
+    desc: item.desc || `共 ${item.totalPage || 1} 页内容，点击卡片立即开始学习。`,
+    order: index
+  }))
+  if (realCards.length > 0) return realCards
+
+  const fallbackCourse = selectionCourseOptions.value[0]?.name || '示例课程'
+  const fallbackClass = filteredSelectionClassOptions.value[0]?.name || '示例班级'
+  return Array.from({ length: 6 }).map((_, index) => ({
+    id: `mock-courseware-${index + 1}`,
+    name: `占位课件 ${String(index + 1).padStart(2, '0')}`,
+    courseName: fallbackCourse,
+    className: fallbackClass,
+    desc: '当前暂无真实选课数据，先用占位卡片展示平铺效果。',
+    totalPage: 1,
+    mock: true,
+    order: index
+  }))
+})
+
 const currentTimelineSec = ref(0)
 let playbackTimer = null
 let currentSpeechUtterance = null
@@ -869,14 +990,123 @@ const openTraceMode = () => {
   traceLog.value = `已定位：第 ${currentPage.value} 页 → 当前节点 ${currentNodeId.value}${sourceNode ? `（最近问答来源节点 ${sourceNode}）` : ''}`
 }
 
-const startStudentWorkspace = () => {
+const pickCoursewareCard = async (card) => {
+  if (!card) return
+  if (card.mock) {
+    const fallback = filteredSelectionCoursewares.value[0] || selectionCoursewares.value[0]
+    if (fallback) {
+      selectedCoursewareId.value = fallback.id
+      if (fallback.teachingCourseId) selectedTeachingCourseId.value = fallback.teachingCourseId
+      if (fallback.courseClassId) selectedCourseClassId.value = fallback.courseClassId
+    } else {
+      // 无真实课件时仍允许进入后续页面，后续由课程初始化阶段给出提示。
+      selectedCoursewareId.value = ''
+    }
+    await enterWorkspaceFromSelection({ allowPlaceholder: true })
+    return
+  }
+  if (card.teachingCourseId) {
+    selectedTeachingCourseId.value = card.teachingCourseId
+  }
+  if (card.courseClassId) {
+    selectedCourseClassId.value = card.courseClassId
+  }
+  selectedCoursewareId.value = card.id
+  await enterWorkspaceFromSelection()
+}
+
+const loadCourseSelectionData = async () => {
+  selectionLoading.value = true
+  try {
+    const [courseRes, classRes, coursewareRes] = await Promise.all([
+      studentV1Api.platform.listCourses({ page: 1, pageSize: 100 }),
+      studentV1Api.platform.listClasses({ page: 1, pageSize: 200 }),
+      studentV1Api.coursewares.list()
+    ])
+
+    const platformCourses = Array.isArray(courseRes?.data?.items) ? courseRes.data.items : []
+    const platformClasses = Array.isArray(classRes?.data?.items) ? classRes.data.items : []
+    const coursewareList = Array.isArray(coursewareRes?.data) ? coursewareRes.data : []
+
+    selectionCourseOptions.value = platformCourses.map((item) => ({
+      id: String(item.courseId || ''),
+      name: item.title || '未命名课程'
+    }))
+
+    selectionClassOptions.value = platformClasses.map((item) => ({
+      id: String(item.classId || ''),
+      name: item.className || '未命名班级',
+      teachingCourseId: String(item.teachingCourseId || '')
+    }))
+
+    selectionCoursewares.value = coursewareList.map((item) => ({
+      id: String(item.id || item.courseId || ''),
+      name: item.title || '未命名课件',
+      totalPage: Number(item.total_page || 1),
+      teachingCourseId: String(item.teaching_course_id || ''),
+      courseName: String(item.teaching_course_title || ''),
+      courseClassId: String(item.course_class_id || ''),
+      className: String(item.course_class_name || ''),
+      desc: item.is_published ? '已发布，可进入学习' : '未发布，暂为教师侧预览资源',
+      published: Boolean(item.is_published)
+    }))
+
+    if (!selectedTeachingCourseId.value && selectionCourseOptions.value.length > 0) {
+      selectedTeachingCourseId.value = selectionCourseOptions.value[0].id
+    }
+    if (!selectedCourseClassId.value && filteredSelectionClassOptions.value.length > 0) {
+      selectedCourseClassId.value = filteredSelectionClassOptions.value[0].id
+    }
+    if (!selectedCoursewareId.value && filteredSelectionCoursewares.value.length > 0) {
+      selectedCoursewareId.value = filteredSelectionCoursewares.value[0].id
+    }
+  } catch (error) {
+    selectionCourseOptions.value = []
+    selectionClassOptions.value = []
+    selectionCoursewares.value = []
+    ElMessage.error(`课件选择数据加载失败：${error.message}`)
+  } finally {
+    selectionLoading.value = false
+  }
+}
+
+const startStudentWorkspace = async () => {
   checkBackendHealth()
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
   }
   backendHealthTimer = window.setInterval(checkBackendHealth, 30000)
   startPlaybackTimer()
-  void initializeCourseContext()
+  await initializeCourseContext()
+}
+
+const enterWorkspaceFromSelection = async ({ allowPlaceholder = false } = {}) => {
+  const selected = selectionCoursewares.value.find((item) => item.id === selectedCoursewareId.value)
+  if (!selected && !allowPlaceholder) {
+    ElMessage.warning('请先选择要学习的课件')
+    return
+  }
+
+  if (selected) {
+    courseId.value = selected.id
+    currentCourseName.value = selected.name
+    totalPage.value = selected.totalPage || 1
+  } else {
+    courseId.value = ''
+    currentCourseName.value = '临时占位学习空间'
+    totalPage.value = 1
+  }
+  currentPage.value = 1
+  hasCourseSelected.value = true
+  await startStudentWorkspace()
+}
+
+const backToSelectionPage = () => {
+  hasCourseSelected.value = false
+  isPlay.value = false
+  playbackState.value = 'paused'
+  stopSpeechNarration()
+  void loadCourseSelectionData()
 }
 
 const handleLoginSuccess = (user) => {
@@ -892,16 +1122,24 @@ const handleLoginSuccess = (user) => {
 
   isLoggedIn.value = true
   studentId.value = username
+  hasCourseSelected.value = false
   if (typeof window !== 'undefined') {
     window.localStorage.setItem('fuww_student_id', username)
     window.localStorage.setItem('fuww_student_origin', window.location.origin)
   }
-  startStudentWorkspace()
+  void loadCourseSelectionData()
 }
 
 const handleLogout = () => {
   isLoggedIn.value = false
+  hasCourseSelected.value = false
   studentId.value = ''
+  selectedTeachingCourseId.value = ''
+  selectedCourseClassId.value = ''
+  selectedCoursewareId.value = ''
+  selectionCourseOptions.value = []
+  selectionClassOptions.value = []
+  selectionCoursewares.value = []
   question.value = ''
   aiReply.value = ''
   qaHistory.value = []
@@ -929,10 +1167,11 @@ onMounted(() => {
         return
       }
       isLoggedIn.value = true
+      hasCourseSelected.value = false
       studentId.value = username
       window.localStorage.setItem('fuww_student_id', username)
       window.history.replaceState({}, document.title, window.location.pathname)
-      startStudentWorkspace()
+      void loadCourseSelectionData()
       return
     }
 
@@ -948,6 +1187,24 @@ onUnmounted(() => {
   stopPlaybackTimer()
   stopSpeechNarration()
   stopStreamTypewriter()
+})
+
+watch(selectedTeachingCourseId, () => {
+  const classValid = filteredSelectionClassOptions.value.some((item) => item.id === selectedCourseClassId.value)
+  if (!classValid) {
+    selectedCourseClassId.value = filteredSelectionClassOptions.value[0]?.id || ''
+  }
+  const coursewareValid = filteredSelectionCoursewares.value.some((item) => item.id === selectedCoursewareId.value)
+  if (!coursewareValid) {
+    selectedCoursewareId.value = filteredSelectionCoursewares.value[0]?.id || ''
+  }
+})
+
+watch(selectedCourseClassId, () => {
+  const coursewareValid = filteredSelectionCoursewares.value.some((item) => item.id === selectedCoursewareId.value)
+  if (!coursewareValid) {
+    selectedCoursewareId.value = filteredSelectionCoursewares.value[0]?.id || ''
+  }
 })
 
 watch(isPlay, (value) => {
@@ -977,23 +1234,29 @@ watch(currentNodeId, () => {
 
 const initializeCourseContext = async () => {
   try {
-    const data = await studentV1Api.coursewares.list()
-    const list = Array.isArray(data?.data) ? data.data : []
-    const published = list.filter(item => item.is_published)
-    const target = published[0] || list[0]
+    if (!courseId.value) {
+      const data = await studentV1Api.coursewares.list({
+        teachingCourseId: selectedTeachingCourseId.value,
+        courseClassId: selectedCourseClassId.value
+      })
+      const list = Array.isArray(data?.data) ? data.data : []
+      const published = list.filter(item => item.is_published)
+      const target = published[0] || list[0]
 
-    if (!target) {
-      courseId.value = ''
-      currentCourseName.value = ''
-      totalPage.value = 1
-      updateCourseContent()
-      ElMessage.warning('暂无可学习课件，请联系教师发布课件')
-      return
+      if (!target) {
+        courseId.value = ''
+        currentCourseName.value = ''
+        totalPage.value = 1
+        updateCourseContent()
+        ElMessage.warning('当前课程/班级暂无可学习课件，请联系教师发布课件')
+        return
+      }
+
+      courseId.value = String(target.id || target.courseId || '')
+      currentCourseName.value = target.title || '未命名课件'
+      totalPage.value = target.total_page || 1
     }
 
-    courseId.value = target.id
-    currentCourseName.value = target.title || '未命名课件'
-    totalPage.value = target.total_page || 1
     currentPage.value = 1
     await refreshCurrentPageData({ preserveCurrentNode: false })
 
@@ -1215,6 +1478,206 @@ const checkAnswer = async (option) => {
 </script>
 
 <style scoped>
+.course-selection-page {
+  min-height: 100vh;
+  padding: 14px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
+}
+
+.course-selection-page :deep(.top-nav) {
+  margin-bottom: 14px;
+}
+
+.selection-layout {
+  margin-top: 14px;
+  min-height: calc(100vh - 102px);
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.selection-user-sidebar {
+  border-radius: 18px;
+  border: 1px solid #cfe4da;
+  background: linear-gradient(180deg, #f3faf6 0%, #e7f4ed 100%);
+  color: #2f605a;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.user-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffffff 0%, #dceee6 100%);
+  box-shadow: 0 10px 18px rgba(33, 61, 54, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.user-name {
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.user-subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6d877d;
+}
+
+.refresh-btn {
+  margin-top: auto;
+  width: 100%;
+  border: 1px solid #bdd8cb;
+  background: #ffffff;
+}
+
+.refresh-btn :deep(span) {
+  color: #2f605a;
+  font-weight: 700;
+}
+
+.selection-main-panel {
+  border-radius: 18px;
+  border: 1px solid #d9e7df;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
+  box-shadow: 0 20px 42px rgba(33, 61, 54, 0.08);
+  padding: 18px;
+  overflow: hidden;
+}
+
+.selection-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.selection-head h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #1f3f38;
+}
+
+.selection-head p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #5f7b71;
+}
+
+.selection-filters {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 240px));
+  gap: 10px;
+}
+
+.course-tile-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  max-height: calc(100vh - 290px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.course-tile {
+  border: 1px solid #d9e7df;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.course-tile:hover {
+  transform: translateY(-2px);
+  border-color: #90c0b5;
+  box-shadow: 0 12px 20px rgba(33, 61, 54, 0.1);
+}
+
+.course-tile.active {
+  border-color: #5d8f83;
+  box-shadow: 0 0 0 2px rgba(93, 143, 131, 0.18);
+}
+
+.course-tile.mock {
+  background: linear-gradient(180deg, #fcfcff 0%, #f4f6fd 100%);
+}
+
+.tile-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #edf5f2;
+  color: #2f605a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.course-tile h3 {
+  margin: 10px 0 6px;
+  font-size: 16px;
+  color: #24453f;
+}
+
+.course-tile p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: #648177;
+}
+
+.tile-meta {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #4d665d;
+}
+
+.selection-tip {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6f867d;
+}
+
+@media (max-width: 980px) {
+  .selection-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .selection-user-sidebar {
+    align-items: flex-start;
+  }
+
+  .user-avatar {
+    width: 46px;
+    height: 46px;
+    font-size: 20px;
+  }
+
+  .selection-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .course-tile-grid {
+    max-height: none;
+  }
+}
+
 .student-app {
   position: relative;
   width: 100%;
@@ -1224,6 +1687,12 @@ const checkAnswer = async (option) => {
   background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   overflow: hidden;
+}
+
+.student-app :deep(.top-nav) {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 14px;
 }
 
 .ambient-layer {
@@ -1271,7 +1740,7 @@ const checkAnswer = async (option) => {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - 84px);
   border-radius: 28px;
   background: #f7faf8;
   border: 1px solid #d8e4dc;
@@ -1459,6 +1928,20 @@ const checkAnswer = async (option) => {
 
 .logout-btn:hover {
   border-color: #2f605a;
+}
+
+.outline-btn {
+  border: 1px solid #cfe0d7;
+  background: #f4fbf7;
+  color: #2f605a;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.outline-btn:hover {
+  border-color: #8fbcae;
 }
 
 .page-layout {

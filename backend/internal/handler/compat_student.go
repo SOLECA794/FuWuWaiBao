@@ -69,14 +69,30 @@ type aiScorePayload struct {
 }
 
 func (h *CompatibilityHandler) GetStudentCoursewareList(c *gin.Context) {
+	teachingCourseID := strings.TrimSpace(c.Query("teachingCourseId"))
+	courseClassID := strings.TrimSpace(c.Query("courseClassId"))
+
 	var courses []model.Course
 	query := h.db.Order("created_at desc").Where("is_published = ?", true)
+	if teachingCourseID != "" {
+		query = query.Where("teaching_course_id = ?", teachingCourseID)
+	}
+	if courseClassID != "" {
+		query = query.Where("course_class_id = ?", courseClassID)
+	}
 	if err := query.Find(&courses).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取课件列表失败"})
 		return
 	}
 	if len(courses) == 0 {
-		_ = h.db.Order("created_at desc").Find(&courses).Error
+		fallback := h.db.Order("created_at desc")
+		if teachingCourseID != "" {
+			fallback = fallback.Where("teaching_course_id = ?", teachingCourseID)
+		}
+		if courseClassID != "" {
+			fallback = fallback.Where("course_class_id = ?", courseClassID)
+		}
+		_ = fallback.Find(&courses).Error
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": courses})
 }

@@ -9,7 +9,59 @@
         @logout="handleLogout"
       />
 
-      <div class="main-content">
+      <div v-if="!hasEnteredTeachingWorkspace" class="teacher-middle-layout">
+        <aside class="middle-user-sidebar">
+          <div class="middle-avatar">{{ (loggedInUsername || '教').slice(0, 1).toUpperCase() }}</div>
+          <div class="middle-username">{{ loggedInUsername || '教师' }}</div>
+          <div class="middle-subtitle">教学中间页</div>
+
+          <button class="middle-side-btn" @click="teacherMiddleView = 'home'">课程中间页</button>
+          <button class="middle-side-btn" @click="openMiddlePlatform">平台管理</button>
+        </aside>
+
+        <section class="middle-main-panel" v-loading="platformOverviewLoading">
+          <template v-if="teacherMiddleView === 'home'">
+            <div class="middle-head">
+              <div>
+                <h3>教师中间页</h3>
+                <p>登录后先进入这里。点击课程卡片进入教学页面，平台管理在左侧按钮中打开。</p>
+              </div>
+              <button class="ghost-btn" @click="loadPlatformOverviewData">刷新</button>
+            </div>
+
+            <div class="middle-tile-grid">
+              <button
+                v-for="tile in platformMiddleTiles"
+                :key="tile.id"
+                class="middle-tile"
+                :class="{ mock: tile.mock }"
+                @click="openPlatformTile(tile)"
+              >
+                <div class="tile-badge">{{ tile.mock ? '占位课程' : '平台课程' }}</div>
+                <h4>{{ tile.name }}</h4>
+                <p>{{ tile.desc }}</p>
+                <div class="tile-meta">
+                  <span>{{ tile.metaA }}</span>
+                  <span>{{ tile.metaB }}</span>
+                </div>
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="middle-head compact">
+              <div>
+                <h3>平台管理</h3>
+                <p>这里保留原平台管理功能，确保兼容历史流程。</p>
+              </div>
+              <button class="ghost-btn" @click="teacherMiddleView = 'home'">返回中间页</button>
+            </div>
+            <PlatformManagementPanel />
+          </template>
+        </section>
+      </div>
+
+      <div v-else class="main-content">
       <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
       <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
         <div class="menu-header">
@@ -39,24 +91,14 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path><path d="M22 12.5a10 10 0 0 1-18.8 2.2"></path></svg>
             <span v-show="!isLeftMenuCollapsed">学情迭代</span>
           </div>
-          <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
-              <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7"></rect>
-                <rect x="14" y="3" width="7" height="7"></rect>
-                <rect x="14" y="14" width="7" height="7"></rect>
-                <rect x="3" y="14" width="7" height="7"></rect>
-              </svg>
-
-              </svg>
-        <span v-show="!isLeftMenuCollapsed">平台管理 <small>(悬停后展开)</small></span>
-          </div>
-
         </div>
       </div>
 
       <!-- 中间内容编辑区 -->
       <div class="editor-section">
+        <div class="workspace-back-row">
+          <button class="ghost-btn" @click="backToTeacherMiddle">返回中间页</button>
+        </div>
         <div v-if="activeTab === 'script'" class="tab-container script-mode">
           <div v-if="!currentCourseId" class="empty-tip-container">
             <div class="empty-tip">请先在右侧选择或上传一个课件以编辑讲稿</div>
@@ -80,12 +122,6 @@
             @next-page="nextPage"
           ></TeacherScriptPanel>
         </div>
-
-        <div v-else-if="activeTab === 'platform'" class="tab-container">
-            <PlatformManagementPanel />
-        </div>
-  
-      
 
         <div v-else-if="activeTab === 'stats'" class="tab-container">
           <div v-if="!currentCourseId" class="empty-tip-container">
@@ -139,14 +175,11 @@
           ></TeacherCardAnalysisPanel>
         </div>
 
-        <div v-else class="tab-container">
-            <PlatformManagementPanel />
-        </div>
+        <div v-else class="tab-container"></div>
       </div>
 
       <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
       <TeacherCoursewareSidebar
-        v-if="activeTab !== 'script'"
         v-show="isSidebarVisible"
         :courseware-list="coursewareList"
         :current-course-id="currentCourseId"
@@ -154,7 +187,7 @@
         :current-course-total-pages="currentCourseTotalPages"
         :current-edit-page="currentEditPage"
         :course-list-loading="courseListLoading"
-        @open-publish="showPublishModal = true"
+        @open-publish="openPublishModal"
         @open-upload="showUploadModal = true"
         @select-course="selectCourse"
         @delete-course="deleteCourse"
@@ -178,15 +211,21 @@
       :visible="showPublishModal"
       :current-course-name="currentCourseName"
       :publish-scope="publishScope"
+      :teaching-course-id="publishTeachingCourseId"
+      :course-class-id="publishCourseClassId"
+      :teaching-course-options="publishCourseOptions"
+      :course-class-options="filteredPublishClassOptions"
       @close="showPublishModal = false"
       @submit="publishCourseware"
       @update:publish-scope="publishScope = $event"
+      @update:teaching-course-id="handlePublishCourseChange"
+      @update:course-class-id="publishCourseClassId = $event"
     ></TeacherPublishModal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 import TeacherTopBar from './components/teacher/TeacherTopBar.vue'
@@ -203,6 +242,8 @@ import PlatformManagementPanel from './components/teacher/PlatformManagementPane
 import CourseIterationPanel from './components/teacher/CourseIterationPanel.vue'
 
 const isLoggedIn = ref(false)
+const hasEnteredTeachingWorkspace = ref(false)
+const teacherMiddleView = ref('home')
 const loggedInUsername = ref('')
 const activeTab = ref('script')
 
@@ -237,12 +278,16 @@ const uploadLoading = ref(false)
 
 const showPublishModal = ref(false)
 const publishScope = ref('all')
+const publishTeachingCourseId = ref('')
+const publishCourseClassId = ref('')
+const publishCourseOptions = ref([])
+const publishClassOptions = ref([])
 const backendStatus = ref('checking')
 const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
 
-const isSidebarVisible = ref(window.innerWidth > 1024)
+const isSidebarVisible = ref(true)
 const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({ totalQuestions: 0, hotPages: [], keyDifficulties: '暂无' })
 const cardData = ref([])
@@ -250,6 +295,12 @@ const chartType = ref('bar')
 const questionRecords = ref([])
 const filterPage = ref('')
 const previewLoading = ref(false)
+const platformOverviewLoading = ref(false)
+const platformOverviewData = ref({
+  counts: { users: 0, courses: 0, classes: 0, enrollments: 0 },
+  recentCourses: [],
+  recentClasses: []
+})
 
 let backendHealthTimer = null
 let autosaveTimer = null
@@ -265,6 +316,8 @@ const handleLoginSuccess = (user) => {
   }
   loggedInUsername.value = user.username
   isLoggedIn.value = true
+  hasEnteredTeachingWorkspace.value = false
+  teacherMiddleView.value = 'home'
   if (typeof window !== 'undefined') {
     window.localStorage.setItem('fuww_teacher_origin', window.location.origin)
   }
@@ -287,6 +340,8 @@ const applyAutoLoginFromQuery = () => {
 
   loggedInUsername.value = username
   isLoggedIn.value = true
+  hasEnteredTeachingWorkspace.value = false
+  teacherMiddleView.value = 'home'
   void bootstrapAfterLogin()
   window.history.replaceState({}, document.title, window.location.pathname)
   return true
@@ -295,13 +350,75 @@ const applyAutoLoginFromQuery = () => {
 const handleLogout = () => {
   loggedInUsername.value = ''
   isLoggedIn.value = false
+  hasEnteredTeachingWorkspace.value = false
+  teacherMiddleView.value = 'home'
 }
 
 const bootstrapAfterLogin = async () => {
-  await loadCoursewareList(true)
+  await Promise.all([loadCoursewareList(true), loadPublishTargets(), loadPlatformOverviewData()])
   if (currentCourseId.value) {
     await loadCourseContext(currentCourseId.value)
   }
+}
+
+const enterTeachingWorkspace = () => {
+  hasEnteredTeachingWorkspace.value = true
+  activeTab.value = 'script'
+}
+
+const openMiddlePlatform = () => {
+  teacherMiddleView.value = 'platform'
+}
+
+const backToTeacherMiddle = () => {
+  hasEnteredTeachingWorkspace.value = false
+  teacherMiddleView.value = 'home'
+}
+
+const loadPublishTargets = async () => {
+  try {
+    const [courseRes, classRes] = await Promise.all([
+      teacherV1Api.platform.listCourses({ page: 1, pageSize: 100 }),
+      teacherV1Api.platform.listClasses({ page: 1, pageSize: 200 })
+    ])
+
+    const courseItems = Array.isArray(courseRes?.data?.items) ? courseRes.data.items : []
+    const classItems = Array.isArray(classRes?.data?.items) ? classRes.data.items : []
+
+    publishCourseOptions.value = courseItems.map((item) => ({
+      id: String(item.courseId || ''),
+      name: item.title || '未命名课程'
+    }))
+
+    publishClassOptions.value = classItems.map((item) => ({
+      id: String(item.classId || ''),
+      name: item.className || '未命名班级',
+      teachingCourseId: String(item.teachingCourseId || '')
+    }))
+  } catch (err) {
+    publishCourseOptions.value = []
+    publishClassOptions.value = []
+    console.warn('加载课程/班级选项失败', err)
+  }
+}
+
+const handlePublishCourseChange = (courseId) => {
+  publishTeachingCourseId.value = String(courseId || '')
+  if (!publishTeachingCourseId.value) {
+    publishCourseClassId.value = ''
+    return
+  }
+  const exists = filteredPublishClassOptions.value.some((item) => item.id === publishCourseClassId.value)
+  if (!exists) {
+    publishCourseClassId.value = ''
+  }
+}
+
+const openPublishModal = () => {
+  const current = coursewareList.value.find((item) => item.id === currentCourseId.value)
+  publishTeachingCourseId.value = current?.teachingCourseId || publishTeachingCourseId.value || ''
+  publishCourseClassId.value = current?.courseClassId || publishCourseClassId.value || ''
+  showPublishModal.value = true
 }
 
 const filteredQuestions = computed(() => {
@@ -321,6 +438,55 @@ const realPreviewUrl = computed(() => {
   if (!currentCourseId.value) return ''
   return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}?t=${Date.now()}`
 })
+
+const filteredPublishClassOptions = computed(() => {
+  if (!publishTeachingCourseId.value) return publishClassOptions.value
+  return publishClassOptions.value.filter((item) => item.teachingCourseId === publishTeachingCourseId.value)
+})
+
+const platformMiddleTiles = computed(() => {
+  const courseItems = Array.isArray(platformOverviewData.value?.recentCourses) ? platformOverviewData.value.recentCourses : []
+  if (courseItems.length > 0) {
+    return courseItems.map((item, index) => ({
+      id: String(item.courseId || `platform-course-${index + 1}`),
+      name: item.title || `未命名课程 ${index + 1}`,
+      desc: '来自平台课程池，点击进入附加功能页继续管理。',
+      metaA: item.semester || '未设学期',
+      metaB: item.status || 'unknown',
+      mock: false
+    }))
+  }
+  return Array.from({ length: 6 }).map((_, index) => ({
+    id: `platform-mock-${index + 1}`,
+    name: `平台占位课程 ${String(index + 1).padStart(2, '0')}`,
+    desc: '暂无真实平台课程数据，先使用占位卡片维持中间页结构。',
+    metaA: '示例学期',
+    metaB: 'draft',
+    mock: true
+  }))
+})
+
+const loadPlatformOverviewData = async () => {
+  platformOverviewLoading.value = true
+  try {
+    const resp = await teacherV1Api.platform.getOverview()
+    platformOverviewData.value = {
+      counts: resp?.data?.counts || { users: 0, courses: 0, classes: 0, enrollments: 0 },
+      recentCourses: Array.isArray(resp?.data?.recentCourses) ? resp.data.recentCourses : [],
+      recentClasses: Array.isArray(resp?.data?.recentClasses) ? resp.data.recentClasses : []
+    }
+  } catch (err) {
+    platformOverviewData.value = { counts: { users: 0, courses: 0, classes: 0, enrollments: 0 }, recentCourses: [], recentClasses: [] }
+    console.warn('加载平台中间页数据失败', err)
+  } finally {
+    platformOverviewLoading.value = false
+  }
+}
+
+const openPlatformTile = (tile) => {
+  if (!tile) return
+  enterTeachingWorkspace()
+}
 
 onMounted(async () => {
   if (typeof window !== 'undefined') {
@@ -354,7 +520,11 @@ const loadCoursewareList = async (forceSelectFirst = false) => {
       id: String(item.id || item.courseId || ''),
       name: item.title,
       totalPages: item.total_page || 1,
-      published: !!item.is_published
+      published: !!item.is_published,
+      teachingCourseId: String(item.teaching_course_id || ''),
+      teachingCourseTitle: String(item.teaching_course_title || ''),
+      courseClassId: String(item.course_class_id || ''),
+      courseClassName: String(item.course_class_name || '')
     }))
 
     if (coursewareList.value.length > 0 && (!currentCourseId.value || forceSelectFirst)) {
@@ -393,6 +563,8 @@ const selectCourse = async (course) => {
   currentCourseId.value = course.id
   currentCourseName.value = course.name
   currentCourseTotalPages.value = course.totalPages
+  publishTeachingCourseId.value = course.teachingCourseId || ''
+  publishCourseClassId.value = course.courseClassId || ''
   currentEditPage.value = 1
   await loadCourseContext(course.id)
 }
@@ -551,12 +723,25 @@ const uploadCourseware = async () => {
 
 const publishCourseware = async () => {
   try {
+    const selectedCourse = publishCourseOptions.value.find((item) => item.id === publishTeachingCourseId.value)
+    const selectedClass = publishClassOptions.value.find((item) => item.id === publishCourseClassId.value)
+
     await teacherV1Api.coursewares.publish({
       courseId: currentCourseId.value,
-      scope: publishScope.value
+      scope: publishScope.value,
+      teachingCourseId: publishTeachingCourseId.value,
+      teachingCourseTitle: selectedCourse?.name || '',
+      courseClassId: publishCourseClassId.value,
+      courseClassName: selectedClass?.name || ''
     })
     const course = coursewareList.value.find((c) => c.id === currentCourseId.value)
-    if (course) course.published = true
+    if (course) {
+      course.published = true
+      course.teachingCourseId = publishTeachingCourseId.value
+      course.teachingCourseTitle = selectedCourse?.name || ''
+      course.courseClassId = publishCourseClassId.value
+      course.courseClassName = selectedClass?.name || ''
+    }
     alert('课件发布成功！学生端已可查看。')
     showPublishModal.value = false
   } catch (err) {
@@ -822,6 +1007,317 @@ const handleIterationScriptGenerated = (scriptData) => {
   flex-direction: column;
 }
 
+.teacher-middle-layout {
+  margin-top: 14px;
+  min-height: calc(100vh - 110px);
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.middle-user-sidebar {
+  border-radius: 20px;
+  border: 1px solid #d3e3db;
+  background: linear-gradient(180deg, #f4fbf7 0%, #e8f4ee 100%);
+  color: #2f5e55;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 12px 24px rgba(33, 61, 54, 0.1);
+}
+
+.middle-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: #2a5a50;
+  background: linear-gradient(180deg, #ffffff 0%, #dceee6 100%);
+}
+
+.middle-username {
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.middle-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6b887e;
+}
+
+.middle-side-btn {
+  margin-top: 10px;
+  width: 100%;
+  border: 1px solid #bdd8cb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #ffffff;
+  color: #2f605a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.middle-side-btn:hover {
+  border-color: #8fbcae;
+  background: #f4fbf7;
+}
+
+.middle-main-panel {
+  border-radius: 20px;
+  border: 1px solid #dbe6df;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+  padding: 18px;
+  box-shadow: 0 16px 30px rgba(33, 61, 54, 0.08);
+}
+
+.middle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.middle-head h3 {
+  margin: 0;
+  font-size: 24px;
+  color: #23463f;
+}
+
+.middle-head p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #607a71;
+}
+
+.middle-head.compact {
+  margin-bottom: 12px;
+}
+
+.ghost-btn {
+  border: 1px solid #d5e3dc;
+  background: #ffffff;
+  color: #355f57;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.middle-tile-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.middle-tile {
+  border: 1px solid #d8e6de;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.middle-tile:hover {
+  transform: translateY(-2px);
+  border-color: #8fbcae;
+  box-shadow: 0 12px 20px rgba(33, 61, 54, 0.1);
+}
+
+.middle-tile.mock {
+  background: linear-gradient(180deg, #fcfcff 0%, #f4f6fd 100%);
+}
+
+.middle-tile h4 {
+  margin: 10px 0 6px;
+  font-size: 17px;
+  color: #284a43;
+}
+
+.middle-tile p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: #638075;
+}
+
+.platform-middle-page {
+  flex-direction: row;
+  gap: 12px;
+  min-height: calc(100vh - 180px);
+}
+
+.platform-guard-rail {
+  width: 140px;
+  border-radius: 14px;
+  border: 1px solid #d7e2dc;
+  background: linear-gradient(180deg, #f8fbf9 0%, #edf4f0 100%);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.guard-title {
+  font-size: 12px;
+  color: #6a8177;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.guard-btn {
+  border: 1px solid #d5e3dc;
+  background: #ffffff;
+  color: #4b675d;
+  border-radius: 10px;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.guard-btn.active {
+  background: #eaf3ef;
+  border-color: #8ab8ab;
+  color: #2f605a;
+  font-weight: 700;
+}
+
+.platform-middle-content {
+  flex: 1;
+  border-radius: 14px;
+  border: 1px solid #dbe6df;
+  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
+  padding: 14px;
+  min-width: 0;
+}
+
+.platform-middle-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.platform-middle-head h3 {
+  margin: 0;
+  color: #20413a;
+}
+
+.platform-middle-head p {
+  margin: 6px 0 0;
+  color: #637d73;
+  font-size: 13px;
+}
+
+.platform-middle-head.compact {
+  margin-bottom: 10px;
+}
+
+.platform-overview-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.overview-stat-card {
+  border-radius: 12px;
+  border: 1px solid #d9e7df;
+  background: #fff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.overview-stat-card span {
+  font-size: 12px;
+  color: #6e847b;
+}
+
+.overview-stat-card strong {
+  font-size: 22px;
+  color: #2d5f58;
+}
+
+.platform-tile-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  max-height: calc(100vh - 340px);
+  overflow: auto;
+}
+
+.platform-course-tile {
+  border: 1px solid #d8e6de;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.platform-course-tile:hover {
+  border-color: #8dbdaf;
+  box-shadow: 0 10px 16px rgba(36, 68, 61, 0.1);
+}
+
+.platform-course-tile.mock {
+  background: linear-gradient(180deg, #fdfdff 0%, #f3f5fb 100%);
+}
+
+.platform-course-tile h4 {
+  margin: 8px 0 6px;
+  color: #2d4e46;
+  font-size: 15px;
+}
+
+.platform-course-tile p {
+  margin: 0;
+  color: #688379;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.tile-badge {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #edf5f2;
+  color: #2f605a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tile-meta {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #4d665d;
+}
+
+.workspace-back-row {
+  margin-bottom: 10px;
+}
+
 
 .empty-tip-container {
   flex: 1;
@@ -840,6 +1336,43 @@ const handleIterationScriptGenerated = (scriptData) => {
   color: #94a3b8;
   font-size: 15px;
   text-align: center;
+}
+
+@media (max-width: 980px) {
+  .teacher-middle-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .middle-user-sidebar {
+    align-items: flex-start;
+  }
+
+  .middle-tile-grid {
+    max-height: none;
+  }
+
+  .platform-middle-page {
+    flex-direction: column;
+  }
+
+  .platform-guard-rail {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .guard-title {
+    width: 100%;
+  }
+
+  .platform-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .platform-tile-grid {
+    max-height: none;
+  }
 }
 
 </style>

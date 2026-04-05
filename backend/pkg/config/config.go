@@ -68,14 +68,14 @@ type OSSConfig struct {
 }
 
 type AIConfig struct {
-	Provider     string        `mapstructure:"provider"`
-	BaseURL      string        `mapstructure:"base_url"`
-	APIKey       string        `mapstructure:"api_key"`
-	Model        string        `mapstructure:"model"`
-	Timeout      time.Duration `mapstructure:"timeout"`
-	UseDify      bool          `mapstructure:"use_dify"`
-	DifyBaseURL  string        `mapstructure:"dify_base_url"`
-	DifyAPIKey   string        `mapstructure:"dify_api_key"`
+	Provider    string        `mapstructure:"provider"`
+	BaseURL     string        `mapstructure:"base_url"`
+	APIKey      string        `mapstructure:"api_key"`
+	Model       string        `mapstructure:"model"`
+	Timeout     time.Duration `mapstructure:"timeout"`
+	UseDify     bool          `mapstructure:"use_dify"`
+	DifyBaseURL string        `mapstructure:"dify_base_url"`
+	DifyAPIKey  string        `mapstructure:"dify_api_key"`
 }
 
 type LogConfig struct {
@@ -182,11 +182,11 @@ func bindEnv(v *viper.Viper) {
 		"oss.bucket":        {"MINIO_BUCKET", "OSS_BUCKET"},
 		"oss.use_ssl":       {"MINIO_USE_SSL", "OSS_USE_SSL"},
 		// 后端优先使用本地 AI 引擎地址，再回退到通用 AI_BASE_URL。
-		"ai.base_url":       {"AI_ENGINE_BASE_URL", "AI_BASE_URL"},
-		"ai.api_key":        {"AI_API_KEY"},
-		"ai.model":          {"AI_MODEL"},
-		"log.level":         {"LOG_LEVEL"},
-		"log.filename":      {"LOG_FILENAME"},
+		"ai.base_url":  {"AI_ENGINE_BASE_URL", "AI_BASE_URL"},
+		"ai.api_key":   {"AI_API_KEY"},
+		"ai.model":     {"AI_MODEL"},
+		"log.level":    {"LOG_LEVEL"},
+		"log.filename": {"LOG_FILENAME"},
 	}
 
 	for key, envVars := range bindings {

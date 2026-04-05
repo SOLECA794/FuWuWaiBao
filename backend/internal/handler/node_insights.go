@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"smart-teaching-backend/internal/model"
+
+	"github.com/gin-gonic/gin"
 )
 
 // GetNodeInsightsV1 获取课程节点分析数据（仅新增的方法，防止与 compat_student.go 重复）
@@ -39,9 +40,9 @@ func (h *CompatibilityHandler) GetNodeInsightsV1(c *gin.Context) {
 		Count     int64
 	}
 	type nodeTrendRow struct {
-		Day   string
+		Day    string
 		NodeID string
-		Count int64
+		Count  int64
 	}
 
 	var qStats []pageStat
@@ -184,7 +185,7 @@ func (h *CompatibilityHandler) GetNodeInsightsV1(c *gin.Context) {
 			qCount := questionTrendByNode[nodeID][day]
 			pCount := practiceTrendByNode[nodeID][day]
 			trend = append(trend, gin.H{
-				"day":      day,
+				"day":       day,
 				"questions": qCount,
 				"practices": pCount,
 			})

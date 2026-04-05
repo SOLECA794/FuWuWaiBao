@@ -40,17 +40,21 @@ func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 	data := make([]gin.H, 0, len(courses))
 	for _, course := range courses {
 		data = append(data, gin.H{
-			"id":           course.ID,
-			"courseId":     course.ID,
-			"title":        course.Title,
-			"file_url":     course.FileURL,
-			"fileType":     course.FileType,
-			"file_type":    course.FileType,
-			"total_page":   course.TotalPage,
-			"is_published": course.IsPublished,
-			"status":       publishStatus(course.IsPublished),
-			"createdAt":    course.CreatedAt,
-			"created_at":   course.CreatedAt,
+			"id":                    course.ID,
+			"courseId":              course.ID,
+			"title":                 course.Title,
+			"file_url":              course.FileURL,
+			"fileType":              course.FileType,
+			"file_type":             course.FileType,
+			"total_page":            course.TotalPage,
+			"teaching_course_id":    course.TeachingCourseID,
+			"teaching_course_title": course.TeachingCourseTitle,
+			"course_class_id":       course.CourseClassID,
+			"course_class_name":     course.CourseClassName,
+			"is_published":          course.IsPublished,
+			"status":                publishStatus(course.IsPublished),
+			"createdAt":             course.CreatedAt,
+			"created_at":            course.CreatedAt,
 		})
 	}
 
@@ -269,8 +273,12 @@ func (h *TeacherHandler) GeneratePageAudio(c *gin.Context) {
 func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
-		CourseID string `json:"courseId"`
-		Scope    string `json:"scope"`
+		CourseID            string `json:"courseId"`
+		Scope               string `json:"scope"`
+		TeachingCourseID    string `json:"teachingCourseId"`
+		TeachingCourseTitle string `json:"teachingCourseTitle"`
+		CourseClassID       string `json:"courseClassId"`
+		CourseClassName     string `json:"courseClassName"`
 	}
 	_ = c.ShouldBindJSON(&req)
 	if courseID == "" {
@@ -292,13 +300,21 @@ func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 		scope = "all"
 	}
 	now := time.Now()
-	if err := h.db.Model(&course).Updates(map[string]any{"is_published": true, "publish_scope": scope, "published_at": now}).Error; err != nil {
+	if err := h.db.Model(&course).Updates(map[string]any{
+		"is_published":          true,
+		"publish_scope":         scope,
+		"published_at":          now,
+		"teaching_course_id":    strings.TrimSpace(req.TeachingCourseID),
+		"teaching_course_title": strings.TrimSpace(req.TeachingCourseTitle),
+		"course_class_id":       strings.TrimSpace(req.CourseClassID),
+		"course_class_name":     strings.TrimSpace(req.CourseClassName),
+	}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布状态写入失败"})
 		return
 	}
 
 	logger.Infof("课件发布成功: courseId=%s, scope=%s, title=%s", courseID, scope, course.Title)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": scope, "publishedAt": now.Format(time.RFC3339)}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": scope, "teachingCourseId": strings.TrimSpace(req.TeachingCourseID), "courseClassId": strings.TrimSpace(req.CourseClassID), "publishedAt": now.Format(time.RFC3339)}})
 }
 
 func (h *TeacherHandler) GetStudentStats(c *gin.Context) {

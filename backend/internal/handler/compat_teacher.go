@@ -130,18 +130,31 @@ func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 func (h *CompatibilityHandler) PublishCoursewareV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
-		Scope string `json:"scope"`
+		Scope               string `json:"scope"`
+		TeachingCourseID    string `json:"teachingCourseId"`
+		TeachingCourseTitle string `json:"teachingCourseTitle"`
+		CourseClassID       string `json:"courseClassId"`
+		CourseClassName     string `json:"courseClassName"`
 	}
 	_ = c.ShouldBindJSON(&req)
 	if strings.TrimSpace(req.Scope) == "" {
 		req.Scope = "all"
 	}
 	now := time.Now()
-	if err := h.db.Model(&model.Course{}).Where("id = ?", courseID).Updates(map[string]any{"is_published": true, "publish_scope": req.Scope, "published_at": now}).Error; err != nil {
+	updates := map[string]any{
+		"is_published":          true,
+		"publish_scope":         req.Scope,
+		"published_at":          now,
+		"teaching_course_id":    strings.TrimSpace(req.TeachingCourseID),
+		"teaching_course_title": strings.TrimSpace(req.TeachingCourseTitle),
+		"course_class_id":       strings.TrimSpace(req.CourseClassID),
+		"course_class_name":     strings.TrimSpace(req.CourseClassName),
+	}
+	if err := h.db.Model(&model.Course{}).Where("id = ?", courseID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": req.Scope, "publishedAt": now.Format("2006-01-02 15:04:05")}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": req.Scope, "teachingCourseId": strings.TrimSpace(req.TeachingCourseID), "courseClassId": strings.TrimSpace(req.CourseClassID), "publishedAt": now.Format("2006-01-02 15:04:05")}})
 }
 
 func (h *CompatibilityHandler) GetCardDataV1(c *gin.Context) {

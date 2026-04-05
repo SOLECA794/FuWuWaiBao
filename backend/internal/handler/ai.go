@@ -125,12 +125,12 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 			answer = resp.Answer
 		}
 	}
-	
+
 	// 如果 AI 调用失败，使用 fallback
 	if answer == "" {
 		answer = generateAIAnswer(req.Question, context)
 	}
-	
+
 	if req.TracePoint != nil {
 		answer = "针对坐标(" +
 			strconv.FormatFloat(req.TracePoint.X, 'f', 2, 64) + "," +

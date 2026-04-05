@@ -183,4 +183,3 @@ func (c *DifyClient) GenerateAudio(ctx context.Context, req GenerateAudioRequest
 func (c *DifyClient) ParseKnowledge(ctx context.Context, req ParseKnowledgeRequest) (*ParseKnowledgeResponse, error) {
 	return nil, nil
 }
-
