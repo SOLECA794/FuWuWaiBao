@@ -38,7 +38,7 @@
         </header>
         <p class="reason">{{ item.recommend_reason || '该资源与当前学习节点相关，可用于补充理解。' }}</p>
         <div class="actions">
-          <el-button type="primary" size="small" :disabled="!item.url" @click="openResource(item)">打开视频</el-button>
+          <el-button type="primary" size="small" :disabled="!item.url" @click="openResource(item)">去查看</el-button>
           <span class="meta" v-if="item.duration">时长：{{ item.duration }}</span>
         </div>
       </article>
