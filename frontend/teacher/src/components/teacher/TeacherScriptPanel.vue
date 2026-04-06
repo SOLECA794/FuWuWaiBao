@@ -11,14 +11,11 @@
       </button>
     </header>
 
-    <section v-if="!isPreviewWindowOpen && !isEditorWindowOpen" class="workbench-placeholder">
-      <div class="placeholder-orbit" aria-hidden="true">
-        <span class="orb orb-a"></span>
-        <span class="orb orb-b"></span>
-        <span class="orb orb-c"></span>
+    <section v-if="!isPreviewWindowOpen && !isEditorWindowOpen" class="workbench-empty-state">
+      <div class="empty-state-copy">
+        <h4>暂无打开窗口</h4>
+        <p>点击上方按钮打开课件预览或内容编辑器，窗口支持独立关闭与再次打开。</p>
       </div>
-      <h4>暂无打开窗口</h4>
-      <p>点击上方按钮打开课件预览或内容编辑器，窗口支持独立关闭与再次打开。</p>
     </section>
 
     <div v-else class="window-grid" :class="windowGridClass">
@@ -26,7 +23,6 @@
         <header class="dock-head">
           <div class="dock-title">
             <span class="dock-signal"></span>
-            课件预览窗口
           </div>
           <button class="dock-close-btn" @click="isPreviewWindowOpen = false" title="关闭预览窗口">×</button>
         </header>
@@ -105,7 +101,6 @@
         <header class="dock-head">
           <div class="dock-title">
             <span class="dock-signal"></span>
-            内容编辑器窗口
           </div>
           <button class="dock-close-btn" @click="isEditorWindowOpen = false" title="关闭内容编辑器">×</button>
         </header>
@@ -184,6 +179,8 @@ const isEditorWindowOpen = ref(true)
 
 const windowGridClass = computed(() => {
   if (isPreviewWindowOpen.value && isEditorWindowOpen.value) return 'two-open'
+  if (isPreviewWindowOpen.value) return 'single-open preview-only'
+  if (isEditorWindowOpen.value) return 'single-open editor-only'
   return 'single-open'
 })
 
@@ -376,6 +373,9 @@ function estimateDuration(text) {
 }
 
 .window-toolbar {
+  /* 出现动画：用于卡片进入时的淡入 + 轻微上移 */
+  animation: dock-appear 240ms cubic-bezier(.16,.84,.44,1) both;
+  will-change: transform, opacity;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -426,73 +426,32 @@ function estimateDuration(text) {
   box-shadow: 0 0 0 2px rgba(92, 166, 143, 0.28);
 }
 
-.workbench-placeholder {
+.workbench-empty-state {
   flex: 1;
   min-height: 0;
-  border-radius: 20px;
-  background: #ffffff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: 24px;
-  box-shadow: var(--wb-shadow);
+  padding: 28px 12px 14px;
+  color: var(--wb-muted);
 }
 
-.workbench-placeholder h4 {
-  margin: 4px 0 8px;
+.empty-state-copy {
+  text-align: center;
+  max-width: 460px;
+}
+
+.empty-state-copy h4 {
+  margin: 0 0 8px;
   font-size: 21px;
   font-weight: 600;
   color: #1e293b;
 }
 
-.workbench-placeholder p {
+.empty-state-copy p {
   margin: 0;
   font-size: 13px;
-  color: var(--wb-muted);
   line-height: 1.65;
-  max-width: 460px;
-}
-
-.placeholder-orbit {
-  position: relative;
-  width: 92px;
-  height: 92px;
-  margin-bottom: 14px;
-}
-
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.85;
-}
-
-.orb-a {
-  width: 92px;
-  height: 92px;
-  inset: 0;
-  border: 2px solid rgba(148, 163, 184, 0.48);
-  animation: orbit-spin 5.6s linear infinite;
-}
-
-.orb-b {
-  width: 58px;
-  height: 58px;
-  left: 17px;
-  top: 17px;
-  border: 2px dashed rgba(92, 166, 143, 0.5);
-  animation: orbit-spin-rev 4.8s linear infinite;
-}
-
-.orb-c {
-  width: 12px;
-  height: 12px;
-  left: 40px;
-  top: 40px;
-  background: var(--wb-accent);
-  box-shadow: 0 0 0 6px rgba(92, 166, 143, 0.2);
-  animation: pulse 1.8s ease-in-out infinite;
 }
 
 .window-grid {
@@ -500,6 +459,7 @@ function estimateDuration(text) {
   min-height: 0;
   display: grid;
   gap: 16px;
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
 }
 
 .window-grid.two-open {
@@ -507,7 +467,25 @@ function estimateDuration(text) {
 }
 
 .window-grid.single-open {
-  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.window-grid.single-open .dock-window {
+  height: 100%;
+}
+
+.window-grid.single-open.preview-only {
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+}
+.window-grid.single-open.preview-only .dock-window {
+  grid-column: 1 / 2;
+}
+
+.window-grid.single-open.editor-only {
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+}
+.window-grid.single-open.editor-only .dock-window {
+  grid-column: 2 / 3;
 }
 
 .dock-window {
@@ -966,6 +944,20 @@ button:disabled {
     flex: 1;
     justify-content: center;
   }
+  
+  /* 窄屏时单卡回退为全宽 */
+  .window-grid.single-open {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+
+  .window-grid.single-open.preview-only .dock-window,
+  .window-grid.single-open.editor-only .dock-window {
+    width: 100%;
+    max-width: none;
+    grid-column: auto;
+  }
 }
 
 @keyframes orbit-spin {
@@ -974,6 +966,17 @@ button:disabled {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes dock-appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

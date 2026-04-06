@@ -95,10 +95,6 @@
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
             </button>
-            <button class="menu-item" :class="{ active: showAskWorkspace }" @click="toggleAskWorkspace" title="问答浮窗">
-              <span class="menu-icon">问</span>
-              <span v-show="!isMenuCollapsed">问答</span>
-            </button>
             <button class="menu-item" v-if="hasCourseSelected" @click="backToSelectionPage" title="返回选课页">
               <span class="menu-icon">返</span>
               <span v-show="!isMenuCollapsed">返回选课页</span>
@@ -249,6 +245,17 @@
         </section>
       </main>
     </div>
+
+    <button
+      class="qa-fab"
+      :class="{ active: showAskWorkspace }"
+      @click="toggleAskWorkspace"
+      title="问答浮窗"
+      aria-label="打开问答悬浮窗口"
+    >
+      <span class="qa-fab-core">问</span>
+      <span class="qa-fab-tip">问答</span>
+    </button>
 
     <transition name="qa-flyout-fade">
       <div v-if="showAskWorkspace" class="qa-flyout-backdrop" @click.self="closeAskWorkspace">
@@ -2066,6 +2073,87 @@ const checkAnswer = async (option) => {
   color: #fff;
 }
 
+.qa-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 45;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(172, 196, 186, 0.9);
+  background:
+    radial-gradient(circle at 30% 30%, #f8fffc 0%, #dcefe7 58%, #c5ddd2 100%);
+  box-shadow:
+    0 14px 24px rgba(61, 92, 85, 0.22),
+    0 2px 0 rgba(255, 255, 255, 0.65) inset;
+  color: #2f605a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  animation: qa-fab-float 2.8s ease-in-out infinite;
+}
+
+.qa-fab:hover {
+  transform: translateY(calc(-50% - 2px)) scale(1.02);
+  box-shadow:
+    0 16px 28px rgba(61, 92, 85, 0.26),
+    0 2px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+.qa-fab:active {
+  transform: translateY(calc(-50% + 1px)) scale(0.98);
+}
+
+.qa-fab.active {
+  filter: saturate(1.06);
+  box-shadow:
+    0 18px 32px rgba(38, 92, 81, 0.32),
+    0 0 0 5px rgba(83, 128, 116, 0.2);
+}
+
+.qa-fab-core {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #214842;
+  background: linear-gradient(160deg, #f3f8f6 0%, #d9e7e1 100%);
+  border: 1px solid rgba(159, 186, 176, 0.9);
+}
+
+.qa-fab-tip {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  font-size: 12px;
+  font-weight: 700;
+  color: #2d5c52;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d6e5de;
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.qa-fab:hover .qa-fab-tip,
+.qa-fab.active .qa-fab-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
 .workspace-content {
   flex: 1;
   min-width: 0;
@@ -2428,6 +2516,16 @@ const checkAnswer = async (option) => {
   }
 }
 
+@keyframes qa-fab-float {
+  0%,
+  100% {
+    transform: translateY(-50%);
+  }
+  50% {
+    transform: translateY(calc(-50% - 3px));
+  }
+}
+
 .qa-flyout-fade-enter-active,
 .qa-flyout-fade-leave-active {
   transition: opacity 0.22s ease;
@@ -2519,6 +2617,34 @@ const checkAnswer = async (option) => {
 
   .menu-item {
     flex: 1 1 calc(50% - 4px);
+  }
+
+  .qa-fab {
+    right: 10px;
+    width: 56px;
+    height: 56px;
+    top: auto;
+    bottom: 88px;
+    transform: none;
+    animation: none;
+  }
+
+  .qa-fab:hover {
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .qa-fab:active {
+    transform: scale(0.98);
+  }
+
+  .qa-fab-core {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+
+  .qa-fab-tip {
+    display: none;
   }
 
   .qa-flyout-backdrop {

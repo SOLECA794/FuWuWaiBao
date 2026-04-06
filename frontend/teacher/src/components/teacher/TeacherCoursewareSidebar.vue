@@ -1,72 +1,50 @@
 <template>
-  <div class="courseware-manage-section" :class="{ 'collapsed': isCollapsed }">
+  <div class="courseware-manage-section" :class="{ 'overlay-open': isOverlayOpen, 'compact-rail': !isOverlayOpen }">
     <div class="section-header">
-      <h3 v-show="!isCollapsed">课件管理</h3>
+      <h3 v-show="isOverlayOpen">课件管理</h3>
       <div class="header-actions">
-        <button v-show="!isCollapsed" @click="$emit('open-publish')" class="publish-btn" :disabled="!currentCourseId">发布</button>
-        <button v-show="!isCollapsed" @click="$emit('open-upload')" class="upload-btn">+ 上传</button>
-        <button class="toggle-right-btn" @click="isCollapsed = !isCollapsed" :title="isCollapsed ? '展开侧边栏' : '收起侧边栏'">
+        <button v-show="isOverlayOpen" @click="$emit('open-publish')" class="publish-btn" :disabled="!currentCourseId">发布</button>
+        <button v-show="isOverlayOpen" @click="$emit('open-upload')" class="upload-btn">+ 上传</button>
+        <button class="toggle-right-btn" @click="isOverlayOpen = !isOverlayOpen" :title="isOverlayOpen ? '恢复侧边栏' : '展开侧边栏'">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12H3"></path><path d="M21 6H3"></path><path d="M21 18H3"></path></svg>
         </button>
       </div>
     </div>
 
-    <div class="courseware-list" :class="{ collapsed: isCollapsed }">
+    <div class="courseware-list" v-show="isOverlayOpen">
       <div v-if="courseListLoading" class="list-loading-tip">
-        {{ isCollapsed ? '加载中' : '课件列表加载中...' }}
+        课件列表加载中...
       </div>
       <template v-else>
-        <template v-if="isCollapsed">
-          <button
-            v-for="course in coursewareList"
-            :key="course.id"
-            class="collapsed-course-item"
-            :class="{ active: course.id === currentCourseId }"
-            :title="course.name"
-            @click="$emit('select-course', course)"
-          >
-            <span class="collapsed-doc-icon" :class="fileTypeClass(course.fileType)">{{ fileTypeBadge(course.fileType) }}</span>
-            <span class="collapsed-initial">{{ firstText(course.name) }}</span>
-            <div class="collapsed-tooltip">
-              <strong>{{ course.name }}</strong>
-              <span>共{{ Number(course.knowledgePointCount) || 0 }}个知识点 · {{ Number(course.totalPages) || 1 }}页</span>
-            </div>
-          </button>
-
-          <div v-if="coursewareList.length === 0" class="collapsed-empty">📂</div>
-        </template>
-
-        <template v-else>
-          <div
-            v-for="course in coursewareList"
-            :key="course.id"
-            class="course-item"
-            :class="{ active: course.id === currentCourseId }"
-            @click="$emit('select-course', course)"
-          >
-            <div class="course-main">
-              <span class="course-name" :title="course.name">{{ course.name }}</span>
-              <div class="course-meta-row">
-                <span class="course-type-badge" :class="fileTypeClass(course.fileType)">{{ fileTypeBadge(course.fileType) }}</span>
-                <span class="course-meta-text">共{{ Number(course.knowledgePointCount) || 0 }}个知识点</span>
-              </div>
-            </div>
-            <div class="course-actions">
-              <span v-if="course.published" class="published-tag">已发布</span>
-              <button @click.stop="$emit('delete-course', course.id)" class="del-btn" :disabled="courseListLoading">删除</button>
+        <div
+          v-for="course in coursewareList"
+          :key="course.id"
+          class="course-item"
+          :class="{ active: course.id === currentCourseId }"
+          @click="$emit('select-course', course)"
+        >
+          <div class="course-main">
+            <span class="course-name" :title="course.name">{{ course.name }}</span>
+            <div class="course-meta-row">
+              <span class="course-type-badge" :class="fileTypeClass(course.fileType)">{{ fileTypeBadge(course.fileType) }}</span>
+              <span class="course-meta-text">共{{ Number(course.knowledgePointCount) || 0 }}个知识点</span>
             </div>
           </div>
-
-          <div v-if="coursewareList.length === 0" class="empty-list-tip">
-            <div class="empty-icon">📂</div>
-            <p>暂无课件</p>
-            <span>点击上方按钮上传第一个课件</span>
+          <div class="course-actions">
+            <span v-if="course.published" class="published-tag">已发布</span>
+            <button @click.stop="$emit('delete-course', course.id)" class="del-btn" :disabled="courseListLoading">删除</button>
           </div>
-        </template>
+        </div>
+
+        <div v-if="coursewareList.length === 0" class="empty-list-tip">
+          <div class="empty-icon">📂</div>
+          <p>暂无课件</p>
+          <span>点击上方按钮上传第一个课件</span>
+        </div>
       </template>
     </div>
 
-    <div class="page-selector" v-if="currentCourseId" v-show="!isCollapsed">
+    <div class="page-selector" v-if="currentCourseId && isOverlayOpen">
       <div class="page-header-row">
         <h4>{{ currentCourseName }}</h4>
         <span class="page-indicator">{{ currentEditPage }} / {{ currentCourseTotalPages }}</span>
@@ -97,7 +75,7 @@
 <script setup>
 import { ref } from 'vue'
 
-const isCollapsed = ref(window.innerWidth <= 1200)
+const isOverlayOpen = ref(false)
 
 const props = defineProps({
   coursewareList: {
@@ -127,11 +105,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 'select-page'])
-
-const firstText = (name) => {
-  const text = String(name || '').trim()
-  return text ? text.slice(0, 1).toUpperCase() : '课'
-}
 
 const normalizedFileType = (fileType) => String(fileType || '').trim().toLowerCase()
 
@@ -164,37 +137,55 @@ const fileTypeClass = (fileType) => {
   --ui-accent: #5ca68f;
   --ui-accent-soft: rgba(92, 166, 143, 0.16);
   --ui-shadow-soft: 0 8px 20px rgba(50, 88, 72, 0.1);
+  --sidebar-rail-width: 44px;
+  --sidebar-full-width: 286px;
+  --sidebar-overlay-width: 360px;
 
-  flex: 0 0 286px;
-  width: 286px;
-  background: var(--ui-bg);
-  border-left: 0;
-  border-radius: 22px;
-  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  width: var(--sidebar-rail-width);
+  height: 100%;
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, #f7fcf9 0%, #eef6f2 100%);
+  border: 1px solid rgba(120, 156, 140, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: flex-basis 0.3s ease, width 0.3s ease;
+  transform: translateX(0);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: box-shadow 0.28s ease, opacity 0.22s ease, transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.courseware-manage-section.collapsed {
-  flex: 0 0 72px;
-  width: 72px;
+.courseware-manage-section.overlay-open {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--sidebar-overlay-width);
+  z-index: 48;
+  background: var(--ui-bg);
+  border: 0;
+  border-radius: 22px;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.16);
+  animation: drawer-slide-in 0.34s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .section-header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px 14px 12px;
-  border-bottom: 1px solid var(--ui-border);
+  justify-content: center;
+  padding: 10px 6px;
+  border-bottom: 0;
   min-height: 56px;
 }
 
-.courseware-manage-section.collapsed .section-header {
-  padding: 16px 0;
-  justify-content: center;
+.courseware-manage-section.overlay-open .section-header {
+  justify-content: space-between;
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--ui-border);
 }
 
 .section-header h3 {
@@ -206,7 +197,7 @@ const fileTypeClass = (fileType) => {
 
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   align-items: center;
 }
 
@@ -231,6 +222,11 @@ const fileTypeClass = (fileType) => {
 .toggle-right-btn svg {
   width: 18px;
   height: 18px;
+  transition: transform 0.28s ease;
+}
+
+.courseware-manage-section.overlay-open .toggle-right-btn svg {
+  transform: rotate(90deg);
 }
 
 .publish-btn,
@@ -275,12 +271,7 @@ const fileTypeClass = (fileType) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.courseware-list.collapsed {
-  padding: 12px 6px;
-  gap: 12px;
-  align-items: center;
+  transition: opacity 0.24s ease, transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .collapsed-course-item {
@@ -549,11 +540,6 @@ const fileTypeClass = (fileType) => {
   font-style: italic;
 }
 
-.courseware-list.collapsed .list-loading-tip {
-  padding: 4px;
-  font-size: 11px;
-}
-
 /* 页码选择器：固定展示在底部 */
 .page-selector {
   flex-shrink: 0;
@@ -561,6 +547,7 @@ const fileTypeClass = (fileType) => {
   border-top: 1px solid var(--ui-border);
   background: #ffffff;
   position: relative;
+  transition: opacity 0.22s ease, transform 0.28s ease;
 }
 
 .page-header-row {
@@ -641,5 +628,43 @@ const fileTypeClass = (fileType) => {
   opacity: 0.4;
   cursor: not-allowed;
   background: var(--ui-surface-soft);
+}
+
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(42px);
+    opacity: 0.85;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1280px) {
+  .courseware-manage-section {
+    width: 42px;
+  }
+
+  .courseware-manage-section.overlay-open {
+    width: min(330px, calc(100vw - 120px));
+  }
+}
+
+@media (max-width: 768px) {
+  .courseware-manage-section {
+    width: min(86vw, 286px);
+    max-height: 100%;
+    transform: translateX(0);
+  }
+
+  .courseware-manage-section.overlay-open {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(92vw, 340px);
+  }
 }
 </style>
