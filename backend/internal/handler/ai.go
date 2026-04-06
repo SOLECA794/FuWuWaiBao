@@ -2,11 +2,12 @@ package handler
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"smart-teaching-backend/pkg/apiresp"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
@@ -60,11 +61,7 @@ func (h *AIHandler) GetKnowledgeGraph(c *gin.Context) {
 		},
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data":    data,
-	})
+	apiresp.OK(c, "请求成功", data)
 }
 
 // 3.2 智能多模态答疑
@@ -85,10 +82,7 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf("参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{
-			"code":    400,
-			"message": "参数错误",
-		})
+		apiresp.BadRequest(c, "参数错误", err.Error())
 		return
 	}
 
@@ -130,17 +124,13 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 	}
 	h.db.Create(&log)
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "请求成功",
-		"data": gin.H{
+	apiresp.OK(c, "请求成功", gin.H{
 			"answer":         answer,
 			"sourcePage":     req.PageNum,
 			"source_page":    req.PageNum,
 			"sourceNodeId":   nodeID,
 			"source_node_id": nodeID,
-		},
-	})
+		})
 }
 
 // 生成 AI 回答（模拟）

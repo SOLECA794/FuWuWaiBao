@@ -16,17 +16,11 @@ CURRENT_DIR = Path(__file__).resolve().parent
 if str(CURRENT_DIR) not in sys.path:
     sys.path.insert(0, str(CURRENT_DIR))
 
-# 导入你之前写的 AI 核心逻辑
-try:
-    from .parser import DocumentParser
-    from .generator import LessonGenerator, GenerationConfig
-    from .qa import QAResponder, QAConfig, resolve_llm_base_url
-    from .reconstructor import LessonReconstructor, ReconstructionConfig
-except ImportError:
-    from parser import DocumentParser
-    from generator import LessonGenerator, GenerationConfig
-    from qa import QAResponder, QAConfig, resolve_llm_base_url
-    from reconstructor import LessonReconstructor, ReconstructionConfig
+# 直接运行 `python main.py` 时无包名，相对导入会失败；统一从本目录加载
+from parser import DocumentParser
+from generator import LessonGenerator, GenerationConfig
+from qa import QAResponder, QAConfig, resolve_llm_base_url
+from reconstructor import LessonReconstructor, ReconstructionConfig
 
 app = FastAPI(title="泛雅 AI 智课系统后端", description="为前端提供解析、生成、问答、重讲等核心 AI 接口")
 

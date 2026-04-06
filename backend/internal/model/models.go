@@ -62,6 +62,7 @@ type TeachingNode struct {
 	PageIndex            int    `gorm:"default:0;index" json:"page_index"`
 	EstimatedDuration    int    `gorm:"default:0" json:"estimated_duration"`
 	Title                string `gorm:"size:200;not null" json:"title"`
+	NodeType             string `gorm:"size:40;index" json:"node_type"` // opening | explain | transition（可扩展）；空则接口按位置推导
 	Summary              string `gorm:"type:text" json:"summary"`
 	SourcePages          string `gorm:"type:text" json:"source_pages"`
 	CorePoints           string `gorm:"type:text" json:"core_points"`
@@ -83,6 +84,18 @@ type TeachingNode struct {
 	TTSStatus            string `gorm:"size:30;default:'not_generated'" json:"tts_status"`
 	VoiceProfile         string `gorm:"size:60" json:"voice_profile"`
 	SortOrder            int    `gorm:"default:0" json:"sort_order"`
+}
+
+// TeachingNodeRelation 教学节点关联（前置、顺序、扩展关系），用于知识图谱与学习路径。
+// 由 KnowledgeNodesJSON 解析同步或教师端显式维护；同一课件内使用业务 node_id（TeachingNode.NodeID）。
+type TeachingNodeRelation struct {
+	BaseModel
+	CourseID       string  `gorm:"size:36;not null;uniqueIndex:idx_tnr_unique,priority:1;index:idx_tnr_course_from,priority:1" json:"course_id"`
+	FromNodeID     string  `gorm:"size:100;not null;uniqueIndex:idx_tnr_unique,priority:2;index:idx_tnr_course_from,priority:2" json:"from_node_id"`
+	ToNodeID       string  `gorm:"size:100;not null;uniqueIndex:idx_tnr_unique,priority:3" json:"to_node_id"`
+	RelationType   string  `gorm:"size:40;not null;uniqueIndex:idx_tnr_unique,priority:4" json:"relation_type"` // prerequisite | successor | related
+	Weight         float32 `gorm:"default:1" json:"weight"`
+	Metadata       string  `gorm:"type:text" json:"metadata,omitempty"` // 可选 JSON
 }
 
 // UserProgress 用户进度表
@@ -249,6 +262,58 @@ type StudentNote struct {
 	Note     string `gorm:"type:text" json:"note"`
 }
 
+// StudentFavorite 学生收藏（讲授节点/页）
+type StudentFavorite struct {
+	BaseModel
+	UserID   string `gorm:"size:36;not null;index" json:"user_id"`
+	CourseID string `gorm:"size:36;not null;index" json:"course_id"`
+	NodeID   string `gorm:"size:100;index" json:"node_id"`
+	PageNum  int    `gorm:"default:0" json:"page_num"`
+	Title    string `gorm:"size:200" json:"title"`
+	Tags     string `gorm:"type:text" json:"tags"`
+}
+
+// ReviewPlan 学生复习计划
+type ReviewPlan struct {
+	BaseModel
+	StudentID      string     `gorm:"size:36;not null;index" json:"student_id"`
+	Name           string     `gorm:"size:200;not null" json:"name"`
+	Description    string     `gorm:"type:text" json:"description"`
+	Frequency      string     `gorm:"size:20" json:"frequency"`
+	NextReviewDate *time.Time `json:"next_review_date,omitempty"`
+	Status         string     `gorm:"size:30;default:active" json:"status"`
+}
+
+// ReviewPlanItem 复习计划条目
+type ReviewPlanItem struct {
+	BaseModel
+	ReviewPlanID   string     `gorm:"size:36;not null;index" json:"review_plan_id"`
+	ItemType       string     `gorm:"size:50;not null" json:"item_type"`
+	ItemID         string     `gorm:"size:100;not null" json:"item_id"`
+	Priority       int        `gorm:"default:0" json:"priority"`
+	LastReviewedAt *time.Time `json:"last_reviewed_at,omitempty"`
+	ReviewCount    int        `gorm:"default:0" json:"review_count"`
+	NextReviewDate *time.Time `json:"next_review_date,omitempty"`
+}
+
+// ScheduledTask 定时任务（复习提醒等）
+type ScheduledTask struct {
+	BaseModel
+	StudentID    string     `gorm:"size:36;not null;index" json:"student_id"`
+	TaskType     string     `gorm:"size:50;not null;index" json:"task_type"`
+	TaskData     string     `gorm:"type:text" json:"task_data"`
+	CronExpr     string     `gorm:"size:120" json:"cron_expr"`
+	Description  string     `gorm:"size:500" json:"description"`
+	ScheduledAt  time.Time  `gorm:"index" json:"scheduled_at"`
+	Status       string     `gorm:"size:30;index" json:"status"`
+	Priority     int        `gorm:"default:0" json:"priority"`
+	MaxRetries   int        `gorm:"default:3" json:"max_retries"`
+	RetryCount   int        `gorm:"default:0" json:"retry_count"`
+	LastAttempt  *time.Time `json:"last_attempt,omitempty"`
+	NextAttempt  *time.Time `json:"next_attempt,omitempty"`
+	ErrorMessage string     `gorm:"type:text" json:"error_message"`
+}
+
 // WeakPoint 薄弱点模型
 type WeakPoint struct {
 	BaseModel
@@ -263,34 +328,61 @@ type WeakPoint struct {
 // KnowledgePoint 知识点模型
 type KnowledgePoint struct {
 	BaseModel
-	CourseID string `gorm:"size:36;not null;index" json:"course_id"`
-	ParentID string `gorm:"size:36" json:"parent_id"` // 父知识点ID
-	Name     string `gorm:"size:100;not null" json:"name"`
+	CourseID             string `gorm:"size:36;not null;index" json:"course_id"`
+	SourceTeachingNodeID string `gorm:"size:100;index" json:"source_teaching_node_id,omitempty"` // 对应课件讲授节点业务 ID（TeachingNode.NodeID），与习题/掌握度关联
+	ParentID             string `gorm:"size:36" json:"parent_id"`                               // 父知识点ID
+	Name                 string `gorm:"size:100;not null" json:"name"`
 	Level    int    `gorm:"default:1" json:"level"` // 1:章节 2:知识点 3:子知识点
 	Content  string `gorm:"type:text" json:"content"`
 	Examples string `gorm:"type:text" json:"examples"` // 示例代码/案例
 }
 
+// StudentKnowledgeMastery 学生知识点掌握度
+type StudentKnowledgeMastery struct {
+	BaseModel
+	StudentID        string     `gorm:"size:36;not null;index:idx_student_kp,unique,priority:1;index" json:"student_id"`
+	KnowledgePointID string     `gorm:"size:36;not null;index:idx_student_kp,unique,priority:2;index" json:"knowledge_point_id"`
+	MasteryScore     float64    `gorm:"type:numeric(5,4);default:0.5" json:"mastery_score"` // 0.0 - 1.0
+	CorrectCount     int        `gorm:"default:0" json:"correct_count"`
+	IncorrectCount   int        `gorm:"default:0" json:"incorrect_count"`
+	LastResponseMs   int        `gorm:"default:0" json:"last_response_ms"`
+	LastPracticedAt  *time.Time `json:"last_practiced_at,omitempty"`
+}
+
 // Question 习题模型
 type Question struct {
 	BaseModel
-	WeakPointID  string `gorm:"size:36;index" json:"weak_point_id"`
-	QuestionType string `gorm:"size:20" json:"question_type"` // single/multiple
-	Content      string `gorm:"type:text;not null" json:"content"`
-	Options      string `gorm:"type:text" json:"options"`     // JSON格式的选项
-	Answer       string `gorm:"type:text;not null" json:"-"`  // 正确答案
-	Explanation  string `gorm:"type:text" json:"explanation"` // 解析
-	Difficulty   int    `gorm:"default:1" json:"difficulty"`  // 1-5
+	WeakPointID         string `gorm:"size:36;index" json:"weak_point_id"`
+	CourseID            string `gorm:"size:36;index" json:"course_id"`
+	NodeID              string `gorm:"size:100;index" json:"node_id"`
+	PageNum             int    `gorm:"default:0" json:"page_num"`
+	SourceType          string `gorm:"size:30" json:"source_type"`
+	QuestionType        string `gorm:"size:20" json:"question_type"` // single/multiple
+	Content             string `gorm:"type:text;not null" json:"content"`
+	Options             string `gorm:"type:text" json:"options"` // JSON格式的选项
+	Answer              string `gorm:"type:text;not null" json:"-"` // 正确答案
+	Explanation         string `gorm:"type:text" json:"explanation"` // 解析
+	Difficulty          int    `gorm:"default:1" json:"difficulty"` // 1-5
+	Score               int    `gorm:"default:100" json:"score"`
+	KnowledgePointID    string `gorm:"size:36;index" json:"knowledge_point_id"`
+	AIReferenceAnswer   string `gorm:"type:text" json:"ai_reference_answer"`
 }
 
 // AnswerRecord 答题记录
 type AnswerRecord struct {
 	BaseModel
-	StudentID    string `gorm:"size:36;not null;index" json:"student_id"`
-	QuestionID   string `gorm:"size:36;not null" json:"question_id"`
-	UserAnswer   string `gorm:"type:text" json:"user_answer"`
-	IsCorrect    bool   `json:"is_correct"`
-	MasteryDelta int    `json:"mastery_delta"` // 掌握度变化
+	StudentID         string  `gorm:"size:36;not null;index" json:"student_id"`
+	QuestionID        string  `gorm:"size:36;not null;index" json:"question_id"`
+	TaskID            string  `gorm:"size:36;index" json:"task_id,omitempty"`
+	AttemptID         string  `gorm:"size:36;index" json:"attempt_id,omitempty"`
+	UserAnswer        string  `gorm:"type:text" json:"user_answer"`
+	IsCorrect         bool    `json:"is_correct"`
+	MasteryDelta      int     `json:"mastery_delta"`
+	Score             float64 `gorm:"default:0" json:"score"`
+	MaxScore          float64 `gorm:"default:0" json:"max_score"`
+	AIComment         string  `gorm:"type:text" json:"ai_comment"`
+	ReviewStatus      string  `gorm:"size:40" json:"review_status"`
+	KnowledgePoints   string  `gorm:"type:text" json:"knowledge_points"`
 }
 
 // PracticeTask 练习任务

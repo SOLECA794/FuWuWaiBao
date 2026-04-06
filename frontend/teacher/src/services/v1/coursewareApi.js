@@ -30,5 +30,13 @@ export const teacherCoursewareApi = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pageNum, mode })
-  })
+  }),
+  getKnowledgeGraphReferenceHealth: (courseId) =>
+    requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/reference-health`),
+  repairKnowledgeGraphReferences: (courseId, body) =>
+    requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/reference-health/repair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || { confirm: true })
+    })
 }

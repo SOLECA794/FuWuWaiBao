@@ -38,7 +38,18 @@
     <div class="page-selector" v-if="currentCourseId" v-show="!isCollapsed">
       <div class="page-header-row">
         <h4>{{ currentCourseName }}</h4>
-        <span class="page-indicator">{{ currentEditPage }} / {{ currentCourseTotalPages }}</span>
+        <div class="page-header-meta">
+          <span class="page-indicator">{{ currentEditPage }} / {{ currentCourseTotalPages }}</span>
+          <button
+            v-if="currentCourseId"
+            type="button"
+            class="ref-health-btn"
+            title="扫描各表对讲授节点 node_id 的引用是否与当前节点一致"
+            @click="runReferenceHealth"
+          >
+            引用健康
+          </button>
+        </div>
       </div>
       <div class="page-nav-controls">
         <button 
@@ -93,6 +104,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { teacherCoursewareApi } from '../../services/v1/coursewareApi'
 
 const isCollapsed = ref(window.innerWidth <= 1200)
 const showCatalog = ref(false)
@@ -133,6 +145,39 @@ watch(() => props.currentCourseId, () => {
 const handleSelectPage = (page) => {
   emit('select-page', page)
   showCatalog.value = false
+}
+
+const refHealthBusy = ref(false)
+
+async function runReferenceHealth() {
+  if (!props.currentCourseId || refHealthBusy.value) return
+  refHealthBusy.value = true
+  try {
+    const res = await teacherCoursewareApi.getKnowledgeGraphReferenceHealth(props.currentCourseId)
+    const d = res.data || {}
+    const orphans = d.unionOrphanNodeIds || []
+    if (!d.hasOrphans) {
+      window.alert('未发现孤儿节点引用（各表 node 与当前 teaching_nodes 一致）。')
+      return
+    }
+    const preview = orphans.length > 12
+      ? `${orphans.slice(0, 12).join(', ')} … 共 ${orphans.length} 个`
+      : orphans.join(', ')
+    const ok = window.confirm(
+      `发现不在讲授节点中的引用：${preview}\n\n是否执行修复？将清空相关 node 字段、软删除指向孤儿节点的收藏，并重建图谱边。`
+    )
+    if (!ok) return
+    const fix = await teacherCoursewareApi.repairKnowledgeGraphReferences(props.currentCourseId, { confirm: true })
+    window.alert(
+      fix.message +
+        '\n\n' +
+        JSON.stringify(fix.data || fix, null, 2).slice(0, 3500)
+    )
+  } catch (e) {
+    window.alert('引用健康检查失败：' + (e?.message || e))
+  } finally {
+    refHealthBusy.value = false
+  }
 }
 </script>
 
@@ -350,6 +395,28 @@ const handleSelectPage = (page) => {
   border-top: 1px solid #e6ecf5;
   background: #ffffff;
   position: relative;
+}
+
+.page-header-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.ref-health-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+}
+
+.ref-health-btn:hover {
+  border-color: #2F605A;
+  color: #1e293b;
 }
 
 .page-header-row {

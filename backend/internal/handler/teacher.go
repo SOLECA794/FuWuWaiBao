@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,6 +14,7 @@ import (
 
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/service"
+	"smart-teaching-backend/pkg/apiresp"
 	"smart-teaching-backend/pkg/logger"
 )
 
@@ -33,7 +33,7 @@ func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 	var courses []model.Course
 	if err := h.db.Order("created_at desc").Find(&courses).Error; err != nil {
 		logger.Errorf("获取课件列表失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取课件列表失败"})
+		apiresp.Internal(c, "获取课件列表失败", "")
 		return
 	}
 
@@ -54,21 +54,21 @@ func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": data})
+	apiresp.OK(c, "请求成功", data)
 }
 
 func (h *TeacherHandler) GetScript(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
 	var coursePage model.CoursePage
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err != nil {
 		nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
-		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": buildPageContextFromTeachingNodes(nodes), "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)}})
+		apiresp.OK(c, "请求成功", gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": buildPageContextFromTeachingNodes(nodes), "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)})
 		return
 	}
 
@@ -77,14 +77,14 @@ func (h *TeacherHandler) GetScript(c *gin.Context) {
 	if content == "" {
 		content = buildPageContextFromTeachingNodes(nodes)
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": content, "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)}})
+	apiresp.OK(c, "请求成功", gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": content, "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)})
 }
 
 func (h *TeacherHandler) UpdateScript(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
@@ -92,36 +92,36 @@ func (h *TeacherHandler) UpdateScript(c *gin.Context) {
 		Content string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	if err := h.upsertScript(courseID, pageNum, req.Content); err != nil {
 		logger.Errorf("保存讲稿失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		apiresp.Internal(c, "保存失败", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
+	apiresp.OKMessage(c, "保存成功")
 }
 
 func (h *TeacherHandler) GetTeachingNodes(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
 	nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)}})
+	apiresp.OK(c, "请求成功", gin.H{"courseId": courseID, "pageNum": pageNum, "nodes": buildTeacherNodePayload(nodes), "mappingCoverage": buildTeacherNodeCoverage(nodes)})
 }
 
 func (h *TeacherHandler) UpdateTeachingNodes(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
@@ -129,22 +129,22 @@ func (h *TeacherHandler) UpdateTeachingNodes(c *gin.Context) {
 		Nodes []teacherNodeUpsertRequest `json:"nodes" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	content, savedNodes, err := h.replaceTeachingNodes(courseID, pageNum, req.Nodes)
 	if err != nil {
 		if errors.Is(err, errInvalidTeachingNodes) {
-			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+			apiresp.BadRequest(c, "讲授节点校验失败", err.Error())
 			return
 		}
 		logger.Errorf("保存节点讲稿失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "节点保存失败"})
+		apiresp.Internal(c, "节点保存失败", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "content": content, "nodes": buildTeacherNodePayload(savedNodes), "mappingCoverage": buildTeacherNodeCoverage(savedNodes)}})
+	apiresp.OK(c, "保存成功", gin.H{"courseId": courseID, "pageNum": pageNum, "content": content, "nodes": buildTeacherNodePayload(savedNodes), "mappingCoverage": buildTeacherNodeCoverage(savedNodes)})
 }
 
 func (h *TeacherHandler) SaveScript(c *gin.Context) {
@@ -154,17 +154,17 @@ func (h *TeacherHandler) SaveScript(c *gin.Context) {
 		Content  string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	if err := h.upsertScript(req.CourseID, req.Page, req.Content); err != nil {
 		logger.Errorf("保存讲稿失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		apiresp.Internal(c, "保存失败", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
+	apiresp.OKMessage(c, "保存成功")
 }
 
 func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
@@ -189,13 +189,13 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 		pageNum = req.Page
 	}
 	if pageNum <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	var course model.Course
 	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
+		apiresp.NotFound(c, "课件不存在", "")
 		return
 	}
 
@@ -233,20 +233,20 @@ func (h *TeacherHandler) AIGenerateScript(c *gin.Context) {
 	}
 
 	if err := h.upsertScript(courseID, pageNum, script); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		apiresp.Internal(c, "保存失败", "")
 		return
 	}
 
 	refreshedNodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": script, "mindmapMarkdown": mindmapMarkdown, "nodes": buildTeacherNodePayload(refreshedNodes), "mappingCoverage": buildTeacherNodeCoverage(refreshedNodes)}})
+	apiresp.OK(c, "请求成功", gin.H{"courseId": courseID, "pageNum": pageNum, "page": pageNum, "content": script, "mindmapMarkdown": mindmapMarkdown, "nodes": buildTeacherNodePayload(refreshedNodes), "mappingCoverage": buildTeacherNodeCoverage(refreshedNodes)})
 }
 
 func (h *TeacherHandler) GeneratePageAudio(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := parsePageParam(c.Param("pageNum"), c.Param("page"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
@@ -259,11 +259,11 @@ func (h *TeacherHandler) GeneratePageAudio(c *gin.Context) {
 
 	payload, err := ensurePlaybackAudioAssets(c.Request.Context(), h.db, h.aiClient, courseID, pageNum, req.VoiceType, req.Format, req.Provider)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": err.Error()})
+		apiresp.BadRequest(c, err.Error(), "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "音频元数据已生成", "data": payload})
+	apiresp.OK(c, "音频元数据已生成", payload)
 }
 
 func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
@@ -277,13 +277,13 @@ func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 		courseID = req.CourseID
 	}
 	if courseID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 courseId"})
+		apiresp.BadRequest(c, "缺少 courseId", "")
 		return
 	}
 
 	var course model.Course
 	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
+		apiresp.NotFound(c, "课件不存在", "")
 		return
 	}
 
@@ -292,23 +292,27 @@ func (h *TeacherHandler) PublishCourseware(c *gin.Context) {
 		scope = "all"
 	}
 	now := time.Now()
-	if err := h.db.Model(&course).Updates(map[string]any{"is_published": true, "publish_scope": scope, "published_at": now}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布状态写入失败"})
+	if err := h.db.Model(&course).Updates(map[string]any{
+		"is_published":  true,
+		"publish_scope": scope,
+		"published_at":  now,
+	}).Error; err != nil {
+		apiresp.Internal(c, "发布状态写入失败", "")
 		return
 	}
 
 	logger.Infof("课件发布成功: courseId=%s, scope=%s, title=%s", courseID, scope, course.Title)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": scope, "publishedAt": now.Format(time.RFC3339)}})
+	apiresp.OK(c, "发布成功", gin.H{"courseId": courseID, "scope": scope, "publishedAt": now.Format(time.RFC3339)})
 }
 
 func (h *TeacherHandler) GetStudentStats(c *gin.Context) {
 	courseID := c.Param("courseId")
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": h.buildClassStats(courseID)})
+	apiresp.OK(c, "请求成功", h.buildClassStats(courseID))
 }
 
 func (h *TeacherHandler) GetClassStats(c *gin.Context) {
 	courseID := c.Param("courseId")
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": h.buildClassStats(courseID)})
+	apiresp.OK(c, "请求成功", h.buildClassStats(courseID))
 }
 
 func (h *TeacherHandler) GetQuestionRecords(c *gin.Context) {
@@ -394,14 +398,14 @@ func (h *TeacherHandler) GetQuestionRecords(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"list": list, "total": total, "page": page, "pageSize": pageSize}})
+	apiresp.OK(c, "请求成功", gin.H{"list": list, "total": total, "page": page, "pageSize": pageSize})
 }
 
 func (h *TeacherHandler) GetCardData(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var course model.Course
 	if err := h.db.First(&course, "id = ?", courseID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "课件不存在"})
+		apiresp.NotFound(c, "课件不存在", "")
 		return
 	}
 
@@ -422,7 +426,7 @@ func (h *TeacherHandler) GetCardData(c *gin.Context) {
 	}
 
 	classStats := h.buildClassStats(courseID)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"pageStats": stats, "topPages": topPages, "totalQuestions": classStats["totalQuestions"], "reteachCount": classStats["reteachCount"], "activeSessions": classStats["activeSessions"]}})
+	apiresp.OK(c, "请求成功", gin.H{"pageStats": stats, "topPages": topPages, "totalQuestions": classStats["totalQuestions"], "reteachCount": classStats["reteachCount"], "activeSessions": classStats["activeSessions"]})
 }
 
 func (h *TeacherHandler) upsertScript(courseID string, pageNum int, content string) error {
@@ -528,6 +532,7 @@ func (h *TeacherHandler) buildClassStats(courseID string) gin.H {
 type teacherNodeUpsertRequest struct {
 	ID                 string           `json:"id"`
 	NodeID             string           `json:"nodeId"`
+	Type               string           `json:"type"` // opening | explain | transition 等；空则按页内位置推导
 	Title              string           `json:"title"`
 	Summary            string           `json:"summary"`
 	SchemaVersion      int              `json:"schemaVersion"`
@@ -767,7 +772,7 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 		trimmed = append(trimmed, node)
 	}
 
-	if validationErr := validateTeacherNodeUpserts(trimmed, pageNum); validationErr != nil {
+	if validationErr := validateTeacherNodeUpserts(h.db, courseID, pageNum, trimmed); validationErr != nil {
 		return "", nil, fmt.Errorf("%w: %s", errInvalidTeachingNodes, validationErr.Error())
 	}
 
@@ -792,11 +797,13 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 			if persisted.ID == "" && item.NodeID != "" {
 				persisted = existingByNodeID[item.NodeID]
 			}
+			nodeTypeNorm := normalizePersistedTeachingNodeType(item.Type, index, len(trimmed))
 			if persisted.ID == "" {
 				persisted = model.TeachingNode{
 					CourseID:      courseID,
 					PageIndex:     pageNum,
 					NodeID:        buildTeacherNodeID(pageNum, index+1, item.NodeID),
+					NodeType:      nodeTypeNorm,
 					Title:         defaultTeacherNodeTitle(pageNum, index+1, item.Title),
 					ChapterTitle:  "第" + strconv.Itoa(pageNum) + "页",
 					SchemaVersion: 2,
@@ -805,6 +812,7 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 			persisted.CourseID = courseID
 			persisted.PageIndex = pageNum
 			persisted.NodeID = buildTeacherNodeID(pageNum, index+1, firstTeacherNonEmpty(item.NodeID, persisted.NodeID))
+			persisted.NodeType = nodeTypeNorm
 			persisted.Title = defaultTeacherNodeTitle(pageNum, index+1, firstTeacherNonEmpty(item.Title, persisted.Title))
 			persisted.Summary = item.Summary
 			persisted.ScriptText = item.ScriptText
@@ -836,6 +844,7 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 					"course_id":            persisted.CourseID,
 					"page_index":           persisted.PageIndex,
 					"node_id":              persisted.NodeID,
+					"node_type":            persisted.NodeType,
 					"title":                persisted.Title,
 					"summary":              persisted.Summary,
 					"script_text":          persisted.ScriptText,
@@ -871,9 +880,16 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 		if err := upsertTeacherScriptWithDB(tx, courseID, pageNum, content); err != nil {
 			return err
 		}
+		kg := service.NewKnowledgeGraphService(tx)
+		if err := kg.RebuildTeachingNodeRelationsTx(tx, courseID); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrTeachingNodePrerequisiteCycle) {
+			return "", nil, fmt.Errorf("%w: %s", errInvalidTeachingNodes, err.Error())
+		}
 		return "", nil, err
 	}
 
@@ -881,18 +897,23 @@ func (h *TeacherHandler) replaceTeachingNodes(courseID string, pageNum int, rawN
 	return buildPageContextFromTeachingNodes(savedNodes), savedNodes, nil
 }
 
-func validateTeacherNodeUpserts(nodes []teacherNodeUpsertRequest, pageNum int) error {
+func validateTeacherNodeUpserts(db *gorm.DB, courseID string, pageNum int, nodes []teacherNodeUpsertRequest) error {
 	if len(nodes) == 0 {
 		return nil
 	}
 
-	nodeIDSet := make(map[string]struct{}, len(nodes))
+	pageNodeIDSet := make(map[string]struct{}, len(nodes))
 	for idx, item := range nodes {
 		nodeID := buildTeacherNodeID(pageNum, idx+1, strings.TrimSpace(item.NodeID))
 		if nodeID == "" {
 			return fmt.Errorf("第 %d 个节点缺少 nodeId", idx+1)
 		}
-		nodeIDSet[nodeID] = struct{}{}
+		pageNodeIDSet[nodeID] = struct{}{}
+	}
+
+	globalSet, err := buildCourseWideTeachingNodeIDSet(db, courseID, pageNum, pageNodeIDSet)
+	if err != nil {
+		return err
 	}
 
 	for idx, item := range nodes {
@@ -900,18 +921,48 @@ func validateTeacherNodeUpserts(nodes []teacherNodeUpsertRequest, pageNum int) e
 		nodeLabel := firstTeacherNonEmpty(strings.TrimSpace(item.Title), nodeID)
 
 		segments := decodeTeacherJSONArray(normalizeTeacherScriptSegmentsJSON(item.ScriptSegmentsJSON, item.ScriptSegments, nodeID, firstTeacherNonEmpty(strings.TrimSpace(item.ScriptText), strings.TrimSpace(item.Summary))))
-		if err := validateTeacherScriptSegments(nodeLabel, segments, nodeIDSet); err != nil {
+		if err := validateTeacherScriptSegments(nodeLabel, segments, globalSet); err != nil {
 			return err
 		}
 		segmentIDSet := buildTeacherSegmentIDSet(segments)
 
 		knowledge := decodeTeacherJSONArray(normalizeTeacherKnowledgeNodesJSON(item.KnowledgeNodesJSON, item.KnowledgeNodes, nodeID, nodeLabel))
-		if err := validateTeacherKnowledgeNodes(nodeLabel, knowledge, nodeIDSet, segmentIDSet); err != nil {
+		if err := validateTeacherKnowledgeNodes(nodeLabel, knowledge, globalSet, segmentIDSet); err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func buildCourseWideTeachingNodeIDSet(db *gorm.DB, courseID string, pageNum int, pageBatch map[string]struct{}) (map[string]struct{}, error) {
+	var ids []string
+	if err := db.Model(&model.TeachingNode{}).
+		Where("course_id = ? AND page_index <> ?", courseID, pageNum).
+		Pluck("node_id", &ids).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]struct{}, len(ids)+len(pageBatch))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			out[id] = struct{}{}
+		}
+	}
+	for id := range pageBatch {
+		out[id] = struct{}{}
+	}
+	return out, nil
+}
+
+func normalizePersistedTeachingNodeType(raw string, index, total int) string {
+	v := strings.ToLower(strings.TrimSpace(raw))
+	switch v {
+	case "opening", "explain", "transition", "deepening", "summary", "interaction", "checkpoint":
+		return v
+	default:
+		return teacherNodeType(index, total)
+	}
 }
 
 func buildTeacherSegmentIDSet(segments []any) map[string]struct{} {
@@ -946,12 +997,17 @@ func validateTeacherScriptSegments(nodeLabel string, segments []any, nodeIDSet m
 		}
 		seenSegmentIDs[segmentID] = struct{}{}
 
+		segText := strings.TrimSpace(fmt.Sprintf("%v", item["text"]))
+		if segText == "" || segText == "<nil>" {
+			return fmt.Errorf("节点 %s 的 segment_id %s 缺少非空 text", nodeLabel, segmentID)
+		}
+
 		nodeIDs, ok := item["node_ids"].([]any)
 		if !ok || len(nodeIDs) == 0 {
 			return fmt.Errorf("节点 %s 的 segment_id %s 缺少 node_ids", nodeLabel, segmentID)
 		}
 		for _, nodeRef := range nodeIDs {
-			candidate := strings.TrimSpace(fmt.Sprintf("%v", nodeRef))
+			candidate := strings.TrimSpace(teacherPrerequisiteRefID(nodeRef))
 			if candidate == "" {
 				return fmt.Errorf("节点 %s 的 segment_id %s 包含空 node_id", nodeLabel, segmentID)
 			}
@@ -963,23 +1019,103 @@ func validateTeacherScriptSegments(nodeLabel string, segments []any, nodeIDSet m
 	return nil
 }
 
+func teacherPrerequisiteRefID(item any) string {
+	switch t := item.(type) {
+	case map[string]any:
+		for _, k := range []string{"node_id", "id", "from"} {
+			if v := strings.TrimSpace(fmt.Sprintf("%v", t[k])); v != "" && v != "<nil>" {
+				return v
+			}
+		}
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", item))
+	}
+}
+
+func teacherJSONFloat32(v any) float32 {
+	switch t := v.(type) {
+	case float64:
+		return float32(t)
+	case float32:
+		return t
+	case int:
+		return float32(t)
+	case int64:
+		return float32(t)
+	case string:
+		var f float64
+		if _, err := fmt.Sscanf(strings.TrimSpace(t), "%f", &f); err == nil {
+			return float32(f)
+		}
+	}
+	return 0
+}
+
 func validateTeacherKnowledgeNodes(nodeLabel string, knowledge []any, nodeIDSet map[string]struct{}, segmentIDSet map[string]struct{}) error {
 	for i, raw := range knowledge {
 		item, ok := raw.(map[string]any)
 		if !ok {
 			return fmt.Errorf("节点 %s 的第 %d 条知识结构错误", nodeLabel, i+1)
 		}
+		entryAtomID := strings.TrimSpace(fmt.Sprintf("%v", item["node_id"]))
+		if _, has := item["weight"]; has {
+			if w := teacherJSONFloat32(item["weight"]); w < 0 || w > 100 {
+				return fmt.Errorf("节点 %s 的知识条目 weight 须在 0~100 之间", nodeLabel)
+			}
+		}
+		if _, has := item["importance"]; has {
+			if w := teacherJSONFloat32(item["importance"]); w < 0 || w > 100 {
+				return fmt.Errorf("节点 %s 的知识条目 importance 须在 0~100 之间", nodeLabel)
+			}
+		}
+
 		prereqRaw, ok := item["prerequisites"].([]any)
 		if !ok {
-			continue
+			prereqRaw = nil
 		}
+		prereqSet := make(map[string]struct{})
 		for _, prereq := range prereqRaw {
-			candidate := strings.TrimSpace(fmt.Sprintf("%v", prereq))
+			candidate := strings.TrimSpace(teacherPrerequisiteRefID(prereq))
 			if candidate == "" {
-				continue
+				return fmt.Errorf("节点 %s 的 prerequisites 含空引用", nodeLabel)
+			}
+			if entryAtomID != "" && candidate == entryAtomID {
+				return fmt.Errorf("节点 %s 的知识条目 %s 不能将自身列为 prerequisite", nodeLabel, entryAtomID)
 			}
 			if _, exists := nodeIDSet[candidate]; !exists {
-				return fmt.Errorf("节点 %s 的 prerequisites 引用了不存在的 node_id %s", nodeLabel, candidate)
+				return fmt.Errorf("节点 %s 的 prerequisites 引用了不存在的 node_id %s（需为本课件内已存在节点）", nodeLabel, candidate)
+			}
+			prereqSet[candidate] = struct{}{}
+		}
+
+		if wm, ok := item["prerequisite_weights"].(map[string]any); ok && len(wm) > 0 {
+			for k, val := range wm {
+				k = strings.TrimSpace(k)
+				if k == "" {
+					return fmt.Errorf("节点 %s 的 prerequisite_weights 含空键", nodeLabel)
+				}
+				if _, exists := prereqSet[k]; !exists {
+					return fmt.Errorf("节点 %s 的 prerequisite_weights 键 %s 未出现在 prerequisites 中", nodeLabel, k)
+				}
+				if teacherJSONFloat32(val) <= 0 {
+					return fmt.Errorf("节点 %s 的 prerequisite_weights[%s] 须为正数", nodeLabel, k)
+				}
+			}
+		}
+
+		if relatedRaw, ok := item["related_node_ids"].([]any); ok {
+			for _, rel := range relatedRaw {
+				rid := strings.TrimSpace(fmt.Sprintf("%v", rel))
+				if rid == "" || rid == "<nil>" {
+					return fmt.Errorf("节点 %s 的 related_node_ids 含空项", nodeLabel)
+				}
+				if entryAtomID != "" && rid == entryAtomID {
+					return fmt.Errorf("节点 %s 的知识条目 %s 不能将自身列入 related_node_ids", nodeLabel, entryAtomID)
+				}
+				if _, exists := nodeIDSet[rid]; !exists {
+					return fmt.Errorf("节点 %s 的 related_node_ids 引用了不存在的 node_id %s", nodeLabel, rid)
+				}
 			}
 		}
 
@@ -1000,16 +1136,77 @@ func validateTeacherKnowledgeNodes(nodeLabel string, knowledge []any, nodeIDSet 
 	return nil
 }
 
+func parseTeachingNodeKnowledgeSurface(nodeID string, knowledgeJSON string) (prereqs []string, prereqWeights map[string]float32, related []string, entryWeight float32) {
+	knowledgeJSON = strings.TrimSpace(knowledgeJSON)
+	if knowledgeJSON == "" || knowledgeJSON == "[]" {
+		return nil, nil, nil, 0
+	}
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(knowledgeJSON), &entries); err != nil {
+		return nil, nil, nil, 0
+	}
+	nid := strings.TrimSpace(nodeID)
+	var target map[string]any
+	for _, e := range entries {
+		if strings.TrimSpace(fmt.Sprintf("%v", e["node_id"])) == nid {
+			target = e
+			break
+		}
+	}
+	if target == nil && len(entries) == 1 {
+		target = entries[0]
+	}
+	if target == nil {
+		return nil, nil, nil, 0
+	}
+	if arr, ok := target["prerequisites"].([]any); ok {
+		for _, p := range arr {
+			if id := strings.TrimSpace(teacherPrerequisiteRefID(p)); id != "" {
+				prereqs = append(prereqs, id)
+			}
+		}
+	}
+	if m, ok := target["prerequisite_weights"].(map[string]any); ok && len(m) > 0 {
+		prereqWeights = make(map[string]float32, len(m))
+		for k, v := range m {
+			k = strings.TrimSpace(k)
+			if k == "" {
+				continue
+			}
+			if wf := teacherJSONFloat32(v); wf > 0 {
+				prereqWeights[k] = wf
+			}
+		}
+	}
+	if arr, ok := target["related_node_ids"].([]any); ok {
+		for _, r := range arr {
+			if id := strings.TrimSpace(fmt.Sprintf("%v", r)); id != "" {
+				related = append(related, id)
+			}
+		}
+	}
+	entryWeight = teacherJSONFloat32(target["weight"])
+	if entryWeight <= 0 {
+		entryWeight = teacherJSONFloat32(target["importance"])
+	}
+	return prereqs, prereqWeights, related, entryWeight
+}
+
 func buildTeacherNodePayload(nodes []model.TeachingNode) []gin.H {
 	result := make([]gin.H, 0, len(nodes))
 	for index, node := range nodes {
 		knowledgeNodes := decodeTeacherJSONArray(node.KnowledgeNodesJSON)
 		scriptSegments := decodeTeacherJSONArray(node.ScriptSegmentsJSON)
-		result = append(result, gin.H{
+		typeVal := strings.TrimSpace(node.NodeType)
+		if typeVal == "" {
+			typeVal = teacherNodeType(index, len(nodes))
+		}
+		prereqs, pw, related, kw := parseTeachingNodeKnowledgeSurface(node.NodeID, node.KnowledgeNodesJSON)
+		row := gin.H{
 			"id":                 node.ID,
 			"nodeId":             node.NodeID,
 			"page":               node.PageIndex,
-			"type":               teacherNodeType(index, len(nodes)),
+			"type":               typeVal,
 			"title":              node.Title,
 			"summary":            node.Summary,
 			"schemaVersion":      maxInt(node.SchemaVersion, 2),
@@ -1023,7 +1220,24 @@ func buildTeacherNodePayload(nodes []model.TeachingNode) []gin.H {
 			"scriptSegments":     scriptSegments,
 			"estimatedDuration":  playbackDurationSec(node),
 			"sortOrder":          node.SortOrder,
-		})
+		}
+		if len(prereqs) > 0 {
+			row["prerequisites"] = prereqs
+		}
+		if len(pw) > 0 {
+			wh := gin.H{}
+			for k, v := range pw {
+				wh[k] = v
+			}
+			row["prerequisiteWeights"] = wh
+		}
+		if len(related) > 0 {
+			row["relatedNodeIds"] = related
+		}
+		if kw > 0 {
+			row["knowledgeWeight"] = kw
+		}
+		result = append(result, row)
 	}
 	return result
 }
