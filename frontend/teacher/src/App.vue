@@ -1,18 +1,159 @@
 <template>
-  <div class="teacher-app">
-    <TeacherTopBar
-      :backend-status-class="backendStatusClass"
-      :backend-status-text="backendStatusText"
-    />
-    <TeacherOverviewStrip
-      :current-course-name="currentCourseName"
-      :current-edit-page="currentEditPage"
-      :current-course-total-pages="currentCourseTotalPages"
-      :current-course-published="currentCoursePublished"
-    />
+  <HomeLogin v-if="!isLoggedIn" @login-success="handleLoginSuccess" />
+  <div v-else class="teacher-app">
+    <div class="workspace-shell">
+      <TeacherTopBar
+        :backend-status-class="backendStatusClass"
+        :backend-status-text="backendStatusText"
+        :username="loggedInUsername"
+        @logout="isLoggedIn = false"
+      />
 
-    <div class="main-content">
+      <div class="main-content">
+      <!-- 方案修改：左侧 MENU 导航栏 (带 ins 风图标) -->
+      <div class="left-sidebar-menu" :class="{ 'collapsed': isLeftMenuCollapsed }">
+        <div class="menu-header">
+          <span v-show="!isLeftMenuCollapsed">菜单</span>
+          <button class="menu-toggle-btn" @click="isLeftMenuCollapsed = !isLeftMenuCollapsed" :title="isLeftMenuCollapsed ? '展开菜单' : '收起菜单'">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path></svg>
+          </button>
+        </div>
+        <div class="menu-list">
+          <div class="menu-item" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'" title="编辑讲稿">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <span v-show="!isLeftMenuCollapsed">编辑讲稿</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'" title="学情分析">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">学情分析</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'" title="提问统计">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span v-show="!isLeftMenuCollapsed">提问统计</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="卡点可视化">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'iteration' }" @click="activeTab = 'iteration'" title="学情迭代">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path><path d="M22 12.5a10 10 0 0 1-18.8 2.2"></path></svg>
+            <span v-show="!isLeftMenuCollapsed">学情迭代</span>
+          </div>
+          <div class="menu-item" :class="{ active: activeTab === 'platform' }" @click="activeTab = 'platform'" title="平台管理">
+              <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+               <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+              </svg>
+
+              </svg>
+        <span v-show="!isLeftMenuCollapsed">平台管理 <small>(悬停后展开)</small></span>
+          </div>
+
+          <div class="menu-item" @click="openResourceRecommend" title="智能推荐">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 4h12"></path>
+              <path d="M6 9h12"></path>
+              <path d="M6 14h7"></path>
+              <circle cx="17.5" cy="16.5" r="3.5"></circle>
+              <path d="m20 19 2 2"></path>
+            </svg>
+            <span v-show="!isLeftMenuCollapsed">智能推荐</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 中间内容编辑区 -->
+      <div class="editor-section">
+        <div v-if="activeTab === 'script'" class="tab-container script-mode">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件以编辑讲稿</div>
+          </div>
+          <TeacherScriptPanel
+            v-else
+            :preview-url="realPreviewUrl"
+            :current-course-id="currentCourseId"
+            :current-edit-page="currentEditPage"
+            :total-pages="currentCourseTotalPages"
+            :current-script="currentScript"
+            :current-script-nodes="currentScriptNodes"
+            :script-generating="scriptGenerating"
+            :script-saving="scriptSaving"
+            @generate-ai-script="generateAIScript"
+            @save-script="saveScript"
+            @update:current-script="currentScript = $event"
+            @prev-page="prevPage"
+            @next-page="nextPage"
+          ></TeacherScriptPanel>
+        </div>
+
+        <div v-else-if="activeTab === 'platform'" class="tab-container">
+            <PlatformManagementPanel />
+        </div>
+  
+      
+
+        <div v-else-if="activeTab === 'stats'" class="tab-container">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看学情数据</div>
+          </div>
+          <TeacherStatsPanel
+            v-else
+            :current-course-id="currentCourseId"
+            :current-course-name="currentCourseName"
+            :student-stats="studentStats"
+          ></TeacherStatsPanel>
+        </div>
+
+        <div v-else-if="activeTab === 'questions'" class="tab-container">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看提问统计</div>
+          </div>
+          <TeacherQuestionsPanel
+            v-else
+            :current-course-id="currentCourseId"
+            :current-course-name="currentCourseName"
+            :current-course-total-pages="currentCourseTotalPages"
+            :filter-page="filterPage"
+            :filtered-questions="filteredQuestions"
+            @update:filter-page="filterPage = $event"
+          ></TeacherQuestionsPanel>
+        </div>
+
+        <div v-else-if="activeTab === 'iteration'" class="tab-container">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件使用学情迭代功能</div>
+          </div>
+          <CourseIterationPanel
+            v-else
+            :current-course-id="currentCourseId"
+            :question-records="questionRecords"
+            @update:script="currentScript = $event"
+          ></CourseIterationPanel>
+        </div>
+
+        <div v-else class="tab-container">
+          <div v-if="!currentCourseId" class="empty-tip-container">
+            <div class="empty-tip">请先在右侧选择或上传一个课件查看卡点分析</div>
+          </div>
+          <TeacherCardAnalysisPanel
+            v-else
+            :current-course-id="currentCourseId"
+            :current-course-name="currentCourseName"
+            :chart-type="chartType"
+            :card-data="cardData"
+            @update:chart-type="chartType = $event"
+          ></TeacherCardAnalysisPanel>
+        </div>
+      </div>
+
+      <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
       <TeacherCoursewareSidebar
+        v-if="activeTab !== 'script'"
+        v-show="isSidebarVisible"
         :courseware-list="coursewareList"
         :current-course-id="currentCourseId"
         :current-course-name="currentCourseName"
@@ -24,55 +165,9 @@
         @select-course="selectCourse"
         @delete-course="deleteCourse"
         @select-page="selectEditPage"
+        style="border-right: none; border-left: 1px solid #e2e8f0;"
       />
-
-      <div class="editor-section">
-        <div class="tabs">
-          <button class="tab-btn" :class="{ active: activeTab === 'script' }" @click="activeTab = 'script'">讲稿编辑</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'stats' }" @click="activeTab = 'stats'">学情分析</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'questions' }" @click="activeTab = 'questions'">提问统计</button>
-          <button class="tab-btn" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'">学习卡点可视化</button>
-        </div>
-
-        <TeacherScriptPanel
-          v-if="activeTab === 'script'"
-          :preview-url="previewUrl"
-          :current-course-id="currentCourseId"
-          :current-edit-page="currentEditPage"
-          :current-script="currentScript"
-          :script-generating="scriptGenerating"
-          :script-saving="scriptSaving"
-          @generate-ai-script="generateAIScript"
-          @save-script="saveScript"
-          @update:current-script="currentScript = $event"
-        />
-
-        <TeacherStatsPanel
-          v-else-if="activeTab === 'stats'"
-          :current-course-id="currentCourseId"
-          :current-course-name="currentCourseName"
-          :student-stats="studentStats"
-        />
-
-        <TeacherQuestionsPanel
-          v-else-if="activeTab === 'questions'"
-          :current-course-id="currentCourseId"
-          :current-course-name="currentCourseName"
-          :current-course-total-pages="currentCourseTotalPages"
-          :filter-page="filterPage"
-          :filtered-questions="filteredQuestions"
-          @update:filter-page="filterPage = $event"
-        />
-
-        <TeacherCardAnalysisPanel
-          v-else
-          :current-course-id="currentCourseId"
-          :current-course-name="currentCourseName"
-          :chart-type="chartType"
-          :card-data="cardData"
-          @update:chart-type="chartType = $event"
-        />
-      </div>
+    </div>
     </div>
 
     <TeacherUploadModal
@@ -83,7 +178,7 @@
       @select-file="handleFileSelect"
       @submit="uploadCourseware"
       @file-input-ready="fileInput = $event"
-    />
+    ></TeacherUploadModal>
 
     <TeacherPublishModal
       :visible="showPublishModal"
@@ -92,14 +187,22 @@
       @close="showPublishModal = false"
       @submit="publishCourseware"
       @update:publish-scope="publishScope = $event"
+    ></TeacherPublishModal>
+
+    <ResourceRecommendPanel
+      :visible="resourceDrawerVisible"
+      :current-course-context="currentCourseContext"
+      @update:visible="resourceDrawerVisible = $event"
     />
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
+// 导入所有组件
 import TeacherTopBar from './components/teacher/TeacherTopBar.vue'
 import TeacherOverviewStrip from './components/teacher/TeacherOverviewStrip.vue'
 import TeacherCoursewareSidebar from './components/teacher/TeacherCoursewareSidebar.vue'
@@ -109,6 +212,24 @@ import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vu
 import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
+import HomeLogin from './components/HomeLogin.vue'
+import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
+import CourseIterationPanel from './components/teacher/CourseIterationPanel.vue'
+import ResourceRecommendPanel from './components/teacher/ResourceRecommendPanel.vue'
+
+// --- 状态管理 ---
+const isLoggedIn = ref(false)
+const loggedInUsername = ref('')
+const activeTab = ref('script') // 或 'platform' 如果希望默认显示平台管理
+
+const STORAGE_KEYS = {
+  username: 'teacher-app:last-username',
+  courseId: 'teacher-app:last-course-id',
+  coursePage: 'teacher-app:last-course-page',
+  tab: 'teacher-app:last-active-tab'
+}
+
+const isValidTab = (tab) => ['script', 'stats', 'questions', 'card', 'iteration', 'platform'].includes(tab)
 
 const coursewareList = ref([])
 const currentCourseId = ref('')
@@ -121,6 +242,7 @@ const showUploadModal = ref(false)
 const fileInput = ref(null)
 const selectedFileName = ref('')
 const uploadLoading = ref(false)
+const resourceDrawerVisible = ref(false)
 
 const showPublishModal = ref(false)
 const publishScope = ref('all')
@@ -129,67 +251,202 @@ const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
 
-const activeTab = ref('script')
+const showPlatformManagement = ref(false)
+
+const currentCourseContext = computed(() => ({
+  courseId: currentCourseId.value,
+  courseName: currentCourseName.value,
+  currentPage: currentEditPage.value,
+  keyword: currentCourseName.value,
+  pageKeyword: `第${currentEditPage.value}页 ${extractScriptKeywords(currentScript.value)}`.trim(),
+  nodeKeyword: extractScriptKeywords(currentScript.value),
+  subject: inferSubject(currentCourseName.value),
+  scriptPreview: String(currentScript.value || '').slice(0, 120)
+}))
+
+function extractScriptKeywords(script) {
+  const text = String(script || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\u4e00-\u9fa5a-zA-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return ''
+  const words = text.split(' ').filter(Boolean).slice(0, 6)
+  return words.join(' ')
+}
+
+function inferSubject(courseName) {
+  const text = String(courseName || '').toLowerCase()
+  if (/算法|编程|程序|数据结构|计算机/.test(text)) return '计算机'
+  if (/数学|函数|几何|代数/.test(text)) return '数学'
+  if (/英语|english/.test(text)) return '英语'
+  if (/物理/.test(text)) return '物理'
+  if (/化学/.test(text)) return '化学'
+  if (/生物/.test(text)) return '生物'
+  return ''
+}
+
+function openResourceRecommend() {
+  resourceDrawerVisible.value = true
+}
+
+const persistCurrentSelection = () => {
+  if (loggedInUsername.value) {
+    window.localStorage.setItem(STORAGE_KEYS.username, loggedInUsername.value)
+  }
+  if (currentCourseId.value) {
+    window.localStorage.setItem(STORAGE_KEYS.courseId, currentCourseId.value)
+  }
+  if (currentEditPage.value) {
+    window.localStorage.setItem(STORAGE_KEYS.coursePage, String(currentEditPage.value))
+  }
+  if (isValidTab(activeTab.value)) {
+    window.localStorage.setItem(STORAGE_KEYS.tab, activeTab.value)
+  }
+}
+
+const restoreSelectionFromStorage = () => {
+  const savedTab = window.localStorage.getItem(STORAGE_KEYS.tab)
+  if (savedTab && isValidTab(savedTab)) {
+    activeTab.value = savedTab
+  }
+
+  const savedPage = Number(window.localStorage.getItem(STORAGE_KEYS.coursePage) || 1)
+  if (Number.isFinite(savedPage) && savedPage > 0) {
+    currentEditPage.value = savedPage
+  }
+}
+
+watch([loggedInUsername, currentCourseId, currentEditPage, activeTab], persistCurrentSelection)
+
+const handleLoginSuccess = async (user) => {
+  if (user.role === 'student') {
+    window.location.href = 'http://localhost:8080'
+  } else {
+    loggedInUsername.value = user.username
+    isLoggedIn.value = true
+    window.localStorage.setItem(STORAGE_KEYS.username, user.username)
+    restoreSelectionFromStorage()
+    await initializeTeacherWorkspace()
+  }
+}
+
+const initializeTeacherWorkspace = async () => {
+  checkBackendStatus()
+  await loadCoursewareList()
+}
+
+// --- 生命周期钩子 ---
+onMounted(async () => {
+  restoreSelectionFromStorage()
+
+  const savedUsername = window.localStorage.getItem(STORAGE_KEYS.username)
+  if (savedUsername) {
+    loggedInUsername.value = savedUsername
+  }
+
+  const loginChecker = teacherV1Api.checkLoginStatus
+  if (typeof loginChecker === 'function') {
+    const user = await loginChecker().catch(() => null)
+    if (user) {
+      await handleLoginSuccess(user)
+    }
+  }
+
+  checkBackendStatus()
+})
+
+onUnmounted(() => {
+  clearInterval(backendHealthTimer)
+})
+const checkBackendStatus = async () => {
+  try {
+    const res = await teacherV1Api.health()
+    backendStatus.value = res.ok ? 'online' : 'offline'
+  } catch (error) {
+    backendStatus.value = 'offline'
+    console.error('后端状态检查失败:', error)
+  }
+}
+
+
+const isSidebarVisible = ref(window.innerWidth > 1024)
+const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({
   totalQuestions: 0,
   hotPages: [],
   keyDifficulties: '暂无'
 })
 
+const cardData = ref([])
+const chartType = ref('bar')
 const questionRecords = ref([])
 const filterPage = ref('')
+const previewLoading = ref(false) // 仅用于本地动画，不发请求
+let backendHealthTimer = null
+
+// --- 计算属性 ---
 const filteredQuestions = computed(() => {
   if (!filterPage.value) return questionRecords.value
   return questionRecords.value.filter(q => q.page === Number(filterPage.value))
 })
+
 const currentCoursePublished = computed(() => {
   const currentCourse = coursewareList.value.find(item => item.id === currentCourseId.value)
   return !!currentCourse?.published
 })
+
 const backendStatusText = computed(() => {
-  if (backendStatus.value === 'online') return '在线'
-  if (backendStatus.value === 'offline') return '离线'
-  return '检测中'
+  return backendStatus.value === 'online' ? '在线' : backendStatus.value === 'offline' ? '离线' : '检测中'
 })
+
 const backendStatusClass = computed(() => {
-  if (backendStatus.value === 'online') return 'online'
-  if (backendStatus.value === 'offline') return 'offline'
-  return 'checking'
+  return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
 })
-const previewUrl = computed(() => {
+
+const currentScriptNodes = computed(() => {
+  const raw = String(currentScript.value || '').trim()
+  if (!raw) return []
+
+  return raw
+    .split(/\n+|(?<=[。！？])/)
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map((text, index, list) => ({
+      nodeId: `p${currentEditPage.value}_n${index + 1}`,
+      type: index === 0 ? 'opening' : index === list.length - 1 ? 'transition' : 'explain',
+      text
+    }))
+})
+
+// 新增：真实预览URL（假设后端返回图片）
+const realPreviewUrl = computed(() => {
   if (!currentCourseId.value) return ''
-  return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}`
+  // 后端统一前缀为 /api，保持与其他接口一致
+  return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}?t=${Date.now()}`
 })
 
-const chartType = ref('bar')
-let backendHealthTimer = null
-const cardData = ref([])
-
-onMounted(async () => {
-  await checkBackendHealth()
-  backendHealthTimer = window.setInterval(checkBackendHealth, 30000)
-  await loadCoursewareList()
-  if (currentCourseId.value) {
-    await loadCourseContext(currentCourseId.value)
-  }
+// 新增：模拟预览URL（根据页码动态变化）
+const mockPreviewUrl = computed(() => {
+  if (!currentCourseId.value) return ''
+  // 使用picsum的random参数，确保每页图片不同
+  return `https://picsum.photos/800/600?random=${currentCourseId.value}_${currentEditPage.value}`
 })
 
-onUnmounted(() => {
-  if (backendHealthTimer) {
-    window.clearInterval(backendHealthTimer)
-    backendHealthTimer = null
-  }
-})
-
-const checkBackendHealth = async () => {
-  try {
-    const res = await teacherV1Api.health()
-    backendStatus.value = res.ok ? 'online' : 'offline'
-  } catch (error) {
-    backendStatus.value = 'offline'
-  }
+// 新增：预览加载成功处理
+const onPreviewLoad = () => {
+  previewLoading.value = false
+  console.log('模拟预览图片加载成功:', mockPreviewUrl.value)
 }
 
+// 新增：预览错误处理
+const handlePreviewError = () => {
+  previewLoading.value = false
+  console.error('模拟预览图片加载失败:', mockPreviewUrl.value)
+  alert('模拟预览图片加载失败，请检查网络')
+}
+
+// 仅加载课件列表，无任何额外操作（保证稳定）
 const loadCoursewareList = async () => {
   courseListLoading.value = true
   try {
@@ -203,10 +460,30 @@ const loadCoursewareList = async () => {
     }))
 
     if (coursewareList.value.length > 0) {
-      const first = coursewareList.value[0]
-      currentCourseId.value = first.id
-      currentCourseName.value = first.name
-      currentCourseTotalPages.value = first.totalPages
+      const savedCourseId = window.localStorage.getItem(STORAGE_KEYS.courseId)
+      let targetCourse = coursewareList.value.find(item => item.id === savedCourseId) || null
+      if (!targetCourse) {
+        targetCourse = await pickDefaultQuestionCourse(coursewareList.value)
+      }
+      currentCourseId.value = targetCourse.id
+      currentCourseName.value = targetCourse.name
+      currentCourseTotalPages.value = targetCourse.totalPages
+      const restoredPage = Number(window.localStorage.getItem(STORAGE_KEYS.coursePage) || 1) || 1
+      currentEditPage.value = Math.min(Math.max(restoredPage, 1), targetCourse.totalPages || 1)
+      await loadCourseContext(targetCourse.id)
+    } else {
+      currentCourseId.value = ''
+      currentCourseName.value = ''
+      currentCourseTotalPages.value = 0
+      currentEditPage.value = 1
+      currentScript.value = ''
+      studentStats.value = {
+        totalQuestions: 0,
+        hotPages: [],
+        keyDifficulties: '暂无'
+      }
+      cardData.value = []
+      questionRecords.value = []
     }
   } catch (err) {
     console.error('加载课件列表失败', err)
@@ -215,11 +492,32 @@ const loadCoursewareList = async () => {
   }
 }
 
+const pickDefaultQuestionCourse = async (courses) => {
+  for (const course of courses) {
+    try {
+      const data = await teacherV1Api.analytics.getStats(course.id)
+      const payload = data?.data || {}
+      if (Number(payload.totalQuestions || 0) > 0) {
+        return course
+      }
+    } catch (error) {
+      continue
+    }
+  }
+  return courses[0]
+}
+
 const loadCourseContext = async (courseId) => {
-  await loadScript(courseId, 1)
-  await loadStudentStats(courseId)
-  await loadCardData(courseId)
-  await loadQuestionRecords(courseId)
+  previewLoading.value = true
+  // 仅加载必要数据，不加载预览接口
+  await Promise.all([
+    loadScript(courseId, currentEditPage.value || 1),
+    loadStudentStats(courseId),
+    loadCardData(courseId),
+    loadQuestionRecords(courseId)
+  ])
+  // 本地模拟加载时长
+  setTimeout(() => previewLoading.value = false, 500)
 }
 
 const selectCourse = async (course) => {
@@ -227,6 +525,7 @@ const selectCourse = async (course) => {
   currentCourseName.value = course.name
   currentCourseTotalPages.value = course.totalPages
   currentEditPage.value = 1
+  window.localStorage.setItem(STORAGE_KEYS.courseId, course.id)
   await loadCourseContext(course.id)
 }
 
@@ -249,10 +548,18 @@ const deleteCourse = async (courseId) => {
 }
 
 const selectEditPage = async (page) => {
+  previewLoading.value = true
   currentEditPage.value = page
+  window.localStorage.setItem(STORAGE_KEYS.coursePage, String(page))
   await loadScript(currentCourseId.value, page)
+  setTimeout(() => previewLoading.value = false, 300)
 }
 
+// --- 预览翻页 ---
+const prevPage = () => currentEditPage.value > 1 && selectEditPage(currentEditPage.value - 1)
+const nextPage = () => currentEditPage.value < currentCourseTotalPages.value && selectEditPage(currentEditPage.value + 1)
+
+// --- 讲稿相关 ---
 const loadScript = async (courseId, page) => {
   try {
     const data = await teacherV1Api.coursewares.getScript(courseId, page)
@@ -263,10 +570,7 @@ const loadScript = async (courseId, page) => {
 }
 
 const saveScript = async () => {
-  if (!currentScript.value.trim()) {
-    alert('请输入讲稿内容！')
-    return
-  }
+  if (!currentScript.value.trim()) return alert('请输入讲稿内容！')
   scriptSaving.value = true
   try {
     await teacherV1Api.coursewares.saveScript({
@@ -298,11 +602,10 @@ const generateAIScript = async () => {
   }
 }
 
+// --- 上传相关 ---
 const handleFileSelect = (event) => {
   const file = event.target.files?.[0]
-  if (file) {
-    selectedFileName.value = file.name
-  }
+  if (file) selectedFileName.value = file.name
 }
 
 const uploadCourseware = async () => {
@@ -316,20 +619,20 @@ const uploadCourseware = async () => {
 
   try {
     await teacherV1Api.coursewares.upload(formData)
-    alert('课件上传并解析成功！')
+    alert('课件上传成功！AI 解析已在后台执行，稍后可查看讲稿内容。')
     showUploadModal.value = false
     selectedFileName.value = ''
     await loadCoursewareList()
+    activeTab.value = 'script'
   } catch (err) {
-    alert('上传失败：' + err.message)
+    alert('上传失败：' + (err.message || '未知错误，请检查后端服务是否正常'))
   } finally {
     uploadLoading.value = false
-    if (fileInput.value) {
-      fileInput.value.value = ''
-    }
+    if (fileInput.value) fileInput.value.value = ''
   }
 }
 
+// --- 发布相关 ---
 const publishCourseware = async () => {
   try {
     await teacherV1Api.coursewares.publish({
@@ -345,6 +648,13 @@ const publishCourseware = async () => {
   }
 }
 
+watch(activeTab, (tab) => {
+  if (isValidTab(tab)) {
+    window.localStorage.setItem(STORAGE_KEYS.tab, tab)
+  }
+})
+
+// --- 数据加载（统计/卡点/提问） ---
 const loadStudentStats = async (courseId) => {
   try {
     const data = await teacherV1Api.analytics.getStats(courseId)
@@ -355,11 +665,7 @@ const loadStudentStats = async (courseId) => {
       keyDifficulties: (payload.keywords || []).map(item => item.word).slice(0, 3).join('、') || '暂无'
     }
   } catch (err) {
-    studentStats.value = {
-      totalQuestions: 0,
-      hotPages: [],
-      keyDifficulties: '加载失败'
-    }
+    studentStats.value = { totalQuestions: 0, hotPages: [], keyDifficulties: '加载失败' }
   }
 }
 
@@ -375,7 +681,6 @@ const loadCardData = async (courseId) => {
     }))
   } catch (err) {
     cardData.value = []
-    console.error('加载卡点数据失败', err)
   }
 }
 
@@ -393,7 +698,6 @@ const loadQuestionRecords = async (courseId) => {
     }))
   } catch (err) {
     questionRecords.value = []
-    console.error('加载提问记录失败', err)
   }
 }
 </script>
@@ -403,35 +707,156 @@ const loadQuestionRecords = async (courseId) => {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
+  padding: 14px;
+  box-sizing: border-box;
 }
+
+.workspace-shell {
+  width: 100%;
+  height: 100%;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7faf8;
+  border: 1px solid #d8e4dc;
+  box-shadow: 0 24px 48px rgba(45, 72, 66, 0.08);
+}
+
 .main-content {
   display: flex;
-  height: calc(100vh - 108px);
+  height: calc(100% - 56px);
 }
 .editor-section {
-  flex: 7;
-  padding: 20px;
-  overflow: auto;
-}
-.tabs {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
+  flex-direction: column;
 }
-.tab-btn {
+/* 左侧菜单导航栏 */
+.left-sidebar-menu {
+  flex: 0 0 180px;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  transition: flex-basis 0.3s ease;
+}
+
+.left-sidebar-menu.collapsed {
+  flex-basis: 64px;
+}
+
+.menu-header {
+  padding: 20px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 1.5px;
+  font-family: monospace;
+}
+
+.left-sidebar-menu.collapsed .menu-header {
+  padding: 20px 0 10px;
+  justify-content: center;
+}
+
+.menu-toggle-btn {
+  background: transparent;
   border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  background: #dbe7ff;
-  color: #1e3a8a;
   cursor: pointer;
-  font-weight: 500;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
 }
-.tab-btn.active {
-  background: #2563eb;
-  color: #fff;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
+
+.menu-toggle-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
 }
+
+.menu-toggle-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  color: #334155;
+  transition: all 0.2s;
+  border-right: 3px solid transparent;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.left-sidebar-menu.collapsed .menu-item {
+  padding: 16px 0;
+  justify-content: center;
+}
+
+.menu-item.active {
+  color: #2F605A;
+  background: #F4F7F7;
+  border-right-color: #2F605A;
+  font-weight: 600;
+}
+
+.menu-item small {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.ins-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+.tab-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+
+.empty-tip-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
+  border: 1px dashed #cbd5e1;
+  margin: 20px;
+}
+
+.empty-tip {
+  color: #94a3b8;
+  font-size: 15px;
+  text-align: center;
+}
+
 </style>

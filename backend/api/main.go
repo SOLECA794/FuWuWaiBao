@@ -26,7 +26,7 @@ import (
 
 func main() {
 	_, filename, _, _ := runtime.Caller(0)
-	projectRoot := filepath.Dir(filepath.Dir(filepath.Dir(filename)))
+	projectRoot := filepath.Dir(filepath.Dir(filename))
 
 	cfg, err := config.LoadConfig(filepath.Join(projectRoot, "config"))
 	if err != nil {
@@ -61,7 +61,15 @@ func main() {
 	err = db.AutoMigrate(
 		&model.Course{},
 		&model.CoursePage{},
+		&model.TeachingNode{},
 		&model.UserProgress{},
+		&model.DialogueSession{},
+		&model.DialogueTurn{},
+		&model.AudioAsset{},
+		&model.PlatformUser{},
+		&model.TeachingCourse{},
+		&model.CourseClass{},
+		&model.CourseEnrollment{},
 		&model.QuestionLog{},
 		&model.TeacherEdit{},
 		&model.MindMapNode{},
@@ -73,36 +81,71 @@ func main() {
 		&model.KnowledgePoint{},
 		&model.Question{},
 		&model.AnswerRecord{},
+		&model.NodeFavorite{},
+		&model.User{},
 		&model.ReviewPlan{},
 		&model.ReviewPlanItem{},
+		&model.StudentKnowledgeMap{},
+		&model.ScheduledTask{},
+		&model.Notification{},
+		&model.TaskStatus{},
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
 	}
 
+	if err = model.RunPostMigrateBackfill(db); err != nil {
+		applogger.Sugar.Fatalf("数据库回填失败: %v", err)
+	}
+
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
 
-	redisClient, err := repository.InitRedis(&cfg.Redis)
-	if err != nil {
+	if _, err := repository.InitRedis(&cfg.Redis); err != nil {
 		applogger.Sugar.Fatalf("连接Redis失败: %v", err)
 	}
-	_ = redisClient
 	applogger.Info("Redis连接成功")
 
 	minioClient, err := oss.NewMinioClient(&cfg.OSS)
 	if err != nil {
-		applogger.Sugar.Fatalf("初始化MinIO失败: %v", err)
+		applogger.Sugar.Fatalf("初始化MinIO失败: 初始化MinIO失败: %v", err)
 	}
 	applogger.Info("MinIO连接成功")
 
-	courseService := service.NewCourseService(db, minioClient)
-	aiClient := service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+	// 根据配置选择 AI 客户端（Dify 或本地 AI 引擎）
+	var aiClient service.AIEngine
+	if cfg.AI.UseDify {
+		if cfg.AI.DifyBaseURL == "" {
+			cfg.AI.DifyBaseURL = "http://127.0.0.1:18001"
+		}
+		aiClient = service.NewDifyClient(cfg.AI.DifyBaseURL, cfg.AI.DifyAPIKey)
+		applogger.Sugar.Infof("使用 Dify AI 客户端: %s", cfg.AI.DifyBaseURL)
+	} else {
+		aiClient = service.NewAIEngineClient(cfg.AI.BaseURL, cfg.AI.Timeout)
+		applogger.Sugar.Infof("使用本地 AI 引擎客户端: %s", cfg.AI.BaseURL)
+	}
+
+	courseService := service.NewCourseService(db, minioClient, aiClient)
+
+	// 初始化新的服务
+	knowledgeMapService := service.NewKnowledgeMapService(db)
+	notificationService := service.NewNotificationService(db)
+	taskSchedulerService := service.NewTaskSchedulerService(db)
+	if err := taskSchedulerService.Start(); err != nil {
+		applogger.Sugar.Fatalf("启动任务调度器失败: %v", err)
+	}
+	applogger.Info("任务调度器启动成功")
 
 	courseHandler := handler.NewCourseHandler(courseService, db)
 	teacherHandler := handler.NewTeacherHandler(db, aiClient)
 	studentHandler := handler.NewStudentHandler(db, aiClient)
 	weakPointHandler := handler.NewWeakPointHandler(db, aiClient)
 	compatHandler := handler.NewCompatibilityHandler(db, aiClient, courseService)
+	authHandler := handler.NewAuthHandler(db)
+
+	// 初始化新的处理器
+	knowledgeMapHandler := handler.NewKnowledgeMapHandler(knowledgeMapService)
+	notificationHandler := handler.NewNotificationHandler(notificationService, taskSchedulerService)
+	taskSchedulerHandler := handler.NewTaskSchedulerHandler(taskSchedulerService)
 
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -200,6 +243,12 @@ func main() {
 
 		v1 := api.Group("/v1")
 		{
+			auth := v1.Group("/auth")
+			{
+				auth.POST("/register", authHandler.Register)
+				auth.POST("/login", authHandler.Login)
+			}
+
 			v1.GET("/courseware/:courseId/page/:pageNum", courseHandler.GetPagePreview)
 			v1.GET("/courseware/:courseId/pages", courseHandler.GetCoursePages)
 			teacherV1 := v1.Group("/teacher/coursewares")
@@ -207,14 +256,15 @@ func main() {
 				teacherV1.GET("", teacherHandler.GetCoursewareList)
 				teacherV1.GET("/", teacherHandler.GetCoursewareList)
 				teacherV1.POST("/upload", compatHandler.UploadCoursewareV1)
-				teacherV1.DELETE(":courseId", compatHandler.DeleteCoursewareV1)
-				teacherV1.GET(":courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
-				teacherV1.PUT(":courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
-				teacherV1.POST(":courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
-				teacherV1.POST(":courseId/publish", compatHandler.PublishCoursewareV1)
-				teacherV1.GET(":courseId/stats", teacherHandler.GetClassStats)
-				teacherV1.GET(":courseId/questions", teacherHandler.GetQuestionRecords)
-				teacherV1.GET(":courseId/card-data", compatHandler.GetCardDataV1)
+				teacherV1.DELETE("/:courseId", compatHandler.DeleteCoursewareV1)
+				teacherV1.GET("/:courseId/scripts/:pageNum", compatHandler.GetTeacherScriptV1)
+				teacherV1.PUT("/:courseId/scripts/:pageNum", compatHandler.UpdateTeacherScriptV1)
+				teacherV1.POST("/:courseId/scripts/ai-generate", compatHandler.AIGenerateTeacherScriptV1)
+				teacherV1.POST("/:courseId/publish", compatHandler.PublishCoursewareV1)
+				teacherV1.GET("/:courseId/stats", teacherHandler.GetClassStats)
+				teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
+				teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
+				teacherV1.GET("/:courseId/node-insights", compatHandler.GetNodeInsightsV1)
 			}
 
 			aiV1 := v1.Group("/ai")
@@ -222,8 +272,8 @@ func main() {
 				aiV1.POST("/parse-knowledge", compatHandler.ParseKnowledgeV1)
 				coursewareAI := aiV1.Group("/coursewares")
 				{
-					coursewareAI.GET(":courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
-					coursewareAI.POST(":courseId/ask", compatHandler.AskCoursewareV1)
+					coursewareAI.GET("/:courseId/knowledge-graph", compatHandler.GetKnowledgeGraphV1)
+					coursewareAI.POST("/:courseId/ask", compatHandler.AskCoursewareV1)
 				}
 			}
 
@@ -242,22 +292,63 @@ func main() {
 				studentV1.PUT("/coursewares/:courseId/breakpoint", compatHandler.UpdateBreakpointV1)
 				studentV1.POST("/coursewares/:courseId/notes", compatHandler.SaveNoteV1)
 				studentV1.GET("/coursewares/:courseId/stats", compatHandler.GetStudyStatsV1)
-			studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
-			studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
-			studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
-			studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
-			studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
-			studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
-			studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
-			studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
-			studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
-			studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
-			studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
-			studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
-			studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
-			studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
-			studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
-			studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
+				studentV1.GET("/notes", compatHandler.GetStudentNotesV1)
+				studentV1.POST("/favorites", compatHandler.AddFavoriteV1)
+				studentV1.GET("/favorites", compatHandler.GetFavoritesV1)
+				studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
+				studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
+				studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+				studentV1.GET("/practice/history", compatHandler.GetPracticeHistoryV1)
+				studentV1.GET("/practice/wrong-questions", compatHandler.GetWrongQuestionsV1)
+				studentV1.POST("/practice/wrong-questions/:questionId/retry", compatHandler.RetryWrongQuestionV1)
+				studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
+				studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
+				studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)
+				studentV1.DELETE("/review-plans/:planId", compatHandler.DeleteReviewPlanV1)
+				studentV1.POST("/review-plans/:planId/items", compatHandler.AddReviewPlanItemV1)
+				studentV1.GET("/review-plans/:planId/items", compatHandler.GetReviewPlanItemsV1)
+				studentV1.PUT("/review-plan-items/:itemId", compatHandler.UpdateReviewPlanItemV1)
+				studentV1.DELETE("/review-plan-items/:itemId", compatHandler.DeleteReviewPlanItemV1)
+				studentV1.DELETE("/notes/:noteId", compatHandler.DeleteStudentNoteV1)
+				studentV1.POST("/nodes/:nodeId/explain", compatHandler.ExplainNodeV1)
+
+				// 知识图谱相关路由
+				knowledgeMap := studentV1.Group("/knowledge-map")
+				{
+					knowledgeMap.GET("", knowledgeMapHandler.GetKnowledgeMap)
+					knowledgeMap.GET("/point", knowledgeMapHandler.GetKnowledgePointMastery)
+					knowledgeMap.POST("/update", knowledgeMapHandler.UpdateMasteryScore)
+					knowledgeMap.GET("/weak-points", knowledgeMapHandler.GetWeakKnowledgePoints)
+					knowledgeMap.GET("/strong-points", knowledgeMapHandler.GetStrongKnowledgePoints)
+					knowledgeMap.GET("/progress", knowledgeMapHandler.AnalyzeLearningProgress)
+					knowledgeMap.GET("/recommendations", knowledgeMapHandler.RecommendNextStudy)
+				}
+
+				// 通知相关路由
+				notifications := v1.Group("/notifications")
+				{
+					notifications.POST("", notificationHandler.CreateNotification)
+					notifications.GET("", notificationHandler.GetNotifications)
+					notifications.GET("/:id", notificationHandler.GetNotification)
+					notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+					notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
+					notifications.DELETE("/:id", notificationHandler.DeleteNotification)
+					notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+					notifications.POST("/send-immediate", notificationHandler.SendImmediateNotification)
+				}
+
+				// 任务调度相关路由
+				tasks := v1.Group("/tasks")
+				{
+					tasks.POST("/scheduled", taskSchedulerHandler.CreateScheduledTask)
+					tasks.GET("/scheduled", taskSchedulerHandler.GetScheduledTasks)
+					tasks.GET("/scheduled/:id", taskSchedulerHandler.GetScheduledTask)
+					tasks.PUT("/scheduled/:id", taskSchedulerHandler.UpdateScheduledTask)
+					tasks.DELETE("/scheduled/:id", taskSchedulerHandler.DeleteScheduledTask)
+					tasks.POST("/scheduled/:id/execute", taskSchedulerHandler.ExecuteTaskNow)
+					tasks.GET("/statuses", taskSchedulerHandler.GetTaskStatuses)
+					tasks.GET("/statuses/:id", taskSchedulerHandler.GetTaskStatus)
+				}
 			}
 
 			openLesson := v1.Group("/lesson")
@@ -285,6 +376,24 @@ func main() {
 			openPlatform := v1.Group("/platform")
 			openPlatform.Use(handler.OpenAPISignatureMiddleware())
 			{
+				openPlatform.GET("/users", compatHandler.OpenPlatformUsers)
+				openPlatform.GET("/users/:userId", compatHandler.OpenPlatformUserDetail)
+				openPlatform.GET("/courses", compatHandler.OpenPlatformCourses)
+				openPlatform.POST("/courses", compatHandler.OpenCreatePlatformCourse)
+				openPlatform.GET("/courses/:courseId", compatHandler.OpenPlatformCourseDetail)
+				openPlatform.PUT("/courses/:courseId", compatHandler.OpenUpdatePlatformCourse)
+				openPlatform.DELETE("/courses/:courseId", compatHandler.OpenDeletePlatformCourse)
+				openPlatform.GET("/classes", compatHandler.OpenPlatformClasses)
+				openPlatform.POST("/classes", compatHandler.OpenCreatePlatformClass)
+				openPlatform.GET("/classes/:classId", compatHandler.OpenPlatformClassDetail)
+				openPlatform.PUT("/classes/:classId", compatHandler.OpenUpdatePlatformClass)
+				openPlatform.DELETE("/classes/:classId", compatHandler.OpenDeletePlatformClass)
+				openPlatform.GET("/enrollments", compatHandler.OpenPlatformEnrollments)
+				openPlatform.POST("/enrollments", compatHandler.OpenCreatePlatformEnrollment)
+				openPlatform.GET("/enrollments/:enrollmentId", compatHandler.OpenPlatformEnrollmentDetail)
+				openPlatform.PUT("/enrollments/:enrollmentId", compatHandler.OpenUpdatePlatformEnrollment)
+				openPlatform.DELETE("/enrollments/:enrollmentId", compatHandler.OpenDeletePlatformEnrollment)
+				openPlatform.GET("/overview", compatHandler.OpenPlatformOverview)
 				openPlatform.POST("/syncCourse", compatHandler.OpenSyncCourse)
 				openPlatform.POST("/syncUser", compatHandler.OpenSyncUser)
 			}

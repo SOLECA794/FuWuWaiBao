@@ -104,7 +104,7 @@ watch(() => props.visible, (value) => {
   border: none;
   border-radius: 10px;
   padding: 10px 14px;
-  background: #2563eb;
+  background: #2F605A;
   color: #fff;
   cursor: pointer;
 }

@@ -1,22 +1,26 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
+	"smart-teaching-backend/internal/service"
 	"smart-teaching-backend/pkg/logger"
 )
 
 type AIHandler struct {
-	db *gorm.DB
+	db       *gorm.DB
+	aiClient service.AIEngine
 }
 
-func NewAIHandler(db *gorm.DB) *AIHandler {
-	return &AIHandler{db: db}
+func NewAIHandler(db *gorm.DB, aiClient service.AIEngine) *AIHandler {
+	return &AIHandler{db: db, aiClient: aiClient}
 }
 
 // 3.1 获取课件知识图谱
@@ -72,6 +76,7 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 
 	var req struct {
 		PageNum    int    `json:"pageNum" binding:"required"`
+		NodeID     string `json:"nodeId"`
 		Type       string `json:"type"` // text/audio/image
 		Question   string `json:"question" binding:"required"`
 		TracePoint *struct {
@@ -93,16 +98,44 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 	var coursePage model.CoursePage
 	context := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseId, req.PageNum).First(&coursePage).Error; err == nil {
-		context = coursePage.ScriptText
+		context = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(context) == "" {
+		context = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseId, req.PageNum))
+	}
+	nodeID := strings.TrimSpace(req.NodeID)
+	if nodeID == "" {
+		nodeID = fmt.Sprintf("p%d_n1", req.PageNum)
+	}
+	nodeScopedContext := buildNodeScopedContext(h.db, courseId, req.PageNum, nodeID)
+	if strings.TrimSpace(nodeScopedContext) != "" {
+		context = nodeScopedContext
 	}
 
-	// TODO: 调用 AI 服务获取答案
-	answer := generateAIAnswer(req.Question, context)
+	// 使用 AI 客户端获取真实答案（已配置为 Dify 或本地引擎）
+	answer := ""
+	if h.aiClient != nil {
+		resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{
+			Question:    req.Question,
+			CurrentPage: req.PageNum,
+			Context:     context,
+			Mode:        "llm",
+		})
+		if err == nil && strings.TrimSpace(resp.Answer) != "" {
+			answer = resp.Answer
+		}
+	}
+
+	// 如果 AI 调用失败，使用 fallback
+	if answer == "" {
+		answer = generateAIAnswer(req.Question, context)
+	}
+
 	if req.TracePoint != nil {
 		answer = "针对坐标(" +
 			strconv.FormatFloat(req.TracePoint.X, 'f', 2, 64) + "," +
 			strconv.FormatFloat(req.TracePoint.Y, 'f', 2, 64) +
-			")的解答：" + req.Question
+			")的解答：" + answer
 	}
 
 	// 记录提问日志
@@ -110,6 +143,7 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 		UserID:    c.GetString("userId"), // 需要从 JWT 获取
 		CourseID:  courseId,
 		PageIndex: req.PageNum,
+		NodeID:    nodeID,
 		Question:  req.Question,
 		Answer:    answer,
 	}
@@ -119,7 +153,11 @@ func (h *AIHandler) AskQuestion(c *gin.Context) {
 		"code":    200,
 		"message": "请求成功",
 		"data": gin.H{
-			"answer": answer,
+			"answer":         answer,
+			"sourcePage":     req.PageNum,
+			"source_page":    req.PageNum,
+			"sourceNodeId":   nodeID,
+			"source_node_id": nodeID,
 		},
 	})
 }

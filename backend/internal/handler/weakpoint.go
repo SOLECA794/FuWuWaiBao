@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -65,10 +64,7 @@ func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
 
 	weakPoints := buildWeakPointList(h.db, studentID, courseID)
 	if len(weakPoints) == 0 {
-		weakPoints = []gin.H{
-			{"weakPointId": "wp_001", "id": "wp_001", "name": "缺失值填充", "description": "数据中空值的处理方法", "count": 1, "mastery": 70, "createdAt": time.Now().AddDate(0, 0, -7)},
-			{"weakPointId": "wp_002", "id": "wp_002", "name": "异常值识别", "description": "识别数据中的异常值", "count": 1, "mastery": 62, "createdAt": time.Now().AddDate(0, 0, -5)},
-		}
+		weakPoints = []gin.H{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": weakPoints})

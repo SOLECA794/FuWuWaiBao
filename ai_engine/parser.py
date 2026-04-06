@@ -2,6 +2,7 @@ import fitz  # PyMuPDF
 import os
 import json
 import time
+import re
 from typing import Any
 from pathlib import Path
 from pptx import Presentation
@@ -29,10 +30,9 @@ class DocumentParser:
 
         for page_num in range(len(doc)):
             page = doc.load_page(page_num)
-            text = page.get_text("text").strip()
+            text = self._extract_pdf_text(page)
 
-            # 简单清洗：无文本或干扰性极短文本直接跳过
-            if len(text) > 2:
+            if self._is_meaningful_text(text):
                 cleaned = self._clean_text(text)
                 parsed_pages.append(
                     {
@@ -76,8 +76,12 @@ class DocumentParser:
                 if hasattr(shape, "text") and shape.text:
                     texts.append(shape.text)
 
+            notes_frame = getattr(getattr(slide, "notes_slide", None), "notes_text_frame", None)
+            if notes_frame and getattr(notes_frame, "text", ""):
+                texts.append(notes_frame.text)
+
             merged_text = "\n".join(texts).strip()
-            if len(merged_text) > 2:
+            if self._is_meaningful_text(merged_text):
                 cleaned = self._clean_text(merged_text)
                 parsed_pages.append(
                     {
@@ -127,10 +131,80 @@ class DocumentParser:
                 file.write(result)
         return result
 
-    def _clean_text(self, text):
-        """初步清洗：去除多余空格、换行符"""
-        # 这里后续可以扩展更复杂的清洗逻辑
-        return " ".join(text.split())
+    def _extract_pdf_text(self, page: fitz.Page) -> str:
+        blocks = page.get_text("blocks") or []
+        ordered_lines: list[str] = []
+
+        for block in sorted(blocks, key=lambda item: (round(item[1], 1), round(item[0], 1))):
+            block_text = str(block[4] or "").strip()
+            if not block_text:
+                continue
+            for raw_line in block_text.splitlines():
+                normalized = self._normalize_line(raw_line)
+                if normalized:
+                    ordered_lines.append(normalized)
+
+        if ordered_lines:
+            return "\n".join(self._merge_lines(ordered_lines))
+
+        fallback = page.get_text("text") or ""
+        return fallback.strip()
+
+    @staticmethod
+    def _normalize_line(line: str) -> str:
+        return re.sub(r"[ \t\u3000]+", " ", line.strip())
+
+    @staticmethod
+    def _merge_lines(lines: list[str]) -> list[str]:
+        merged: list[str] = []
+        for line in lines:
+            if not merged:
+                merged.append(line)
+                continue
+
+            previous = merged[-1]
+            if DocumentParser._should_merge(previous, line):
+                merged[-1] = f"{previous} {line}".strip()
+                continue
+
+            merged.append(line)
+        return merged
+
+    @staticmethod
+    def _should_merge(previous: str, current: str) -> bool:
+        bullet_prefixes = ("-", "*", "•", "1.", "2.", "3.", "4.", "5.")
+        if previous.endswith((":", "：", "?", "？", "!", "！")):
+            return False
+        if current.startswith(bullet_prefixes):
+            return False
+        if len(previous) <= 10:
+            return False
+        return not re.match(r"^[一二三四五六七八九十]+[、.]", current)
+
+    @staticmethod
+    def _is_meaningful_text(text: str) -> bool:
+        compact = re.sub(r"\s+", "", text or "")
+        return len(compact) >= 2 and bool(re.search(r"[A-Za-z0-9\u4e00-\u9fff]", compact))
+
+    def _clean_text(self, text: str) -> str:
+        """保留段落边界，减少解析后结构信息丢失。"""
+        normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+        cleaned_lines: list[str] = []
+        blank_pending = False
+
+        for raw_line in normalized.split("\n"):
+            line = self._normalize_line(raw_line)
+            if not line:
+                if cleaned_lines:
+                    blank_pending = True
+                continue
+
+            if blank_pending and cleaned_lines:
+                cleaned_lines.append("")
+            cleaned_lines.append(line)
+            blank_pending = False
+
+        return "\n".join(cleaned_lines).strip()
 
 
 if __name__ == "__main__":

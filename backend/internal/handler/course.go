@@ -31,13 +31,33 @@ func (h *CourseHandler) GetPagePreview(c *gin.Context) {
 		return
 	}
 
+	// 优先使用预生成的图片预览
 	var coursePage model.CoursePage
-	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err != nil || strings.TrimSpace(coursePage.ImageURL) == "" {
-		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "预览图不存在"})
-		return
+	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err == nil {
+		if url := strings.TrimSpace(coursePage.ImageURL); url != "" {
+			c.Redirect(http.StatusFound, url)
+			return
+		}
 	}
 
-	c.Redirect(http.StatusFound, coursePage.ImageURL)
+	// 如果没有预览图，则回退到原始课件文件：
+	// - 对于 PDF：直接跳转到 PDF 文件并附带 #page=N，依赖浏览器内置 PDF 预览能力。
+	// - 其它类型（PPT/PPTX 等）：暂时仅返回 404，由前端自行兜底。
+	var course model.Course
+	if err := h.db.First(&course, "id = ?", courseID).Error; err == nil {
+		fileURL := strings.TrimSpace(course.FileURL)
+		if fileURL != "" && strings.EqualFold(course.FileType, "pdf") {
+			redirectURL := fileURL
+			// 附带页码信息，主流浏览器的 PDF 查看器支持 #page=N
+			if !strings.Contains(fileURL, "#") {
+				redirectURL = fileURL + "#page=" + strconv.Itoa(pageNum)
+			}
+			c.Redirect(http.StatusFound, redirectURL)
+			return
+		}
+	}
+
+	c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "预览图不存在"})
 }
 
 func (h *CourseHandler) UploadCourse(c *gin.Context) {
@@ -48,9 +68,9 @@ func (h *CourseHandler) UploadCourse(c *gin.Context) {
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	validExts := map[string]bool{".pdf": true, ".ppt": true, ".pptx": true}
+	validExts := map[string]bool{".pdf": true, ".pptx": true}
 	if !validExts[ext] {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "只支持 PDF/PPT/PPTX 格式"})
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "只支持 PDF/PPTX 格式"})
 		return
 	}
 

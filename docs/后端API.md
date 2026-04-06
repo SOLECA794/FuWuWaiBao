@@ -32,6 +32,7 @@
 - `GET /api/v1/teacher/coursewares/:courseId/stats`
 - `GET /api/v1/teacher/coursewares/:courseId/questions`
 - `GET /api/v1/teacher/coursewares/:courseId/card-data`
+- `GET /api/v1/teacher/coursewares/:courseId/node-insights`（节点洞察：提问数/笔记数/练习正确率/重讲率/7日趋势）
 
 ---
 
@@ -50,6 +51,10 @@
 - `GET /api/v1/student/coursewares/:courseId/breakpoint`
 - `PUT /api/v1/student/coursewares/:courseId/breakpoint`
 - `POST /api/v1/student/coursewares/:courseId/notes`
+- `GET /api/v1/student/notes`（支持 `studentId/courseId/pageNum/page/pageSize`）
+- `POST /api/v1/student/favorites`
+- `GET /api/v1/student/favorites`（支持分页）
+- `DELETE /api/v1/student/favorites/:favoriteId`（需 `studentId` 归属校验）
 - `GET /api/v1/student/coursewares/:courseId/stats`
 
 ### 3. 薄弱点与练习
@@ -58,6 +63,9 @@
 - `GET /api/v1/student/weak-points/:weakPointId/explain`
 - `POST /api/v1/student/weak-points/:weakPointId/generate-test`
 - `POST /api/v1/student/tests/:questionId/check`
+- `POST /api/v1/student/practice/generate`（AI 生成 + 模板兜底）
+- `POST /api/v1/student/practice/submit`（幂等提交：`taskId + studentId`）
+- `POST /api/v1/student/nodes/:nodeId/explain`（专项讲解）
 
 ---
 
@@ -118,24 +126,85 @@
 
 ---
 
-## 六、开放平台接口
+## 六、平台 V1 接口（标准 REST，无需签名）
 
-以下接口位于 `/api/v1` 下，并带签名校验中间件：
+以下接口位于 `/api/v1/platform`，返回统一格式 `{ "code": 200, "message": "请求成功", "data": ... }`，供内部管理端调用。
 
-- `/lesson/parse`
-- `/lesson/generateScript`
-- `/lesson/generateAudio`
-- `/qa/interact`
-- `/qa/voiceToText`
-- `/progress/track`
-- `/progress/adjust`
-- `/platform/syncCourse`
-- `/platform/syncUser`
+### 1. 平台总览
+- `GET /api/v1/platform/overview`
+
+### 2. 用户管理
+- `GET /api/v1/platform/users`
+- `GET /api/v1/platform/users/:userId`
+- `POST /api/v1/platform/syncUser`
+
+### 3. 课程管理
+- `GET /api/v1/platform/courses`
+- `POST /api/v1/platform/courses`
+- `GET /api/v1/platform/courses/:courseId`
+- `PUT /api/v1/platform/courses/:courseId`
+- `DELETE /api/v1/platform/courses/:courseId`
+- `POST /api/v1/platform/syncCourse`
+
+### 4. 班级管理
+- `GET /api/v1/platform/classes`
+- `POST /api/v1/platform/classes`
+- `GET /api/v1/platform/classes/:classId`
+- `PUT /api/v1/platform/classes/:classId`
+- `DELETE /api/v1/platform/classes/:classId`
+
+### 5. 选课管理
+- `GET /api/v1/platform/enrollments`
+- `POST /api/v1/platform/enrollments`
+- `GET /api/v1/platform/enrollments/:enrollmentId`
+- `PUT /api/v1/platform/enrollments/:enrollmentId`
+- `DELETE /api/v1/platform/enrollments/:enrollmentId`
 
 ---
 
-## 七、说明
+## 七、开放平台接口（需签名，泛雅等外部对接）
+
+以下接口位于 `/api/v1/open/platform`，需携带 OpenAPI 签名（如 `enc` + `time`）校验：
+
+- `GET /api/v1/open/platform/overview`
+- `GET /api/v1/open/platform/users`
+- `GET /api/v1/open/platform/users/:userId`
+- `POST /api/v1/open/platform/syncUser`
+- `GET /api/v1/open/platform/courses`
+- `POST /api/v1/open/platform/courses`
+- `GET /api/v1/open/platform/courses/:courseId`
+- `PUT /api/v1/open/platform/courses/:courseId`
+- `DELETE /api/v1/open/platform/courses/:courseId`
+- `POST /api/v1/open/platform/syncCourse`
+- `GET /api/v1/open/platform/classes`
+- `POST /api/v1/open/platform/classes`
+- `GET /api/v1/open/platform/classes/:classId`
+- `PUT /api/v1/open/platform/classes/:classId`
+- `DELETE /api/v1/open/platform/classes/:classId`
+- `GET /api/v1/open/platform/enrollments`
+- `POST /api/v1/open/platform/enrollments`
+- `GET /api/v1/open/platform/enrollments/:enrollmentId`
+- `PUT /api/v1/open/platform/enrollments/:enrollmentId`
+- `DELETE /api/v1/open/platform/enrollments/:enrollmentId`
+
+其他开放接口（需签名）：
+
+- `POST /api/v1/lesson/parse`
+- `POST /api/v1/lesson/generateScript`
+- `POST /api/v1/lesson/generateAudio`
+- `POST /api/v1/qa/interact`
+- `POST /api/v1/qa/voiceToText`
+- `POST /api/v1/progress/track`
+- `POST /api/v1/progress/adjust`
+
+---
+
+## 八、说明
 
 1. 当前实现优先保证前后端统一接口可用。
-2. 旧版接口继续保留，便于历史页面与 mock 联调。
-3. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。
+2. 平台标准接口（六）无需签名，直接请求 `/api/v1/platform/*`；对外/泛雅对接使用（七）`/api/v1/open/platform/*` 并携带签名。
+3. 旧版接口 continue 保留，便于历史页面与 mock 联调。
+4. AI 相关能力在真实 AI 引擎不可用时，部分接口会回退到 mock 结果，避免前端阻塞。
+5. `student/practice/generate` 当前为“AI 出题优先，失败自动回退模板题”，以保证接口稳定可用。
+6. `student/favorites/:favoriteId` 删除接口已增加用户归属校验，防止越权删除。
+

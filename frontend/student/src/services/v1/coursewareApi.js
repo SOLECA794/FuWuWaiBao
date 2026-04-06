@@ -8,7 +8,10 @@ const buildQuery = (params) => {
 }
 
 export const studentCoursewareApi = {
-  list: () => requestJson('/api/v1/student/coursewares'),
+  list: (params = {}) => {
+    const query = buildQuery(params)
+    return requestJson(`/api/v1/student/coursewares${query ? `?${query}` : ''}`)
+  },
   getPlaybackScript: (courseId, pageNum) => requestJson(`/api/v1/student/coursewares/${encodeURIComponent(courseId)}/scripts/${pageNum}`),
   getBreakpoint: (studentId, courseId) => requestJson(`/api/v1/student/coursewares/${encodeURIComponent(courseId)}/breakpoint?studentId=${encodeURIComponent(studentId)}`),
   updateBreakpoint: ({ studentId, courseId, pageNum }) => requestJson(`/api/v1/student/coursewares/${encodeURIComponent(courseId)}/breakpoint`, {
@@ -65,6 +68,22 @@ export const studentCoursewareApi = {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ taskId, studentId, answers })
+  }),
+
+  getPracticeHistory: ({ studentId, courseId, page, pageSize }) => {
+    const query = buildQuery({ studentId, courseId, page, pageSize })
+    return requestJson(`/api/v1/student/practice/history?${query}`)
+  },
+
+  getWrongQuestions: ({ studentId, courseId, page, pageSize }) => {
+    const query = buildQuery({ studentId, courseId, page, pageSize })
+    return requestJson(`/api/v1/student/practice/wrong-questions?${query}`)
+  },
+
+  retryWrongQuestion: ({ questionId, studentId }) => requestJson(`/api/v1/student/practice/wrong-questions/${encodeURIComponent(questionId)}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ studentId })
   }),
 
   // 新增接口：节点专项讲解

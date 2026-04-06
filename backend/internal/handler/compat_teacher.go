@@ -60,6 +60,30 @@ func (h *CompatibilityHandler) UpdateTeacherScriptV1(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功"})
 }
 
+func (h *CompatibilityHandler) GetTeacherNodesV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).GetTeachingNodes(c)
+}
+
+func (h *CompatibilityHandler) UpdateTeacherNodesV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).UpdateTeachingNodes(c)
+}
+
+func (h *CompatibilityHandler) GenerateTeacherAudioV1(c *gin.Context) {
+	courseID := c.Param("courseId")
+	pageStr := c.Param("pageNum")
+	params := filterParams(filterParams(c.Params, "page"), "courseId")
+	c.Params = append(params, gin.Param{Key: "page", Value: pageStr}, gin.Param{Key: "courseId", Value: courseID})
+	NewTeacherHandler(h.db, h.aiClient).GeneratePageAudio(c)
+}
+
 func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
@@ -78,36 +102,59 @@ func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 	var page model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&page).Error; err == nil {
-		contextText = page.ScriptText
+		contextText = pageContextText(page)
 	}
-	resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: req.PageNum, Content: contextText, CourseName: course.Title, Mode: defaultString(req.Mode, "llm")})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AI生成失败"})
-		return
+	script := ""
+	mindmapMarkdown := ""
+	teachingNodes := loadTeachingNodesByPage(h.db, courseID, req.PageNum)
+	if generatedScript, generatedMindmap, usedNodes, err := generateAndStoreTeachingNodeScripts(c.Request.Context(), h.db, h.aiClient, course.Title, defaultString(req.Mode, "llm"), teachingNodes); usedNodes && err == nil {
+		script = generatedScript
+		mindmapMarkdown = generatedMindmap
+	} else {
+		resp, err := h.aiClient.GenerateScript(c.Request.Context(), service.GenerateScriptRequest{Page: req.PageNum, Content: contextText, CourseName: course.Title, Mode: defaultString(req.Mode, "llm")})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "AI生成失败"})
+			return
+		}
+		script = resp.Script
+		mindmapMarkdown = resp.MindmapMarkdown
 	}
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&page).Error; err == nil {
-		_ = h.db.Model(&page).Update("script_text", resp.Script).Error
+		_ = h.db.Model(&page).Update("script_text", script).Error
 	} else {
-		_ = h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: req.PageNum, ScriptText: resp.Script}).Error
+		_ = h.db.Create(&model.CoursePage{CourseID: courseID, PageIndex: req.PageNum, ScriptText: script}).Error
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "pageNum": req.PageNum, "content": resp.Script, "mindmapMarkdown": resp.MindmapMarkdown}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"courseId": courseID, "pageNum": req.PageNum, "content": script, "mindmapMarkdown": mindmapMarkdown}})
 }
 
 func (h *CompatibilityHandler) PublishCoursewareV1(c *gin.Context) {
 	courseID := c.Param("courseId")
 	var req struct {
-		Scope string `json:"scope"`
+		Scope               string `json:"scope"`
+		TeachingCourseID    string `json:"teachingCourseId"`
+		TeachingCourseTitle string `json:"teachingCourseTitle"`
+		CourseClassID       string `json:"courseClassId"`
+		CourseClassName     string `json:"courseClassName"`
 	}
 	_ = c.ShouldBindJSON(&req)
 	if strings.TrimSpace(req.Scope) == "" {
 		req.Scope = "all"
 	}
 	now := time.Now()
-	if err := h.db.Model(&model.Course{}).Where("id = ?", courseID).Updates(map[string]any{"is_published": true, "publish_scope": req.Scope, "published_at": now}).Error; err != nil {
+	updates := map[string]any{
+		"is_published":          true,
+		"publish_scope":         req.Scope,
+		"published_at":          now,
+		"teaching_course_id":    strings.TrimSpace(req.TeachingCourseID),
+		"teaching_course_title": strings.TrimSpace(req.TeachingCourseTitle),
+		"course_class_id":       strings.TrimSpace(req.CourseClassID),
+		"course_class_name":     strings.TrimSpace(req.CourseClassName),
+	}
+	if err := h.db.Model(&model.Course{}).Where("id = ?", courseID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发布失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": req.Scope, "publishedAt": now.Format("2006-01-02 15:04:05")}})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发布成功", "data": gin.H{"courseId": courseID, "scope": req.Scope, "teachingCourseId": strings.TrimSpace(req.TeachingCourseID), "courseClassId": strings.TrimSpace(req.CourseClassID), "publishedAt": now.Format("2006-01-02 15:04:05")}})
 }
 
 func (h *CompatibilityHandler) GetCardDataV1(c *gin.Context) {
@@ -183,7 +230,10 @@ func (h *CompatibilityHandler) AskCoursewareV1(c *gin.Context) {
 	var coursePage model.CoursePage
 	contextText := ""
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&coursePage).Error; err == nil {
-		contextText = coursePage.ScriptText
+		contextText = pageContextText(coursePage)
+	}
+	if strings.TrimSpace(contextText) == "" {
+		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, courseID, req.PageNum))
 	}
 	question := req.Question
 	if req.TracePoint != nil {
@@ -195,7 +245,7 @@ func (h *CompatibilityHandler) AskCoursewareV1(c *gin.Context) {
 		return
 	}
 	if strings.TrimSpace(req.StudentID) != "" {
-		_ = h.db.Create(&model.QuestionLog{UserID: req.StudentID, CourseID: courseID, PageIndex: req.PageNum, Question: req.Question, Answer: resp.Answer}).Error
+		_ = h.db.Create(&model.QuestionLog{UserID: req.StudentID, CourseID: courseID, PageIndex: req.PageNum, NodeID: fmt.Sprintf("p%d_n1", req.PageNum), Question: req.Question, Answer: resp.Answer}).Error
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "sourceExcerpt": resp.SourceExcerpt, "followUpSuggestion": resp.FollowUpSuggestion, "needReteach": resp.Intent.NeedReteach}})
 }

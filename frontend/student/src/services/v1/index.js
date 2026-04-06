@@ -4,6 +4,9 @@ import { studentSessionApi } from './sessionApi'
 import { studentQaApi } from './qaApi'
 import { studentWeakPointApi } from './weakPointApi'
 import { studentKnowledgeApi } from './knowledgeApi'
+import { studentNotificationApi } from './notificationApi'
+import { studentTaskApi } from './taskApi'
+import { studentPlatformApi } from './platformApi'
 
 export const studentV1Api = {
   health: () => fetch(`${API_BASE}/health`, { cache: 'no-store' }),
@@ -11,5 +14,8 @@ export const studentV1Api = {
   sessions: studentSessionApi,
   qa: studentQaApi,
   weakPoints: studentWeakPointApi,
-  knowledge: studentKnowledgeApi
+  knowledge: studentKnowledgeApi,
+  notifications: studentNotificationApi,
+  tasks: studentTaskApi,
+  platform: studentPlatformApi
 }

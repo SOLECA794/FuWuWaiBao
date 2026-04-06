@@ -1,17 +1,22 @@
 <template>
   <div class="top-nav">
     <div class="nav-left">
+      <span class="app-icon">🎓</span>
       <span class="app-title">智能互动教学平台 · 教师端</span>
     </div>
     <div class="nav-right">
       <div class="backend-status" :class="backendStatusClass">
-        后端：{{ backendStatusText }}
+        <span class="status-dot"></span>
+        {{ backendStatusText }}
       </div>
       <div class="teacher-info">
         <div class="avatar">
-          <span>教</span>
+          <span>{{ (username || '教').slice(0, 1) }}</span>
         </div>
-        <span class="teacher-name">教师 2025T001</span>
+        <div class="account-actions">
+          <span class="teacher-name">{{ username }}</span>
+          <button class="logout-btn" @click="$emit('logout')">识性登录</button>
+        </div>
       </div>
     </div>
   </div>
@@ -26,71 +31,151 @@ defineProps({
   backendStatusText: {
     type: String,
     default: '检测中'
+  },
+  username: {
+    type: String,
+    default: '教师'
   }
 })
+
+defineEmits(['logout'])
 </script>
 
 <style scoped>
 .top-nav {
-  height: 60px;
-  background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+  height: 56px;
+  background: #f7f9f8;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 24px;
-  color: white;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
+  padding: 0 22px;
+  color: #1e293b;
+  border-bottom: 1px solid #dee8e1;
+  flex-shrink: 0;
 }
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-icon {
+  font-size: 16px;
+}
+
+.app-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #30443f;
+}
+
 .nav-right {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.app-title {
-  font-size: 16px;
-  font-weight: 500;
-}
+
 .backend-status {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #e9f4eb;
+  border: 1px solid #d5e6d9;
 }
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .backend-status.online {
-  background: rgba(82, 196, 26, 0.2);
-  color: #f6ffed;
+  color: #5f7f67;
 }
+
+.backend-status.online .status-dot {
+  background: #22c55e;
+  animation: pulse-green 2s ease-in-out infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+}
+
 .backend-status.offline {
-  background: rgba(255, 77, 79, 0.2);
-  color: #fff1f0;
+  color: #991b1b;
 }
+
+.backend-status.offline .status-dot {
+  background: #ef4444;
+}
+
 .backend-status.checking {
-  background: rgba(250, 173, 20, 0.2);
-  color: #fffbe6;
+  color: #854d0e;
 }
+
+.backend-status.checking .status-dot {
+  background: #eab308;
+  animation: blink 1.4s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
 .teacher-info {
   display: flex;
   align-items: center;
   gap: 10px;
 }
+
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  overflow: hidden;
-}
-.avatar span {
-  width: 100%;
-  height: 100%;
-  display: inline-flex;
+  background: #d8e4dc;
+  color: #445a52;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
 }
+
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
 .teacher-name {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #324740;
+}
+
+.logout-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  font-size: 11px;
+  color: #80938b;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.logout-btn:hover {
+  color: #ef4444;
+  text-decoration: underline;
 }
 </style>

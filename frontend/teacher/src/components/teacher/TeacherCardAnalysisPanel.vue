@@ -21,8 +21,8 @@
         <p>数据说明：</p>
         <ul>
           <li>提问量：该页面学生发起的提问总数</li>
-          <li>停留时长：学生平均停留时长（秒）</li>
-          <li>卡点指数：综合提问量+停留时长计算的卡点程度（0-10）</li>
+          <li>停留时长：基于节点时长、追问轮次和重讲次数估算的学习停留时长（秒）</li>
+          <li>卡点指数：综合提问量、停留时长和重讲需求计算的卡点程度（0-10）</li>
         </ul>
       </div>
     </div>
@@ -69,17 +69,19 @@ const chartOption = computed(() => {
   const questionCounts = props.cardData.map(item => item.提问量)
   const stayTimes = props.cardData.map(item => item.停留时长)
   const cardScores = props.cardData.map(item => item.卡点指数)
+  const reteachCounts = props.cardData.map(item => item.需重讲 || 0)
 
   if (props.chartType === 'line') {
     return {
       title: { text: '各页面学习卡点趋势' },
       tooltip: { trigger: 'axis' },
-      legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+      legend: { data: ['提问量', '停留时长(秒)', '重讲次数', '卡点指数'] },
       xAxis: { type: 'category', data: pages },
       yAxis: { type: 'value' },
       series: [
         { name: '提问量', type: 'line', data: questionCounts },
         { name: '停留时长(秒)', type: 'line', data: stayTimes },
+        { name: '重讲次数', type: 'line', data: reteachCounts },
         { name: '卡点指数', type: 'line', data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
       ]
     }
@@ -109,12 +111,13 @@ const chartOption = computed(() => {
   return {
     title: { text: '各页面学习卡点数据' },
     tooltip: { trigger: 'axis' },
-    legend: { data: ['提问量', '停留时长(秒)', '卡点指数'] },
+    legend: { data: ['提问量', '停留时长(秒)', '重讲次数', '卡点指数'] },
     xAxis: { type: 'category', data: pages },
     yAxis: { type: 'value' },
     series: [
       { name: '提问量', type: 'bar', data: questionCounts },
       { name: '停留时长(秒)', type: 'bar', data: stayTimes },
+      { name: '重讲次数', type: 'bar', data: reteachCounts },
       { name: '卡点指数', type: 'bar', data: cardScores, itemStyle: { color: '#ff4d4f' } }
     ]
   }
@@ -156,11 +159,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .tab-content {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid #e6ecf5;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 18px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 .chart-header {
   display: flex;
@@ -182,7 +185,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .chart-btn.active {
-  background: #2563eb;
+  background: #2F605A;
   color: #fff;
 }
 .chart-container {
@@ -195,8 +198,8 @@ onBeforeUnmount(() => {
   height: 400px;
 }
 .chart-tip {
-  background: #f8fbff;
-  border: 1px solid #e6ecf5;
+  background: #F4F7F7;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 12px 14px;
   color: #475569;
