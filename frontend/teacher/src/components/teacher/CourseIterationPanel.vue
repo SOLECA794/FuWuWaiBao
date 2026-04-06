@@ -175,11 +175,11 @@
           <button
             class="generate-btn"
             @click="generateScript"
-            :disabled="scriptGenerating || nodeTree.length === 0"
+            :disabled="isGenerating || nodeTree.length === 0"
           >
-            <span v-if="scriptGenerating" class="spinner">⌛</span>
+            <span v-if="isGenerating" class="spinner">⌛</span>
             <span v-else>▶</span>
-            {{ scriptGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
+            {{ isGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
           </button>
         </div>
 
@@ -273,8 +273,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { teacherV1Api } from '../../services/v1'
+import { computed, ref, watch } from 'vue'
+import { teacherV1Service } from '../../services/teacher.v1'
 
 // ============ Props & Emits ============
 const props = defineProps({
@@ -288,7 +288,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['script-generated'])
+const emit = defineEmits(['update:script', 'script-generated'])
 
 // ============ Mock 数据 ============
 
@@ -311,6 +311,7 @@ const pendingCases = ref([])
 
 // 当前大纲树（会动态变化）
 const nodeTree = ref([...basicNodeTree.value])
+const nodeList = nodeTree
 
 // 拖拽状态
 const draggedNodeId = ref(null)
@@ -323,7 +324,7 @@ const activeSelectorIdx = ref(null)
 const bindingMap = ref({})
 
 // 讲稿生成状态
-const scriptGenerating = ref(false)
+const isGenerating = ref(false)
 const recommendByNodeId = ref({})
 const recommendLoadingMap = ref({})
 const recommendErrorMap = ref({})
@@ -338,11 +339,13 @@ const getNodeCaseCount = (nodeId) => {
 const boundNodeIds = computed(() => {
   const ids = new Set(
     (pendingCases.value || [])
-      .map((item) => item?.boundNodeId)
+      .map(item => item?.boundNodeId)
       .filter(Boolean)
   )
   return Array.from(ids)
 })
+
+// ============ 方法 ============
 
 watch(
   () => props.questionRecords,
@@ -365,8 +368,6 @@ watch(
   },
   { immediate: true, deep: true }
 )
-
-// ============ 方法 ============
 
 /**
  * 拖拽开始：记录被拖动的建议节点
@@ -481,76 +482,6 @@ const findCaseContent = (caseId) => {
   return caseItem ? caseItem.content : '未知案例'
 }
 
-const getNodeTitle = (nodeId) => {
-  const node = nodeTree.value.find((item) => item.id === nodeId)
-  return node?.title || '未命名节点'
-}
-
-const normalizeRecommendItem = (item, index, nodeId) => {
-  const source = String(item?.source || item?.Source || '').trim()
-  return {
-    id: String(item?.id || item?.ID || `${nodeId}_${index}`),
-    title: String(item?.title || item?.Title || '未命名视频').trim(),
-    source,
-    reason: String(item?.fit_reason || item?.recommend_reason || item?.reason || item?.Reason || '').trim(),
-    link: String(item?.link || item?.url || item?.Link || item?.URL || '').trim()
-  }
-}
-
-const loadRecommendForNode = async (nodeId, force = false) => {
-  if (!nodeId) return
-  if (recommendByNodeId.value[nodeId]?.length && !force) return
-
-  const nodeTitle = getNodeTitle(nodeId)
-  if (!nodeTitle || nodeTitle === '未命名节点') return
-
-  recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: true }
-  recommendErrorMap.value = { ...recommendErrorMap.value, [nodeId]: '' }
-
-  try {
-    const response = await teacherV1Api.analytics.fetchRecommendedResources({
-      keyword: nodeTitle,
-      type: '网课',
-      source_preference: ['Bilibili'],
-      page: 1,
-      pageSize: 6
-    })
-
-    const list = (response.list || [])
-      .map((item, index) => normalizeRecommendItem(item, index, nodeId))
-      .filter((item) => item.title)
-
-    const bilibiliList = list.filter((item) => {
-      const sourceText = item.source.toLowerCase()
-      const linkText = item.link.toLowerCase()
-      return sourceText.includes('bilibili') || sourceText.includes('b站') || linkText.includes('bilibili.com')
-    })
-
-    recommendByNodeId.value = {
-      ...recommendByNodeId.value,
-      [nodeId]: (bilibiliList.length ? bilibiliList : list).slice(0, 3)
-    }
-  } catch (error) {
-    recommendErrorMap.value = {
-      ...recommendErrorMap.value,
-      [nodeId]: error?.message || '推荐加载失败'
-    }
-  } finally {
-    recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: false }
-  }
-}
-
-const openVideo = (video) => {
-  if (!video?.link) return
-  window.open(video.link, '_blank', 'noopener,noreferrer')
-}
-
-watch(boundNodeIds, (ids) => {
-  ids.forEach((nodeId) => {
-    loadRecommendForNode(nodeId)
-  })
-}, { immediate: true })
-
 /**
  * 上移节点
  */
@@ -610,27 +541,47 @@ const addManualNode = () => {
   }
 }
 
+const buildScriptFallback = () => {
+  if (!nodeList.value.length) return ''
+
+  let markdown = '# 下节课讲稿大纲\n\n'
+  nodeList.value.forEach((node, idx) => {
+    markdown += `## ${idx + 1}. ${node.title}\n`
+    markdown += `### 学习目标\n- 掌握${node.title}的核心要点\n\n`
+    markdown += '### 教学活动\n- 讲解（5-10分钟）\n- 案例分析（10分钟）\n- 练习与反馈（5分钟）\n\n'
+  })
+  return markdown
+}
+
 /**
- * 生成讲稿（模拟调用后端）
+ * 生成讲稿（调用后端接口）
  */
 const generateScript = async () => {
-  if (nodeTree.value.length === 0) {
+  if (nodeList.value.length === 0) {
     alert('请先添加至少一个节点到大纲中')
     return
   }
 
-  scriptGenerating.value = true
+  isGenerating.value = true
 
   try {
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const nodeOrder = nodeList.value
+      .map(node => String(node?.id || '').trim())
+      .filter(Boolean)
 
-    // 构建讲稿数据
-    const scriptContent = buildScriptMarkdown()
+    const res = await teacherV1Service.generateIterationScript({
+      courseId: props.currentCourseId,
+      nodeOrder
+    })
 
-    // 触发事件，交由父组件处理
+    let content = String(res?.data || '').trim()
+    if (!content) {
+      content = buildScriptFallback()
+    }
+
+    emit('update:script', content)
     emit('script-generated', {
-      content: scriptContent,
+      content,
       nodeTree: nodeTree.value,
       bindingMap: bindingMap.value
     })
@@ -638,45 +589,110 @@ const generateScript = async () => {
     alert('讲稿生成成功！')
   } catch (err) {
     console.error('生成讲稿失败:', err)
-    alert('生成讲稿失败，请重试')
+    const content = buildScriptFallback()
+    emit('update:script', content)
+    emit('script-generated', {
+      content,
+      nodeTree: nodeTree.value,
+      bindingMap: bindingMap.value
+    })
+    alert('后端不可用，已使用前端模拟讲稿生成。')
   } finally {
-    scriptGenerating.value = false
+    isGenerating.value = false
   }
 }
 
-/**
- * 构建 Markdown 讲稿内容
- */
-const buildScriptMarkdown = () => {
-  let markdown = '# 下节课讲稿大纲\n\n'
-
-  nodeTree.value.forEach((node, idx) => {
-    markdown += `## ${idx + 1}. ${node.title}\n`
-
-    if (node.fromIteration) {
-      markdown += `> **来源**: 基于学情迭代自动推荐\n\n`
-    }
-
-    // 添加关联案例
-    const cases = bindingMap.value[node.id] || []
-    if (cases.length > 0) {
-      markdown += `**关联案例**:\n`
-      cases.forEach(caseId => {
-        const caseContent = findCaseContent(caseId)
-        markdown += `- ${caseContent}\n`
-      })
-      markdown += '\n'
-    }
-
-    markdown += `### 学习目标\n- 掌握${node.title}的核心要点\n\n`
-    markdown += `### 教学活动\n- 讲解（5-10分钟）\n- 案例分析（10分钟）\n- 练习与反馈（5分钟）\n\n`
-  })
-
-  markdown += '---\n'
-  markdown += '**生成时间**: ' + new Date().toLocaleString() + '\n'
-
-  return markdown
+const getNodeTitle = (nodeId) => {
+  const node = nodeTree.value.find(item => item.id === nodeId)
+  return node?.title || '未命名节点'
 }
+
+const normalizeRecommendItem = (item, index, nodeId) => {
+  const source = String(item?.source || item?.Source || '').trim()
+  return {
+    id: String(item?.id || item?.ID || `${nodeId}_${index}`),
+    title: String(item?.title || item?.Title || '未命名视频').trim(),
+    source,
+    reason: String(item?.fit_reason || item?.recommend_reason || item?.reason || item?.Reason || '').trim(),
+    link: String(item?.link || item?.url || item?.Link || item?.URL || '').trim()
+  }
+}
+
+const loadRecommendForNode = async (nodeId, force = false) => {
+  if (!nodeId) return
+  if (recommendByNodeId.value[nodeId]?.length && !force) return
+
+  const nodeTitle = getNodeTitle(nodeId)
+  if (!nodeTitle || nodeTitle === '未命名节点') return
+
+  recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: true }
+  recommendErrorMap.value = { ...recommendErrorMap.value, [nodeId]: '' }
+
+  try {
+    const res = await teacherV1Service.fetchRecommendedResources({
+      keyword: nodeTitle,
+      type: '网课',
+      source_preference: ['Bilibili'],
+      page: 1,
+      pageSize: 6
+    })
+
+    const list = (res.list || [])
+      .map((item, index) => normalizeRecommendItem(item, index, nodeId))
+      .filter(item => item.title)
+
+    const bilibiliList = list.filter(item => {
+      const sourceText = item.source.toLowerCase()
+      const linkText = item.link.toLowerCase()
+      return sourceText.includes('bilibili') || sourceText.includes('b站') || linkText.includes('bilibili.com')
+    })
+
+    recommendByNodeId.value = {
+      ...recommendByNodeId.value,
+      [nodeId]: (bilibiliList.length ? bilibiliList : list).slice(0, 3)
+    }
+  } catch (error) {
+    recommendByNodeId.value = {
+      ...recommendByNodeId.value,
+      [nodeId]: [
+        {
+          id: `${nodeId}_mock_1`,
+          title: `${nodeTitle} - 复盘精讲（前端模拟）`,
+          source: 'Bilibili',
+          reason: '基于节点关键字自动匹配的演示资源（模拟链路）。',
+          link: 'https://www.bilibili.com/video/BV1Ddemo1'
+        },
+        {
+          id: `${nodeId}_mock_2`,
+          title: `${nodeTitle} - 常见误区专项训练（前端模拟）`,
+          source: 'Bilibili',
+          reason: '聚焦高频错误点，适合课后复盘补强。',
+          link: 'https://www.bilibili.com/video/BV1Ddemo2'
+        }
+      ]
+    }
+    recommendErrorMap.value = {
+      ...recommendErrorMap.value,
+      [nodeId]: ''
+    }
+  } finally {
+    recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: false }
+  }
+}
+
+const openVideo = (video) => {
+  if (!video?.link) {
+    alert('该资源暂无可打开链接，已保留为演示占位。')
+    return
+  }
+  window.open(video.link, '_blank', 'noopener,noreferrer')
+}
+
+watch(boundNodeIds, (ids) => {
+  ids.forEach((nodeId) => {
+    loadRecommendForNode(nodeId)
+  })
+}, { immediate: true })
 </script>
 
 <style scoped>

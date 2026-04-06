@@ -43,49 +43,71 @@ defineEmits(['logout'])
 
 <style scoped>
 .top-nav {
-  height: 56px;
-  background: #f7f9f8;
+  --tb-bg: rgba(255, 255, 255, 0.86);
+  --tb-border: rgba(120, 156, 140, 0.22);
+  --tb-text: #111827;
+  --tb-muted: #5f7467;
+  --tb-accent: #5ca68f;
+
+  height: 62px;
+  margin: 0;
+  border-radius: 0;
+  background: var(--tb-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 0;
+  border-bottom: 1px solid var(--tb-border);
+  box-shadow: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 22px;
-  color: #1e293b;
-  border-bottom: 1px solid #dee8e1;
+  padding: 0 20px;
+  color: var(--tb-text);
   flex-shrink: 0;
 }
 
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .app-icon {
-  font-size: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  background: linear-gradient(180deg, #ecf8f3 0%, #ddf1e8 100%);
+  color: #2f6052;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .app-title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: 0.01em;
-  color: #30443f;
+  color: #111827;
 }
 
 .nav-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .backend-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
   border-radius: 999px;
-  background: #e9f4eb;
-  border: 1px solid #d5e6d9;
+  background: rgba(248, 250, 252, 0.88);
+  border: 0;
 }
 
 .status-dot {
@@ -96,7 +118,7 @@ defineEmits(['logout'])
 }
 
 .backend-status.online {
-  color: #5f7f67;
+  color: #047857;
 }
 
 .backend-status.online .status-dot {
@@ -110,7 +132,7 @@ defineEmits(['logout'])
 }
 
 .backend-status.offline {
-  color: #991b1b;
+  color: #b91c1c;
 }
 
 .backend-status.offline .status-dot {
@@ -118,11 +140,11 @@ defineEmits(['logout'])
 }
 
 .backend-status.checking {
-  color: #854d0e;
+  color: #2f6052;
 }
 
 .backend-status.checking .status-dot {
-  background: #eab308;
+  background: var(--tb-accent);
   animation: blink 1.4s ease-in-out infinite;
 }
 
@@ -134,19 +156,24 @@ defineEmits(['logout'])
 .teacher-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .avatar {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #d8e4dc;
-  color: #445a52;
+  background: linear-gradient(180deg, #ecf8f3 0%, #dfeee7 100%);
+  color: #334155;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -159,8 +186,8 @@ defineEmits(['logout'])
 
 .teacher-name {
   font-size: 13px;
-  font-weight: 600;
-  color: #324740;
+  font-weight: 650;
+  color: #1f2937;
 }
 
 .logout-btn {
@@ -169,13 +196,13 @@ defineEmits(['logout'])
   padding: 0;
   margin-top: 2px;
   font-size: 11px;
-  color: #80938b;
+  color: var(--tb-muted);
   cursor: pointer;
   transition: color 0.2s;
 }
 
 .logout-btn:hover {
-  color: #ef4444;
+  color: var(--tb-accent);
   text-decoration: underline;
 }
 </style>

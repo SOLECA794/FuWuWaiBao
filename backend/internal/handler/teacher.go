@@ -37,8 +37,27 @@ func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 		return
 	}
 
+	type courseNodeCountStat struct {
+		CourseID string `gorm:"column:course_id"`
+		Count    int64  `gorm:"column:count"`
+	}
+
+	knowledgePointCountByCourse := map[string]int64{}
+	var countStats []courseNodeCountStat
+	if err := h.db.Model(&model.TeachingNode{}).
+		Select("course_id, count(*) as count").
+		Group("course_id").
+		Scan(&countStats).Error; err != nil {
+		logger.Errorf("统计课件知识点数量失败: %v", err)
+	} else {
+		for _, stat := range countStats {
+			knowledgePointCountByCourse[stat.CourseID] = stat.Count
+		}
+	}
+
 	data := make([]gin.H, 0, len(courses))
 	for _, course := range courses {
+		knowledgePointCount := int(knowledgePointCountByCourse[course.ID])
 		data = append(data, gin.H{
 			"id":                    course.ID,
 			"courseId":              course.ID,
@@ -47,6 +66,8 @@ func (h *TeacherHandler) GetCoursewareList(c *gin.Context) {
 			"fileType":              course.FileType,
 			"file_type":             course.FileType,
 			"total_page":            course.TotalPage,
+			"knowledge_point_count": knowledgePointCount,
+			"knowledgePointCount":   knowledgePointCount,
 			"teaching_course_id":    course.TeachingCourseID,
 			"teaching_course_title": course.TeachingCourseTitle,
 			"course_class_id":       course.CourseClassID,
