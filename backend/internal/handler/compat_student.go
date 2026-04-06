@@ -373,6 +373,7 @@ func (h *CompatibilityHandler) CheckAnswerV1(c *gin.Context) {
 		MasteryDelta:    scoreResult.MasteryDelta,
 	}
 	_ = h.db.Create(&answerRecord).Error
+	h.updateKnowledgeMapFromQuestion(req.StudentID, question, scoreResult.IsCorrect)
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
@@ -478,7 +479,11 @@ func (h *CompatibilityHandler) GetStudentNotesV1(c *gin.Context) {
 	query.Count(&total)
 	notes := []model.StudentNote{}
 	query.Order("created_at desc").Offset((pageNum - 1) * pageSize).Limit(pageSize).Find(&notes)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": notes, "total": total, "page": pageNum, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
+	items := make([]gin.H, 0, len(notes))
+	for _, note := range notes {
+		items = append(items, normalizeStudentNotePayload(note))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": pageNum, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
 }
 
 func (h *CompatibilityHandler) AddFavoriteV1(c *gin.Context) {
@@ -540,13 +545,17 @@ func (h *CompatibilityHandler) GetFavoritesV1(c *gin.Context) {
 	query.Count(&total)
 	items := []model.StudentFavorite{}
 	query.Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
+	payloadItems := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		payloadItems = append(payloadItems, normalizeStudentFavoritePayload(item))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": payloadItems, "total": total, "page": page, "pageSize": pageSize, "totalPages": (total + int64(pageSize) - 1) / int64(pageSize)}})
 }
 
 func (h *CompatibilityHandler) DeleteFavoriteV1(c *gin.Context) {
 	favoriteID := c.Param("favoriteId")
 	studentID := strings.TrimSpace(c.Query("studentId"))
-	if favoriteID == "" || studentID == "" {
+	if favoriteID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数"})
 		return
 	}
@@ -555,7 +564,7 @@ func (h *CompatibilityHandler) DeleteFavoriteV1(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "收藏不存在"})
 		return
 	}
-	if fav.UserID != studentID {
+	if studentID != "" && fav.UserID != studentID {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "收藏不存在"})
 		return
 	}
@@ -693,6 +702,7 @@ func (h *CompatibilityHandler) SubmitPracticeV1(c *gin.Context) {
 			MasteryDelta:    scoreResult.MasteryDelta,
 		}
 		_ = h.db.Create(&record).Error
+		h.updateKnowledgeMapFromQuestion(req.StudentID, questionModel, scoreResult.IsCorrect)
 		h.upsertWeakPoint(req.StudentID, task.CourseID, task.NodeID, q.PageNum, detail, questionModel)
 	}
 
@@ -719,6 +729,52 @@ func (h *CompatibilityHandler) SubmitPracticeV1(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"attemptId": attempt.ID, "score": score, "correctCount": correctCount, "totalCount": totalCount, "details": details}})
+}
+
+func (h *CompatibilityHandler) GetPracticeTaskV1(c *gin.Context) {
+	taskID := strings.TrimSpace(c.Param("taskId"))
+	studentID := strings.TrimSpace(c.Query("studentId"))
+	if taskID == "" || studentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 taskId 或 studentId"})
+		return
+	}
+
+	var task model.PracticeTask
+	if err := h.db.Where("task_id = ? AND user_id = ?", taskID, studentID).First(&task).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "练习任务不存在"})
+		return
+	}
+
+	questions := make([]practiceQuestionPayload, 0)
+	if err := json.Unmarshal([]byte(task.Questions), &questions); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "练习数据损坏"})
+		return
+	}
+
+	payload := gin.H{
+		"taskId":        task.TaskID,
+		"courseId":      task.CourseID,
+		"nodeId":        task.NodeID,
+		"pageNum":       task.PageNum,
+		"difficulty":    task.Difficulty,
+		"questionCount": task.Count,
+		"createdAt":     task.CreatedAt,
+		"questions":     sanitizePracticeQuestions(questions),
+	}
+
+	var attempt model.PracticeAttempt
+	if err := h.db.Where("task_id = ? AND user_id = ?", task.TaskID, studentID).First(&attempt).Error; err == nil {
+		payload["attempt"] = gin.H{
+			"attemptId":    attempt.ID,
+			"score":        attempt.Score,
+			"correctCount": attempt.Correct,
+			"totalCount":   attempt.Total,
+			"details":      parsePracticeAttemptDetails(attempt.Details),
+			"submittedAt":  attempt.CreatedAt,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": payload})
 }
 
 func (h *CompatibilityHandler) GetPracticeHistoryV1(c *gin.Context) {
@@ -753,21 +809,26 @@ func (h *CompatibilityHandler) GetPracticeHistoryV1(c *gin.Context) {
 	for _, task := range tasks {
 		var attempt model.PracticeAttempt
 		_ = h.db.Where("task_id = ? AND user_id = ?", task.TaskID, studentID).First(&attempt).Error
+		attemptPayload := gin.H{
+			"attemptId":    attempt.ID,
+			"score":        attempt.Score,
+			"correctCount": attempt.Correct,
+			"totalCount":   attempt.Total,
+			"submittedAt":  attempt.CreatedAt,
+			"hasAttempt":   attempt.ID != "",
+			"details":      parsePracticeAttemptDetails(attempt.Details),
+		}
 		items = append(items, gin.H{
-			"taskId":      task.TaskID,
-			"courseId":    task.CourseID,
-			"nodeId":      task.NodeID,
-			"pageNum":     task.PageNum,
-			"difficulty":  task.Difficulty,
-			"questionCnt": task.Count,
-			"createdAt":   task.CreatedAt,
-			"attempt": gin.H{
-				"attemptId":    attempt.ID,
-				"score":        attempt.Score,
-				"correctCount": attempt.Correct,
-				"totalCount":   attempt.Total,
-				"submittedAt":  attempt.CreatedAt,
-			},
+			"taskId":        task.TaskID,
+			"courseId":      task.CourseID,
+			"nodeId":        task.NodeID,
+			"pageNum":       task.PageNum,
+			"difficulty":    task.Difficulty,
+			"questionCnt":   task.Count,
+			"questionCount": task.Count,
+			"status":        ternaryString(attempt.ID != "", "completed", "pending"),
+			"createdAt":     task.CreatedAt,
+			"attempt":       attemptPayload,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"items": items, "total": total, "page": page, "pageSize": pageSize}})
@@ -975,18 +1036,36 @@ func (h *CompatibilityHandler) CreateReviewPlanV1(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
 		return
 	}
-	plan := model.ReviewPlan{
-		StudentID:   req.StudentID,
-		Name:        req.Name,
-		Description: req.Description,
-		Frequency:   req.Frequency,
-		Status:      "active",
+	frequency, ok := normalizeReviewPlanFrequency(req.Frequency)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "frequency 仅支持 daily / weekly / monthly"})
+		return
 	}
-	if err := h.db.Create(&plan).Error; err != nil {
+	nextReviewDate := calculateNextReviewDate(frequency, time.Now())
+	plan := model.ReviewPlan{
+		StudentID:      req.StudentID,
+		Name:           req.Name,
+		Description:    req.Description,
+		Frequency:      frequency,
+		NextReviewDate: &nextReviewDate,
+		Status:         "active",
+	}
+	tx := h.db.Begin()
+	if err := tx.Create(&plan).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建复习计划失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plan})
+	if err := h.syncReviewPlanReminderTask(tx, &plan); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建复习计划失败"})
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建复习计划失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeReviewPlanPayload(plan)})
 }
 
 func (h *CompatibilityHandler) GetReviewPlansV1(c *gin.Context) {
@@ -1000,7 +1079,11 @@ func (h *CompatibilityHandler) GetReviewPlansV1(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取复习计划失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plans})
+	payloadPlans := make([]gin.H, 0, len(plans))
+	for _, plan := range plans {
+		payloadPlans = append(payloadPlans, normalizeReviewPlanPayload(plan))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": payloadPlans})
 }
 
 func (h *CompatibilityHandler) UpdateReviewPlanV1(c *gin.Context) {
@@ -1020,6 +1103,8 @@ func (h *CompatibilityHandler) UpdateReviewPlanV1(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"code": 404, "message": "复习计划不存在"})
 		return
 	}
+	previousStatus := plan.Status
+	frequencyChanged := false
 	if req.Name != "" {
 		plan.Name = req.Name
 	}
@@ -1027,25 +1112,69 @@ func (h *CompatibilityHandler) UpdateReviewPlanV1(c *gin.Context) {
 		plan.Description = req.Description
 	}
 	if req.Frequency != "" {
-		plan.Frequency = req.Frequency
+		frequency, ok := normalizeReviewPlanFrequency(req.Frequency)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "frequency 仅支持 daily / weekly / monthly"})
+			return
+		}
+		frequencyChanged = plan.Frequency != frequency
+		plan.Frequency = frequency
 	}
 	if req.Status != "" {
 		plan.Status = req.Status
 	}
-	if err := h.db.Save(&plan).Error; err != nil {
+	if strings.TrimSpace(plan.Status) == "" {
+		plan.Status = "active"
+	}
+	statusBecameActive := !strings.EqualFold(previousStatus, "active") && strings.EqualFold(plan.Status, "active")
+	if strings.EqualFold(plan.Status, "active") {
+		needsReschedule := frequencyChanged || statusBecameActive || plan.NextReviewDate == nil
+		if plan.NextReviewDate != nil && plan.NextReviewDate.Before(time.Now().UTC()) {
+			needsReschedule = true
+		}
+		if needsReschedule {
+			nextReviewDate := calculateNextReviewDate(plan.Frequency, time.Now())
+			plan.NextReviewDate = &nextReviewDate
+		}
+	} else {
+		plan.NextReviewDate = nil
+	}
+	tx := h.db.Begin()
+	if err := tx.Save(&plan).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习计划失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": plan})
+	if err := h.syncReviewPlanReminderTask(tx, &plan); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习计划失败"})
+		return
+	}
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习计划失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeReviewPlanPayload(plan)})
 }
 
 func (h *CompatibilityHandler) DeleteReviewPlanV1(c *gin.Context) {
 	planID := c.Param("planId")
-	if err := h.db.Delete(&model.ReviewPlan{}, "id = ?", planID).Error; err != nil {
+	tx := h.db.Begin()
+	if err := h.deleteReviewPlanReminderTasks(tx, planID); err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习计划失败"})
 		return
 	}
-	h.db.Delete(&model.ReviewPlanItem{}, "review_plan_id = ?", planID)
+	if err := tx.Delete(&model.ReviewPlan{}, "id = ?", planID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习计划失败"})
+		return
+	}
+	tx.Delete(&model.ReviewPlanItem{}, "review_plan_id = ?", planID)
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除复习计划失败"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }
 
@@ -1080,7 +1209,11 @@ func (h *CompatibilityHandler) GetReviewPlanItemsV1(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "获取复习项失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": items})
+	payloadItems := make([]gin.H, 0, len(items))
+	for _, item := range items {
+		payloadItems = append(payloadItems, normalizeReviewPlanItemPayload(item))
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": payloadItems})
 }
 
 func (h *CompatibilityHandler) UpdateReviewPlanItemV1(c *gin.Context) {
@@ -1106,11 +1239,35 @@ func (h *CompatibilityHandler) UpdateReviewPlanItemV1(c *gin.Context) {
 		item.LastReviewedAt = req.LastReviewedAt
 		item.ReviewCount = req.ReviewCount
 	}
-	if err := h.db.Save(&item).Error; err != nil {
+	tx := h.db.Begin()
+	if req.LastReviewedAt != nil {
+		var plan model.ReviewPlan
+		if err := tx.First(&plan, "id = ?", item.ReviewPlanID).Error; err == nil && strings.EqualFold(plan.Status, "active") {
+			nextReviewDate := calculateNextReviewDate(plan.Frequency, *req.LastReviewedAt)
+			plan.NextReviewDate = &nextReviewDate
+			item.NextReviewDate = &nextReviewDate
+			if err := tx.Save(&plan).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习项失败"})
+				return
+			}
+			if err := h.syncReviewPlanReminderTask(tx, &plan); err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习项失败"})
+				return
+			}
+		}
+	}
+	if err := tx.Save(&item).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习项失败"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": item})
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新复习项失败"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeReviewPlanItemPayload(item)})
 }
 
 func (h *CompatibilityHandler) DeleteReviewPlanItemV1(c *gin.Context) {
@@ -1144,6 +1301,285 @@ func (h *CompatibilityHandler) DeleteStudentNoteV1(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
+}
+
+func normalizeStudentNotePayload(note model.StudentNote) gin.H {
+	title := ""
+	if note.PageNum > 0 {
+		title = fmt.Sprintf("第%d页笔记", note.PageNum)
+	}
+	return gin.H{
+		"id":         note.ID,
+		"userId":     note.UserID,
+		"user_id":    note.UserID,
+		"courseId":   note.CourseID,
+		"course_id":  note.CourseID,
+		"pageNum":    note.PageNum,
+		"page_num":   note.PageNum,
+		"note":       note.Note,
+		"title":      title,
+		"createdAt":  note.CreatedAt,
+		"created_at": note.CreatedAt,
+		"updatedAt":  note.UpdatedAt,
+		"updated_at": note.UpdatedAt,
+	}
+}
+
+func normalizeStudentFavoritePayload(favorite model.StudentFavorite) gin.H {
+	return gin.H{
+		"id":         favorite.ID,
+		"userId":     favorite.UserID,
+		"user_id":    favorite.UserID,
+		"courseId":   favorite.CourseID,
+		"course_id":  favorite.CourseID,
+		"nodeId":     favorite.NodeID,
+		"node_id":    favorite.NodeID,
+		"pageNum":    favorite.PageNum,
+		"page_num":   favorite.PageNum,
+		"title":      favorite.Title,
+		"tags":       favorite.Tags,
+		"createdAt":  favorite.CreatedAt,
+		"created_at": favorite.CreatedAt,
+		"updatedAt":  favorite.UpdatedAt,
+		"updated_at": favorite.UpdatedAt,
+	}
+}
+
+func normalizeReviewPlanPayload(plan model.ReviewPlan) gin.H {
+	return gin.H{
+		"id":               plan.ID,
+		"studentId":        plan.StudentID,
+		"student_id":       plan.StudentID,
+		"name":             plan.Name,
+		"description":      plan.Description,
+		"frequency":        plan.Frequency,
+		"status":           plan.Status,
+		"nextReviewDate":   plan.NextReviewDate,
+		"next_review_date": plan.NextReviewDate,
+		"createdAt":        plan.CreatedAt,
+		"created_at":       plan.CreatedAt,
+		"updatedAt":        plan.UpdatedAt,
+		"updated_at":       plan.UpdatedAt,
+	}
+}
+
+func normalizeReviewPlanItemPayload(item model.ReviewPlanItem) gin.H {
+	return gin.H{
+		"id":               item.ID,
+		"reviewPlanId":     item.ReviewPlanID,
+		"review_plan_id":   item.ReviewPlanID,
+		"itemType":         item.ItemType,
+		"item_type":        item.ItemType,
+		"itemId":           item.ItemID,
+		"item_id":          item.ItemID,
+		"priority":         item.Priority,
+		"lastReviewedAt":   item.LastReviewedAt,
+		"last_reviewed_at": item.LastReviewedAt,
+		"reviewCount":      item.ReviewCount,
+		"review_count":     item.ReviewCount,
+		"nextReviewDate":   item.NextReviewDate,
+		"next_review_date": item.NextReviewDate,
+		"createdAt":        item.CreatedAt,
+		"created_at":       item.CreatedAt,
+		"updatedAt":        item.UpdatedAt,
+		"updated_at":       item.UpdatedAt,
+	}
+}
+
+func normalizeReviewPlanFrequency(frequency string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(frequency)) {
+	case "daily":
+		return "daily", true
+	case "weekly":
+		return "weekly", true
+	case "monthly":
+		return "monthly", true
+	default:
+		return "", false
+	}
+}
+
+func calculateNextReviewDate(frequency string, base time.Time) time.Time {
+	base = base.UTC()
+	switch strings.ToLower(strings.TrimSpace(frequency)) {
+	case "weekly":
+		return base.AddDate(0, 0, 7)
+	case "monthly":
+		return base.AddDate(0, 1, 0)
+	default:
+		return base.AddDate(0, 0, 1)
+	}
+}
+
+func reviewPlanTaskQuery(tx *gorm.DB, planID string) *gorm.DB {
+	pattern := fmt.Sprintf("%%\"plan_id\":\"%s\"%%", planID)
+	altPattern := fmt.Sprintf("%%\"planId\":\"%s\"%%", planID)
+	return tx.Where("task_type = ? AND (task_data LIKE ? OR task_data LIKE ?)", "review_plan", pattern, altPattern)
+}
+
+func (h *CompatibilityHandler) deleteReviewPlanReminderTasks(tx *gorm.DB, planID string) error {
+	return reviewPlanTaskQuery(tx, planID).
+		Where("status IN ?", []string{"pending", "queued", "processing", "failed"}).
+		Delete(&model.ScheduledTask{}).Error
+}
+
+func (h *CompatibilityHandler) syncReviewPlanReminderTask(tx *gorm.DB, plan *model.ReviewPlan) error {
+	if plan == nil {
+		return nil
+	}
+	if !strings.EqualFold(plan.Status, "active") || plan.NextReviewDate == nil {
+		return h.deleteReviewPlanReminderTasks(tx, plan.ID)
+	}
+
+	scheduledAt := plan.NextReviewDate.Add(-time.Hour)
+	now := time.Now().UTC()
+	if scheduledAt.Before(now) {
+		scheduledAt = *plan.NextReviewDate
+	}
+	if scheduledAt.Before(now) {
+		scheduledAt = now.Add(time.Minute)
+	}
+
+	taskData := mustJSON(map[string]any{
+		"plan_id":    plan.ID,
+		"plan_name":  plan.Name,
+		"student_id": plan.StudentID,
+	})
+	description := fmt.Sprintf("复习计划提醒：%s", plan.Name)
+
+	var task model.ScheduledTask
+	err := reviewPlanTaskQuery(tx, plan.ID).Order("created_at desc").First(&task).Error
+	if err == nil {
+		return tx.Model(&model.ScheduledTask{}).Where("id = ?", task.ID).Updates(map[string]any{
+			"student_id":    plan.StudentID,
+			"task_data":     taskData,
+			"description":   description,
+			"scheduled_at":  scheduledAt,
+			"status":        "pending",
+			"priority":      1,
+			"max_retries":   3,
+			"retry_count":   0,
+			"last_attempt":  nil,
+			"next_attempt":  nil,
+			"error_message": "",
+		}).Error
+	}
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	task = model.ScheduledTask{
+		TaskType:    "review_plan",
+		TaskData:    taskData,
+		Description: description,
+		ScheduledAt: scheduledAt,
+		Status:      "pending",
+		Priority:    1,
+		MaxRetries:  3,
+		StudentID:   plan.StudentID,
+	}
+	return tx.Create(&task).Error
+}
+
+func (h *CompatibilityHandler) updateKnowledgeMapFromQuestion(studentID string, question model.Question, isCorrect bool) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" {
+		return
+	}
+
+	knowledgePointID := h.ensureKnowledgePointID(question)
+	if knowledgePointID == "" {
+		return
+	}
+
+	knowledgeMapService := service.NewKnowledgeMapService(h.db)
+	_ = knowledgeMapService.UpdateMasteryScore(studentID, knowledgePointID, isCorrect, 10000)
+}
+
+func (h *CompatibilityHandler) ensureKnowledgePointID(question model.Question) string {
+	explicitID := strings.TrimSpace(question.KnowledgePointID)
+	name := h.resolveKnowledgePointName(question)
+	content := firstNonEmpty(strings.TrimSpace(question.Explanation), strings.TrimSpace(question.Content))
+	courseID := strings.TrimSpace(question.CourseID)
+
+	if explicitID != "" {
+		var point model.KnowledgePoint
+		err := h.db.First(&point, "id = ?", explicitID).Error
+		if err == nil {
+			return point.ID
+		}
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return ""
+		}
+
+		point = model.KnowledgePoint{
+			BaseModel: model.BaseModel{ID: explicitID},
+			CourseID:  courseID,
+			Name:      firstNonEmpty(name, explicitID),
+			Level:     2,
+			Content:   content,
+		}
+		if err := h.db.Create(&point).Error; err == nil {
+			return point.ID
+		}
+	}
+
+	if name == "" {
+		return ""
+	}
+
+	var point model.KnowledgePoint
+	query := h.db.Where("name = ?", name)
+	if courseID != "" {
+		query = query.Where("course_id = ?", courseID)
+	} else {
+		query = query.Where("course_id = ''")
+	}
+	if err := query.Order("created_at desc").First(&point).Error; err == nil {
+		return point.ID
+	}
+
+	point = model.KnowledgePoint{
+		CourseID: courseID,
+		Name:     name,
+		Level:    2,
+		Content:  content,
+	}
+	if err := h.db.Create(&point).Error; err == nil {
+		return point.ID
+	}
+	return ""
+}
+
+func (h *CompatibilityHandler) resolveKnowledgePointName(question model.Question) string {
+	if question.WeakPointID != "" {
+		var weakPoint model.WeakPoint
+		if err := h.db.First(&weakPoint, "id = ?", question.WeakPointID).Error; err == nil && strings.TrimSpace(weakPoint.Name) != "" {
+			return strings.TrimSpace(weakPoint.Name)
+		}
+	}
+
+	if question.NodeID != "" {
+		var node model.MindMapNode
+		if err := h.db.Where("course_id = ? AND id = ?", question.CourseID, question.NodeID).First(&node).Error; err == nil && strings.TrimSpace(node.Title) != "" {
+			return strings.TrimSpace(node.Title)
+		}
+		return fmt.Sprintf("节点 %s", question.NodeID)
+	}
+
+	if question.PageNum > 0 {
+		return fmt.Sprintf("第%d页知识点", question.PageNum)
+	}
+
+	preview := []rune(strings.TrimSpace(question.Content))
+	if len(preview) > 18 {
+		preview = preview[:18]
+	}
+	if len(preview) > 0 {
+		return fmt.Sprintf("题目：%s", string(preview))
+	}
+
+	return ""
 }
 
 func (h *CompatibilityHandler) buildPracticeQuestions(c *gin.Context, studentID, courseID, nodeID string, pageNum, difficulty, count int) []practiceQuestionPayload {

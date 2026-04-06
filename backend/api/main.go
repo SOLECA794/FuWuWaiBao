@@ -120,7 +120,7 @@ func main() {
 
 	// 初始化新的处理器
 	knowledgeMapHandler := handler.NewKnowledgeMapHandler(knowledgeMapService)
-	notificationHandler := handler.NewNotificationHandler(notificationService)
+	notificationHandler := handler.NewNotificationHandler(notificationService, taskSchedulerService)
 	taskSchedulerHandler := handler.NewTaskSchedulerHandler(taskSchedulerService)
 
 	// 初始化复习包模块 (新增部分)
@@ -271,6 +271,9 @@ func main() {
 				studentV1.DELETE("/favorites/:favoriteId", compatHandler.DeleteFavoriteV1)
 				studentV1.POST("/practice/generate", compatHandler.GeneratePracticeV1)
 				studentV1.POST("/practice/submit", compatHandler.SubmitPracticeV1)
+				studentV1.GET("/practice/history", compatHandler.GetPracticeHistoryV1)
+				studentV1.GET("/practice/wrong-questions", compatHandler.GetWrongQuestionsV1)
+				studentV1.POST("/practice/wrong-questions/:questionId/retry", compatHandler.RetryWrongQuestionV1)
 				studentV1.POST("/review-plans", compatHandler.CreateReviewPlanV1)
 				studentV1.GET("/review-plans", compatHandler.GetReviewPlansV1)
 				studentV1.PUT("/review-plans/:planId", compatHandler.UpdateReviewPlanV1)

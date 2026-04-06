@@ -16,13 +16,15 @@ import (
 
 // NotificationHandler 通知处理器
 type NotificationHandler struct {
-	notificationService *service.NotificationService
+	notificationService  *service.NotificationService
+	taskSchedulerService *service.TaskSchedulerService
 }
 
 // NewNotificationHandler 创建通知处理器
-func NewNotificationHandler(notificationService *service.NotificationService) *NotificationHandler {
+func NewNotificationHandler(notificationService *service.NotificationService, taskSchedulerService *service.TaskSchedulerService) *NotificationHandler {
 	return &NotificationHandler{
-		notificationService: notificationService,
+		notificationService:  notificationService,
+		taskSchedulerService: taskSchedulerService,
 	}
 }
 
@@ -68,7 +70,15 @@ func (nh *NotificationHandler) CreateNotification(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": notification})
+	if nh.taskSchedulerService != nil {
+		if err := nh.taskSchedulerService.SyncNotificationTask(notification); err != nil {
+			_ = nh.notificationService.DeleteNotification(notification.ID)
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建通知失败"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": normalizeNotificationPayload(*notification)})
 }
 
 // GetNotifications 获取用户通知列表
@@ -101,13 +111,19 @@ func (nh *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
+	list := make([]gin.H, 0, len(notifications))
+	for _, notification := range notifications {
+		list = append(list, normalizeNotificationPayload(notification))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"list":     notifications,
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
+			"list":       list,
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"totalPages": (total + int64(pageSize) - 1) / int64(pageSize),
 		},
 	})
 }
@@ -126,7 +142,7 @@ func (nh *NotificationHandler) GetNotification(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": notification})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeNotificationPayload(*notification)})
 }
 
 // MarkAsRead 标记通知为已读
@@ -167,6 +183,13 @@ func (nh *NotificationHandler) DeleteNotification(c *gin.Context) {
 	if notificationID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "通知ID无效"})
 		return
+	}
+
+	if nh.taskSchedulerService != nil {
+		if err := nh.taskSchedulerService.DeleteNotificationTasks(notificationID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除通知失败"})
+			return
+		}
 	}
 
 	if err := nh.notificationService.DeleteNotification(notificationID); err != nil {
@@ -216,12 +239,13 @@ func (nh *NotificationHandler) SendImmediateNotification(c *gin.Context) {
 		return
 	}
 
-	if _, err := nh.notificationService.SendImmediateNotification(studentID, req.Title, req.Content, req.Type, req.Channels); err != nil {
+	notification, err := nh.notificationService.SendImmediateNotification(studentID, req.Title, req.Content, req.Type, req.Channels)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "发送通知失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发送成功"})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "发送成功", "data": normalizeNotificationPayload(*notification)})
 }
 
 func resolveFlexibleID(studentID string, raw interface{}) string {
@@ -272,4 +296,47 @@ func firstNotificationNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeNotificationPayload(notification model.Notification) gin.H {
+	channels := parseNotificationChannels(notification.Channels)
+	return gin.H{
+		"id":           notification.ID,
+		"studentId":    notification.StudentID,
+		"student_id":   notification.StudentID,
+		"title":        notification.Title,
+		"content":      notification.Content,
+		"type":         notification.Type,
+		"priority":     notification.Priority,
+		"status":       notification.Status,
+		"relatedId":    notification.RelatedID,
+		"related_id":   notification.RelatedID,
+		"relatedType":  notification.RelatedType,
+		"related_type": notification.RelatedType,
+		"scheduledAt":  notification.ScheduledAt,
+		"scheduled_at": notification.ScheduledAt,
+		"sentAt":       notification.SentAt,
+		"sent_at":      notification.SentAt,
+		"channels":     channels,
+		"channelsRaw":  notification.Channels,
+		"channels_raw": notification.Channels,
+		"createdAt":    notification.CreatedAt,
+		"created_at":   notification.CreatedAt,
+		"updatedAt":    notification.UpdatedAt,
+		"updated_at":   notification.UpdatedAt,
+	}
+}
+
+func parseNotificationChannels(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []string{"app"}
+	}
+
+	var channels []string
+	if err := json.Unmarshal([]byte(raw), &channels); err == nil && len(channels) > 0 {
+		return channels
+	}
+
+	return []string{raw}
 }

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -64,7 +65,7 @@ func (tsh *TaskSchedulerHandler) CreateScheduledTask(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": task})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": normalizeScheduledTaskPayload(*task)})
 }
 
 // GetScheduledTasks 获取定时任务列表
@@ -97,13 +98,19 @@ func (tsh *TaskSchedulerHandler) GetScheduledTasks(c *gin.Context) {
 		return
 	}
 
+	list := make([]gin.H, 0, len(tasks))
+	for _, task := range tasks {
+		list = append(list, normalizeScheduledTaskPayload(task))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"list":     tasks,
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
+			"list":       list,
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"totalPages": (total + int64(pageSize) - 1) / int64(pageSize),
 		},
 	})
 }
@@ -122,7 +129,7 @@ func (tsh *TaskSchedulerHandler) GetScheduledTask(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": task})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeScheduledTaskPayload(*task)})
 }
 
 // UpdateScheduledTask 更新定时任务
@@ -233,13 +240,19 @@ func (tsh *TaskSchedulerHandler) GetTaskStatuses(c *gin.Context) {
 		return
 	}
 
+	list := make([]gin.H, 0, len(statuses))
+	for _, item := range statuses {
+		list = append(list, normalizeTaskStatusPayload(item))
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"data": gin.H{
-			"list":     statuses,
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
+			"list":       list,
+			"total":      total,
+			"page":       page,
+			"pageSize":   pageSize,
+			"totalPages": (total + int64(pageSize) - 1) / int64(pageSize),
 		},
 	})
 }
@@ -258,7 +271,7 @@ func (tsh *TaskSchedulerHandler) GetTaskStatus(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": status})
+	c.JSON(http.StatusOK, gin.H{"code": 200, "data": normalizeTaskStatusPayload(*status)})
 }
 
 func resolveTaskRequestID(studentID string, raw interface{}) string {
@@ -301,4 +314,76 @@ func firstTaskNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeScheduledTaskPayload(task model.ScheduledTask) gin.H {
+	return gin.H{
+		"id":            task.ID,
+		"taskType":      task.TaskType,
+		"task_type":     task.TaskType,
+		"taskData":      parseTaskPayload(task.TaskData),
+		"task_data":     task.TaskData,
+		"cronExpr":      task.CronExpr,
+		"cron_expr":     task.CronExpr,
+		"description":   task.Description,
+		"scheduledAt":   task.ScheduledAt,
+		"scheduled_at":  task.ScheduledAt,
+		"status":        task.Status,
+		"priority":      task.Priority,
+		"maxRetries":    task.MaxRetries,
+		"max_retries":   task.MaxRetries,
+		"retryCount":    task.RetryCount,
+		"retry_count":   task.RetryCount,
+		"lastAttempt":   task.LastAttempt,
+		"last_attempt":  task.LastAttempt,
+		"nextAttempt":   task.NextAttempt,
+		"next_attempt":  task.NextAttempt,
+		"errorMessage":  task.ErrorMessage,
+		"error_message": task.ErrorMessage,
+		"studentId":     task.StudentID,
+		"student_id":    task.StudentID,
+		"createdAt":     task.CreatedAt,
+		"created_at":    task.CreatedAt,
+		"updatedAt":     task.UpdatedAt,
+		"updated_at":    task.UpdatedAt,
+	}
+}
+
+func normalizeTaskStatusPayload(status model.TaskStatus) gin.H {
+	return gin.H{
+		"id":           status.ID,
+		"taskId":       status.TaskID,
+		"task_id":      status.TaskID,
+		"taskType":     status.TaskType,
+		"task_type":    status.TaskType,
+		"studentId":    status.StudentID,
+		"student_id":   status.StudentID,
+		"status":       status.Status,
+		"progress":     status.Progress,
+		"message":      status.Message,
+		"startTime":    status.StartTime,
+		"start_time":   status.StartTime,
+		"endTime":      status.EndTime,
+		"end_time":     status.EndTime,
+		"metadata":     parseTaskPayload(status.Metadata),
+		"metadataRaw":  status.Metadata,
+		"metadata_raw": status.Metadata,
+		"createdAt":    status.CreatedAt,
+		"created_at":   status.CreatedAt,
+		"updatedAt":    status.UpdatedAt,
+		"updated_at":   status.UpdatedAt,
+	}
+}
+
+func parseTaskPayload(raw string) any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return map[string]any{}
+	}
+
+	var payload any
+	if err := json.Unmarshal([]byte(raw), &payload); err == nil {
+		return payload
+	}
+	return raw
 }
