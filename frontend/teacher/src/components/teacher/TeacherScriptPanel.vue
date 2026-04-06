@@ -70,30 +70,10 @@
     </section>
 
     <aside class="copilot-panel">
-      <h4>上下文智能助手与编辑器</h4>
-
-      <section class="panel-block">
-        <h5>智能助手</h5>
-        <div class="ai-inline">
-          <input v-model="aiPrompt" placeholder="请输入智能指令..." />
-        </div>
-        <button class="copilot-action" @click="$emit('generate-ai-script')" :disabled="!currentCourseId || scriptGenerating || scriptSaving">
-          智能推荐资源
-        </button>
-      </section>
-
-      <section class="panel-block">
-        <h5>助手推荐</h5>
-        <ul class="recommend-list">
-          <li v-for="(item, idx) in recommendationItems" :key="`${item.title}_${idx}`" @click="selectedNodeIndex = idx">
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.desc }}</span>
-          </li>
-        </ul>
-      </section>
+      <h4>关联内容编辑器</h4>
 
       <section class="panel-block grow">
-        <h5>关联内容编辑器</h5>
+        <h5>节点编辑</h5>
         <div class="node-tabs" v-if="timelineNodes.length">
           <button
             v-for="(node, idx) in timelineNodes"
@@ -156,7 +136,6 @@ const emit = defineEmits(['generate-ai-script', 'save-script', 'update:current-s
 
 const localNodes = ref([])
 const selectedNodeIndex = ref(0)
-const aiPrompt = ref('')
 
 const syncNodesFromProps = (nodes) => {
   const mapped = (nodes || []).map((node, index, list) => ({
@@ -212,13 +191,6 @@ const timelineNodes = computed(() => {
     scriptText: props.currentScript || '',
     estimatedDuration: 20
   }]
-})
-
-const recommendationItems = computed(() => {
-  return timelineNodes.value.slice(0, 4).map((node, index) => ({
-    title: node.title || `代码片段 ${index + 1}`,
-    desc: (node.summary || node.scriptText || '可根据当前页内容做精讲和提问设计').slice(0, 44)
-  }))
 })
 
 const selectedNodeScript = computed(() => {
@@ -567,8 +539,7 @@ function estimateDuration(text) {
 
 .ghost-btn,
 .pager-btn,
-.save-btn,
-.copilot-action {
+.save-btn {
   border: 1px solid #d0dfd7;
   background: #edf5f1;
   color: #3c524b;
@@ -578,8 +549,7 @@ function estimateDuration(text) {
   font-size: 13px;
 }
 
-.save-btn,
-.copilot-action {
+.save-btn {
   background: #dbe8e1;
   border-color: #c4d7cd;
   font-weight: 600;
@@ -641,7 +611,6 @@ button:disabled {
   color: #425a51;
 }
 
-.ai-inline input,
 .linked-editor {
   width: 100%;
   border: 1px solid #d9e4de;
@@ -650,36 +619,6 @@ button:disabled {
   box-sizing: border-box;
   font-size: 13px;
   font-family: inherit;
-}
-
-.recommend-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.recommend-list li {
-  border: 1px solid #e2ebe6;
-  background: #f7faf8;
-  border-radius: 10px;
-  padding: 8px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.recommend-list strong {
-  font-size: 13px;
-  color: #385049;
-}
-
-.recommend-list span {
-  font-size: 12px;
-  color: #768d84;
 }
 
 .grow {

@@ -52,6 +52,17 @@
         <span v-show="!isLeftMenuCollapsed">平台管理 <small>(悬停后展开)</small></span>
           </div>
 
+          <div class="menu-item" @click="openResourceRecommend" title="智能推荐">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 4h12"></path>
+              <path d="M6 9h12"></path>
+              <path d="M6 14h7"></path>
+              <circle cx="17.5" cy="16.5" r="3.5"></circle>
+              <path d="m20 19 2 2"></path>
+            </svg>
+            <span v-show="!isLeftMenuCollapsed">智能推荐</span>
+          </div>
+
         </div>
       </div>
 
@@ -177,11 +188,18 @@
       @submit="publishCourseware"
       @update:publish-scope="publishScope = $event"
     ></TeacherPublishModal>
+
+    <ResourceRecommendPanel
+      :visible="resourceDrawerVisible"
+      :current-course-context="currentCourseContext"
+      @update:visible="resourceDrawerVisible = $event"
+    />
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, watch } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 // 导入所有组件
@@ -197,20 +215,21 @@ import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
 import PlatformManagementPanel from './components/teacher/PlatformManagementPanel.vue'
 import CourseIterationPanel from './components/teacher/CourseIterationPanel.vue'
+import ResourceRecommendPanel from './components/teacher/ResourceRecommendPanel.vue'
 
 // --- 状态管理 ---
 const isLoggedIn = ref(false)
 const loggedInUsername = ref('')
 const activeTab = ref('script') // 或 'platform' 如果希望默认显示平台管理
 
-const handleLoginSuccess = (user) => {
-  if (user.role === 'student') {
-    window.location.href = 'http://localhost:8080'
-  } else {
-    loggedInUsername.value = user.username
-    isLoggedIn.value = true
-  }
+const STORAGE_KEYS = {
+  username: 'teacher-app:last-username',
+  courseId: 'teacher-app:last-course-id',
+  coursePage: 'teacher-app:last-course-page',
+  tab: 'teacher-app:last-active-tab'
 }
+
+const isValidTab = (tab) => ['script', 'stats', 'questions', 'card', 'iteration', 'platform'].includes(tab)
 
 const coursewareList = ref([])
 const currentCourseId = ref('')
@@ -223,6 +242,7 @@ const showUploadModal = ref(false)
 const fileInput = ref(null)
 const selectedFileName = ref('')
 const uploadLoading = ref(false)
+const resourceDrawerVisible = ref(false)
 
 const showPublishModal = ref(false)
 const publishScope = ref('all')
@@ -233,19 +253,107 @@ const scriptSaving = ref(false)
 
 const showPlatformManagement = ref(false)
 
-// --- 生命周期钩子 ---
-onMounted(async () => {
-  // 检查登录状态
-  const user = await teacherV1Api.checkLoginStatus()
-  if (user) {
-    handleLoginSuccess(user)
+const currentCourseContext = computed(() => ({
+  courseId: currentCourseId.value,
+  courseName: currentCourseName.value,
+  currentPage: currentEditPage.value,
+  keyword: currentCourseName.value,
+  pageKeyword: `第${currentEditPage.value}页 ${extractScriptKeywords(currentScript.value)}`.trim(),
+  nodeKeyword: extractScriptKeywords(currentScript.value),
+  subject: inferSubject(currentCourseName.value),
+  scriptPreview: String(currentScript.value || '').slice(0, 120)
+}))
+
+function extractScriptKeywords(script) {
+  const text = String(script || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/[^\u4e00-\u9fa5a-zA-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return ''
+  const words = text.split(' ').filter(Boolean).slice(0, 6)
+  return words.join(' ')
+}
+
+function inferSubject(courseName) {
+  const text = String(courseName || '').toLowerCase()
+  if (/算法|编程|程序|数据结构|计算机/.test(text)) return '计算机'
+  if (/数学|函数|几何|代数/.test(text)) return '数学'
+  if (/英语|english/.test(text)) return '英语'
+  if (/物理/.test(text)) return '物理'
+  if (/化学/.test(text)) return '化学'
+  if (/生物/.test(text)) return '生物'
+  return ''
+}
+
+function openResourceRecommend() {
+  resourceDrawerVisible.value = true
+}
+
+const persistCurrentSelection = () => {
+  if (loggedInUsername.value) {
+    window.localStorage.setItem(STORAGE_KEYS.username, loggedInUsername.value)
+  }
+  if (currentCourseId.value) {
+    window.localStorage.setItem(STORAGE_KEYS.courseId, currentCourseId.value)
+  }
+  if (currentEditPage.value) {
+    window.localStorage.setItem(STORAGE_KEYS.coursePage, String(currentEditPage.value))
+  }
+  if (isValidTab(activeTab.value)) {
+    window.localStorage.setItem(STORAGE_KEYS.tab, activeTab.value)
+  }
+}
+
+const restoreSelectionFromStorage = () => {
+  const savedTab = window.localStorage.getItem(STORAGE_KEYS.tab)
+  if (savedTab && isValidTab(savedTab)) {
+    activeTab.value = savedTab
   }
 
-  // 检查后端状态
-  checkBackendStatus()
+  const savedPage = Number(window.localStorage.getItem(STORAGE_KEYS.coursePage) || 1)
+  if (Number.isFinite(savedPage) && savedPage > 0) {
+    currentEditPage.value = savedPage
+  }
+}
 
-  // 检查课件列表
-  await fetchCoursewareList()
+watch([loggedInUsername, currentCourseId, currentEditPage, activeTab], persistCurrentSelection)
+
+const handleLoginSuccess = async (user) => {
+  if (user.role === 'student') {
+    window.location.href = 'http://localhost:8080'
+  } else {
+    loggedInUsername.value = user.username
+    isLoggedIn.value = true
+    window.localStorage.setItem(STORAGE_KEYS.username, user.username)
+    restoreSelectionFromStorage()
+    await initializeTeacherWorkspace()
+  }
+}
+
+const initializeTeacherWorkspace = async () => {
+  checkBackendStatus()
+  await loadCoursewareList()
+}
+
+// --- 生命周期钩子 ---
+onMounted(async () => {
+  restoreSelectionFromStorage()
+
+  const savedUsername = window.localStorage.getItem(STORAGE_KEYS.username)
+  if (savedUsername) {
+    loggedInUsername.value = savedUsername
+  }
+
+  const loginChecker = teacherV1Api.checkLoginStatus
+  if (typeof loginChecker === 'function') {
+    const user = await loginChecker().catch(() => null)
+    if (user) {
+      await handleLoginSuccess(user)
+    }
+  }
+
+  checkBackendStatus()
 })
 
 onUnmounted(() => {
@@ -338,35 +446,6 @@ const handlePreviewError = () => {
   alert('模拟预览图片加载失败，请检查网络')
 }
 
-// --- 生命周期 ---
-onMounted(async () => {
-  // 先检查后端健康状态，但不阻塞列表加载
-  checkBackendHealth()
-  backendHealthTimer = window.setInterval(checkBackendHealth, 30 * 1000)
-  
-  // 确保列表在初始化时必定加载
-  await loadCoursewareList()
-  
-  // 如果列表加载成功且有数据，加载首个课件的上下文
-  if (currentCourseId.value) {
-    await loadCourseContext(currentCourseId.value)
-  }
-})
-
-onUnmounted(() => {
-  if (backendHealthTimer) window.clearInterval(backendHealthTimer)
-})
-
-// --- 核心方法 ---
-const checkBackendHealth = async () => {
-  try {
-    const res = await teacherV1Api.health()
-    backendStatus.value = res.ok ? 'online' : 'offline'
-  } catch (error) {
-    backendStatus.value = 'offline'
-  }
-}
-
 // 仅加载课件列表，无任何额外操作（保证稳定）
 const loadCoursewareList = async () => {
   courseListLoading.value = true
@@ -381,10 +460,30 @@ const loadCoursewareList = async () => {
     }))
 
     if (coursewareList.value.length > 0) {
-      const first = coursewareList.value[0]
-      currentCourseId.value = first.id
-      currentCourseName.value = first.name
-      currentCourseTotalPages.value = first.totalPages
+      const savedCourseId = window.localStorage.getItem(STORAGE_KEYS.courseId)
+      let targetCourse = coursewareList.value.find(item => item.id === savedCourseId) || null
+      if (!targetCourse) {
+        targetCourse = await pickDefaultQuestionCourse(coursewareList.value)
+      }
+      currentCourseId.value = targetCourse.id
+      currentCourseName.value = targetCourse.name
+      currentCourseTotalPages.value = targetCourse.totalPages
+      const restoredPage = Number(window.localStorage.getItem(STORAGE_KEYS.coursePage) || 1) || 1
+      currentEditPage.value = Math.min(Math.max(restoredPage, 1), targetCourse.totalPages || 1)
+      await loadCourseContext(targetCourse.id)
+    } else {
+      currentCourseId.value = ''
+      currentCourseName.value = ''
+      currentCourseTotalPages.value = 0
+      currentEditPage.value = 1
+      currentScript.value = ''
+      studentStats.value = {
+        totalQuestions: 0,
+        hotPages: [],
+        keyDifficulties: '暂无'
+      }
+      cardData.value = []
+      questionRecords.value = []
     }
   } catch (err) {
     console.error('加载课件列表失败', err)
@@ -393,11 +492,26 @@ const loadCoursewareList = async () => {
   }
 }
 
+const pickDefaultQuestionCourse = async (courses) => {
+  for (const course of courses) {
+    try {
+      const data = await teacherV1Api.analytics.getStats(course.id)
+      const payload = data?.data || {}
+      if (Number(payload.totalQuestions || 0) > 0) {
+        return course
+      }
+    } catch (error) {
+      continue
+    }
+  }
+  return courses[0]
+}
+
 const loadCourseContext = async (courseId) => {
   previewLoading.value = true
   // 仅加载必要数据，不加载预览接口
   await Promise.all([
-    loadScript(courseId, 1),
+    loadScript(courseId, currentEditPage.value || 1),
     loadStudentStats(courseId),
     loadCardData(courseId),
     loadQuestionRecords(courseId)
@@ -411,6 +525,7 @@ const selectCourse = async (course) => {
   currentCourseName.value = course.name
   currentCourseTotalPages.value = course.totalPages
   currentEditPage.value = 1
+  window.localStorage.setItem(STORAGE_KEYS.courseId, course.id)
   await loadCourseContext(course.id)
 }
 
@@ -435,6 +550,7 @@ const deleteCourse = async (courseId) => {
 const selectEditPage = async (page) => {
   previewLoading.value = true
   currentEditPage.value = page
+  window.localStorage.setItem(STORAGE_KEYS.coursePage, String(page))
   await loadScript(currentCourseId.value, page)
   setTimeout(() => previewLoading.value = false, 300)
 }
@@ -507,7 +623,7 @@ const uploadCourseware = async () => {
     showUploadModal.value = false
     selectedFileName.value = ''
     await loadCoursewareList()
-    activeTab.value = 'preview' // 上传后切到预览页
+    activeTab.value = 'script'
   } catch (err) {
     alert('上传失败：' + (err.message || '未知错误，请检查后端服务是否正常'))
   } finally {
@@ -531,6 +647,12 @@ const publishCourseware = async () => {
     alert('发布失败：' + err.message)
   }
 }
+
+watch(activeTab, (tab) => {
+  if (isValidTab(tab)) {
+    window.localStorage.setItem(STORAGE_KEYS.tab, tab)
+  }
+})
 
 // --- 数据加载（统计/卡点/提问） ---
 const loadStudentStats = async (courseId) => {

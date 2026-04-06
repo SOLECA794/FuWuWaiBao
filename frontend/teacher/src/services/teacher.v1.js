@@ -1,4 +1,22 @@
 import { requestJson } from './v1/request'
+import { AI_API_BASE } from '../config/api'
+
+async function requestAiJson(path, options = {}, requestError = null) {
+  const response = await fetch(`${AI_API_BASE}${path}`, options)
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const detail = Array.isArray(payload?.detail)
+      ? payload.detail.map(item => item?.msg).filter(Boolean).join('; ')
+      : (payload?.detail || payload?.message)
+    throw new Error(detail || requestError?.message || `请求失败: ${response.status}`)
+  }
+  return payload
+}
+
+function toFiniteNumber(value, fallback) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : fallback
+}
 
 function generateTempUuid(prefix = 'tmp') {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -26,9 +44,22 @@ function normalizeItemsWithId(items, prefix) {
  */
 export async function getIterationOverview(courseId) {
   const normalizedCourseId = encodeURIComponent(String(courseId || '').trim())
-  const payload = await requestJson(`/api/v1/teacher/iteration-overview/${normalizedCourseId}`, {
-    method: 'GET'
-  })
+  let payload = null
+  let requestError = null
+
+  try {
+    payload = await requestJson(`/api/v1/teacher/iteration-overview/${normalizedCourseId}`, {
+      method: 'GET'
+    })
+  } catch (error) {
+    requestError = error
+  }
+
+  if (!payload) {
+    payload = await requestAiJson(`/api/v1/teacher/iteration-overview/${normalizedCourseId}`, {
+      method: 'GET'
+    }, requestError)
+  }
 
   const source = payload && typeof payload === 'object' ? (payload.data || payload) : {}
 
@@ -47,11 +78,26 @@ export async function getIterationOverview(courseId) {
  */
 export async function generateIterationScript(payload) {
   const body = payload && typeof payload === 'object' ? payload : { nodeOrder: [] }
-  const response = await requestJson('/api/v1/teacher/iteration/script-generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  })
+  let response = null
+  let requestError = null
+
+  try {
+    response = await requestJson('/api/v1/teacher/iteration/script-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+  } catch (error) {
+    requestError = error
+  }
+
+  if (!response) {
+    response = await requestAiJson('/api/v1/teacher/iteration/script-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }, requestError)
+  }
 
   const data = response && typeof response === 'object' ? (response.data || response) : ''
   if (typeof data === 'string') return { data }
@@ -61,7 +107,138 @@ export async function generateIterationScript(payload) {
   return { data: '' }
 }
 
+/**
+ * 保存学情迭代大纲与绑定关系。
+ * @param {string} courseId
+ * @param {{ nodeTree?: Array, bindingMap?: Record<string, string[]> }} payload
+ * @returns {Promise<{ ok: boolean, updatedAt?: string }>}
+ */
+export async function saveIterationOverview(courseId, payload = {}) {
+  const normalizedCourseId = encodeURIComponent(String(courseId || '').trim())
+  const body = {
+    nodeTree: Array.isArray(payload.nodeTree) ? payload.nodeTree : [],
+    bindingMap: payload.bindingMap && typeof payload.bindingMap === 'object' ? payload.bindingMap : {}
+  }
+
+  let response = null
+  let requestError = null
+
+  try {
+    response = await requestJson(`/api/v1/teacher/iteration-overview/${normalizedCourseId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+  } catch (error) {
+    requestError = error
+  }
+
+  if (!response) {
+    response = await requestAiJson(`/api/v1/teacher/iteration-overview/${normalizedCourseId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }, requestError)
+  }
+
+  const data = response && typeof response === 'object' ? (response.data || response) : {}
+  return {
+    ok: Boolean(data.ok ?? true),
+    updatedAt: data.updatedAt || ''
+  }
+}
+
+/**
+ * 智能资源推荐（教师端）。
+ * @param {{
+ *   keyword?: string,
+ *   stage?: string,
+ *   subject?: string,
+ *   type?: string,
+ *   difficulty?: string,
+ *   duration?: string,
+ *   lang?: string,
+ *   budget?: string,
+ *   source?: string,
+ *   page?: number,
+ *   pageSize?: number,
+ *   sortBy?: string
+ * }} params
+ * @returns {Promise<{ list: Array, total: number, page: number, pageSize: number, hasMore: boolean }>}
+ */
+export async function fetchRecommendedResources(params = {}) {
+  const normalizedType = String(params.type || '').trim()
+  const type = normalizedType === '题库' ? '题库' : '网课'
+  const body = {
+    keyword: String(params.keyword || '').trim(),
+    type,
+    difficulty: toFiniteNumber(params.difficulty, 0.5),
+    duration: toFiniteNumber(params.duration, 30),
+    budget: toFiniteNumber(params.budget, 0),
+    source_preference: Array.isArray(params.source_preference)
+      ? params.source_preference
+      : (String(params.source || '').trim() ? [String(params.source || '').trim()] : [])
+  }
+
+  const stage = String(params.stage || '').trim()
+  if (stage) {
+    // 后端 StageType 是枚举，传空字符串会触发 422
+    body.stage = stage
+  }
+
+  const subject = String(params.subject || '').trim()
+  if (subject) {
+    body.subject = subject
+  }
+
+  let payload = null
+  let requestError = null
+
+  try {
+    // 优先走统一网关（与其他教师端接口一致）
+    payload = await requestJson('/api/v1/teacher/recommend', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+  } catch (error) {
+    requestError = error
+  }
+
+  if (!payload) {
+    // 网关不可用时回退到 AI 服务直连
+    const response = await fetch(`${AI_API_BASE}/api/v1/teacher/recommend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+
+    payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      const detail = Array.isArray(payload?.detail)
+        ? payload.detail.map(item => item?.msg).filter(Boolean).join('; ')
+        : (payload?.detail || payload?.message)
+      throw new Error(detail || requestError?.message || `请求失败: ${response.status}`)
+    }
+  }
+
+  const source = payload && typeof payload === 'object' ? (payload.data || payload) : {}
+  const list = Array.isArray(source.recommended_resources)
+    ? source.recommended_resources
+    : (Array.isArray(source.resources)
+      ? source.resources
+      : (Array.isArray(source.list) ? source.list : []))
+  const total = Number(source.total || list.length || 0)
+  const page = Number(source.page || params.page || 1)
+  const pageSize = Number(source.pageSize || params.pageSize || 10)
+  const hasMore = typeof source.hasMore === 'boolean' ? source.hasMore : (page * pageSize < total)
+
+  return { list, total, page, pageSize, hasMore }
+}
+
 export const teacherV1Service = {
   getIterationOverview,
-  generateIterationScript
+  generateIterationScript,
+  saveIterationOverview,
+  fetchRecommendedResources
 }
