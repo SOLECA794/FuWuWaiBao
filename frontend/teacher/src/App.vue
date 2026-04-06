@@ -157,6 +157,7 @@
           <CourseIterationPanel
             v-else
             :current-course-id="currentCourseId"
+            :question-records="questionRecords"
             @script-generated="handleIterationScriptGenerated"
           ></CourseIterationPanel>
         </div>

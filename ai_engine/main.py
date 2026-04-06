@@ -22,13 +22,16 @@ try:
     from .generator import LessonGenerator, GenerationConfig
     from .qa import QAResponder, QAConfig, resolve_llm_base_url
     from .reconstructor import LessonReconstructor, ReconstructionConfig
+    from .recommendation.service import router as recommendation_router
 except ImportError:
     from parser import DocumentParser
     from generator import LessonGenerator, GenerationConfig
     from qa import QAResponder, QAConfig, resolve_llm_base_url
     from reconstructor import LessonReconstructor, ReconstructionConfig
+    from recommendation.service import router as recommendation_router
 
 app = FastAPI(title="泛雅 AI 智课系统后端", description="为前端提供解析、生成、问答、重讲等核心 AI 接口")
+app.include_router(recommendation_router)
 
 # 启用跨域支持，让前端 Vue/React 能访问
 app.add_middleware(
