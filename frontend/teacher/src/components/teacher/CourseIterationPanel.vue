@@ -54,6 +54,50 @@
           <div v-else class="empty-state">
             <p>暂无待处理的建议节点</p>
           </div>
+
+          <div class="replay-recommend-block">
+            <div class="replay-recommend-title">🎬 智能复盘视频推荐（B站）</div>
+
+            <div v-if="!boundNodeIds.length" class="mini-empty">
+              先在下方把疑问绑定到节点，再自动生成对应视频推荐。
+            </div>
+
+            <div v-else class="replay-node-groups">
+              <div
+                v-for="nodeId in boundNodeIds"
+                :key="`reco_${nodeId}`"
+                class="replay-node-group"
+              >
+                <div class="replay-node-head">
+                  <strong>{{ getNodeTitle(nodeId) }}</strong>
+                  <button class="retry-btn" @click="loadRecommendForNode(nodeId, true)">刷新</button>
+                </div>
+
+                <div v-if="recommendLoadingMap[nodeId]" class="mini-loading">
+                  正在加载推荐视频...
+                </div>
+
+                <div v-else-if="recommendErrorMap[nodeId]" class="mini-error">
+                  {{ recommendErrorMap[nodeId] }}
+                </div>
+
+                <div v-else-if="(recommendByNodeId[nodeId] || []).length" class="mini-video-list">
+                  <div
+                    v-for="video in recommendByNodeId[nodeId]"
+                    :key="video.id"
+                    class="mini-video-item"
+                  >
+                    <div class="video-title">{{ video.title }}</div>
+                    <div class="video-meta">来源：{{ video.source || 'Bilibili' }}</div>
+                    <div class="video-reason">{{ video.reason || '与该节点知识点高度相关，适合作为课后复盘补充。' }}</div>
+                    <button class="open-link-btn" @click="openVideo(video)">跳转链接</button>
+                  </div>
+                </div>
+
+                <div v-else class="mini-empty">暂无匹配的 B 站视频。</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 分隔线 -->
@@ -131,11 +175,11 @@
           <button
             class="generate-btn"
             @click="generateScript"
-            :disabled="scriptGenerating || nodeTree.length === 0"
+            :disabled="isGenerating || nodeTree.length === 0"
           >
-            <span v-if="scriptGenerating" class="spinner">⌛</span>
+            <span v-if="isGenerating" class="spinner">⌛</span>
             <span v-else>▶</span>
-            {{ scriptGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
+            {{ isGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
           </button>
         </div>
 
@@ -229,17 +273,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { teacherV1Service } from '../../services/teacher.v1'
 
 // ============ Props & Emits ============
-defineProps({
+const props = defineProps({
   currentCourseId: {
     type: String,
     default: ''
+  },
+  questionRecords: {
+    type: Array,
+    default: () => []
   }
 })
 
-const emit = defineEmits(['script-generated'])
+const emit = defineEmits(['update:script'])
 
 // ============ Mock 数据 ============
 
@@ -256,15 +305,13 @@ const pendingNodes = ref([
 ])
 
 // 3. 待关联的学生案例
-const pendingCases = ref([
-  { id: 'c1', content: '为什么选第一个元素做基准会退化成O(n^2)？', student: '张三', boundNodeId: null },
-  { id: 'c2', content: '递归的参数传递怎么理解？', student: '李四', boundNodeId: null }
-])
+const pendingCases = ref([])
 
 // ============ 状态管理 ============
 
 // 当前大纲树（会动态变化）
 const nodeTree = ref([...basicNodeTree.value])
+const nodeList = nodeTree
 
 // 拖拽状态
 const draggedNodeId = ref(null)
@@ -277,7 +324,10 @@ const activeSelectorIdx = ref(null)
 const bindingMap = ref({})
 
 // 讲稿生成状态
-const scriptGenerating = ref(false)
+const isGenerating = ref(false)
+const recommendByNodeId = ref({})
+const recommendLoadingMap = ref({})
+const recommendErrorMap = ref({})
 
 // ============ 计算属性 ============
 
@@ -286,7 +336,38 @@ const getNodeCaseCount = (nodeId) => {
   return (bindingMap.value[nodeId] || []).length
 }
 
+const boundNodeIds = computed(() => {
+  const ids = new Set(
+    (pendingCases.value || [])
+      .map(item => item?.boundNodeId)
+      .filter(Boolean)
+  )
+  return Array.from(ids)
+})
+
 // ============ 方法 ============
+
+watch(
+  () => props.questionRecords,
+  (records) => {
+    const list = Array.isArray(records) ? records : []
+    pendingCases.value = list
+      .map((item, index) => {
+        const rawId = String(item?.id || '').trim()
+        const content = String(item?.content || '').trim()
+        const student = String(item?.studentId || item?.userId || '未知学生').trim()
+        if (!content) return null
+        return {
+          id: rawId || `q_${index + 1}_${Date.now()}`,
+          content,
+          student,
+          boundNodeId: null
+        }
+      })
+      .filter(Boolean)
+  },
+  { immediate: true, deep: true }
+)
 
 /**
  * 拖拽开始：记录被拖动的建议节点
@@ -371,6 +452,9 @@ const bindCaseToNode = (caseIdx, nodeId) => {
 
   // 关闭选择器
   activeSelectorIdx.value = null
+
+  // 绑定后触发该节点的资源推荐
+  loadRecommendForNode(nodeId)
 }
 
 /**
@@ -426,6 +510,15 @@ const removeNode = (idx) => {
   if (bindingMap.value[node.id]) {
     delete bindingMap.value[node.id]
   }
+  if (recommendByNodeId.value[node.id]) {
+    delete recommendByNodeId.value[node.id]
+  }
+  if (recommendLoadingMap.value[node.id] !== undefined) {
+    delete recommendLoadingMap.value[node.id]
+  }
+  if (recommendErrorMap.value[node.id]) {
+    delete recommendErrorMap.value[node.id]
+  }
 
   nodeTree.value.splice(idx, 1)
 }
@@ -449,72 +542,106 @@ const addManualNode = () => {
 }
 
 /**
- * 生成讲稿（模拟调用后端）
+ * 生成讲稿（调用后端接口）
  */
 const generateScript = async () => {
-  if (nodeTree.value.length === 0) {
+  if (nodeList.value.length === 0) {
     alert('请先添加至少一个节点到大纲中')
     return
   }
 
-  scriptGenerating.value = true
+  isGenerating.value = true
 
   try {
-    // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    const nodeOrder = nodeList.value
+      .map(node => String(node?.id || '').trim())
+      .filter(Boolean)
 
-    // 构建讲稿数据
-    const scriptContent = buildScriptMarkdown()
-
-    // 触发事件，交由父组件处理
-    emit('script-generated', {
-      content: scriptContent,
-      nodeTree: nodeTree.value,
-      bindingMap: bindingMap.value
+    const res = await teacherV1Service.generateIterationScript({
+      courseId: props.currentCourseId,
+      nodeOrder
     })
+
+    emit('update:script', res.data)
 
     alert('讲稿生成成功！')
   } catch (err) {
     console.error('生成讲稿失败:', err)
     alert('生成讲稿失败，请重试')
   } finally {
-    scriptGenerating.value = false
+    isGenerating.value = false
   }
 }
 
-/**
- * 构建 Markdown 讲稿内容
- */
-const buildScriptMarkdown = () => {
-  let markdown = '# 下节课讲稿大纲\n\n'
-
-  nodeTree.value.forEach((node, idx) => {
-    markdown += `## ${idx + 1}. ${node.title}\n`
-
-    if (node.fromIteration) {
-      markdown += `> **来源**: 基于学情迭代自动推荐\n\n`
-    }
-
-    // 添加关联案例
-    const cases = bindingMap.value[node.id] || []
-    if (cases.length > 0) {
-      markdown += `**关联案例**:\n`
-      cases.forEach(caseId => {
-        const caseContent = findCaseContent(caseId)
-        markdown += `- ${caseContent}\n`
-      })
-      markdown += '\n'
-    }
-
-    markdown += `### 学习目标\n- 掌握${node.title}的核心要点\n\n`
-    markdown += `### 教学活动\n- 讲解（5-10分钟）\n- 案例分析（10分钟）\n- 练习与反馈（5分钟）\n\n`
-  })
-
-  markdown += '---\n'
-  markdown += '**生成时间**: ' + new Date().toLocaleString() + '\n'
-
-  return markdown
+const getNodeTitle = (nodeId) => {
+  const node = nodeTree.value.find(item => item.id === nodeId)
+  return node?.title || '未命名节点'
 }
+
+const normalizeRecommendItem = (item, index, nodeId) => {
+  const source = String(item?.source || item?.Source || '').trim()
+  return {
+    id: String(item?.id || item?.ID || `${nodeId}_${index}`),
+    title: String(item?.title || item?.Title || '未命名视频').trim(),
+    source,
+    reason: String(item?.fit_reason || item?.recommend_reason || item?.reason || item?.Reason || '').trim(),
+    link: String(item?.link || item?.url || item?.Link || item?.URL || '').trim()
+  }
+}
+
+const loadRecommendForNode = async (nodeId, force = false) => {
+  if (!nodeId) return
+  if (recommendByNodeId.value[nodeId]?.length && !force) return
+
+  const nodeTitle = getNodeTitle(nodeId)
+  if (!nodeTitle || nodeTitle === '未命名节点') return
+
+  recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: true }
+  recommendErrorMap.value = { ...recommendErrorMap.value, [nodeId]: '' }
+
+  try {
+    const res = await teacherV1Service.fetchRecommendedResources({
+      keyword: nodeTitle,
+      type: '网课',
+      source_preference: ['Bilibili'],
+      page: 1,
+      pageSize: 6
+    })
+
+    const list = (res.list || [])
+      .map((item, index) => normalizeRecommendItem(item, index, nodeId))
+      .filter(item => item.title)
+
+    const bilibiliList = list.filter(item => {
+      const sourceText = item.source.toLowerCase()
+      const linkText = item.link.toLowerCase()
+      return sourceText.includes('bilibili') || sourceText.includes('b站') || linkText.includes('bilibili.com')
+    })
+
+    recommendByNodeId.value = {
+      ...recommendByNodeId.value,
+      [nodeId]: (bilibiliList.length ? bilibiliList : list).slice(0, 3)
+    }
+  } catch (error) {
+    recommendErrorMap.value = {
+      ...recommendErrorMap.value,
+      [nodeId]: error?.message || '推荐加载失败'
+    }
+  } finally {
+    recommendLoadingMap.value = { ...recommendLoadingMap.value, [nodeId]: false }
+  }
+}
+
+const openVideo = (video) => {
+  if (!video?.link) return
+  window.open(video.link, '_blank', 'noopener,noreferrer')
+}
+
+watch(boundNodeIds, (ids) => {
+  ids.forEach((nodeId) => {
+    loadRecommendForNode(nodeId)
+  })
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -593,6 +720,98 @@ const buildScriptMarkdown = () => {
   flex: 1;
   overflow-y: auto;
   padding: 10px;
+}
+
+.replay-recommend-block {
+  margin-top: 12px;
+  border: 1px solid #dbe5df;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 10px;
+}
+
+.replay-recommend-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f4f49;
+  margin-bottom: 8px;
+}
+
+.replay-node-groups {
+  display: grid;
+  gap: 8px;
+}
+
+.replay-node-group {
+  border: 1px solid #e1ebe6;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fbfefd;
+}
+
+.replay-node-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.replay-node-head strong {
+  font-size: 12px;
+  color: #1f3f3a;
+  line-height: 1.3;
+}
+
+.retry-btn,
+.open-link-btn {
+  border: 1px solid #c8d9d2;
+  background: #f3faf7;
+  color: #285f59;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.mini-loading,
+.mini-empty,
+.mini-error {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.mini-error {
+  color: #b91c1c;
+}
+
+.mini-video-list {
+  display: grid;
+  gap: 6px;
+}
+
+.mini-video-item {
+  border: 1px solid #e5ede9;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 8px;
+  display: grid;
+  gap: 4px;
+}
+
+.video-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2937;
+  line-height: 1.35;
+}
+
+.video-meta,
+.video-reason {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .suggestion-list {
