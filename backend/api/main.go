@@ -16,6 +16,7 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 
 	"smart-teaching-backend/internal/handler"
+	"smart-teaching-backend/internal/handlers" /
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/repository"
 	"smart-teaching-backend/internal/service"
@@ -79,6 +80,8 @@ func main() {
 		&model.ScheduledTask{},
 		&model.Notification{},
 		&model.TaskStatus{},
+		&model.ReviewPackage{},     // 新增
+		&model.ReviewPackageItem{}, //
 	)
 	if err != nil {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
@@ -119,6 +122,10 @@ func main() {
 	knowledgeMapHandler := handler.NewKnowledgeMapHandler(knowledgeMapService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	taskSchedulerHandler := handler.NewTaskSchedulerHandler(taskSchedulerService)
+
+	// 初始化复习包模块 (新增部分)
+	reviewService := service.NewReviewService(db)
+	reviewHandler := handler.NewReviewHandler(reviewService)
 
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -285,6 +292,15 @@ func main() {
 					knowledgeMap.GET("/strong-points", knowledgeMapHandler.GetStrongKnowledgePoints)
 					knowledgeMap.GET("/progress", knowledgeMapHandler.AnalyzeLearningProgress)
 					knowledgeMap.GET("/recommendations", knowledgeMapHandler.RecommendNextStudy)
+				}
+
+				// 复习包相关路由 (新增部分)
+				review := studentV1.Group("/review")
+				{
+					review.POST("/generate", reviewHandler.HandleGeneratePackage)
+					review.GET("/packages/:id", reviewHandler.HandleGetPackageDetail)
+					review.PUT("/packages/:id/items", reviewHandler.HandleUpdatePackageItems)
+					review.GET("/packages/:id/export", reviewHandler.HandleExportPackage)
 				}
 
 				// 通知相关路由

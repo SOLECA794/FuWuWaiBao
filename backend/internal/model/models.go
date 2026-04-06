@@ -190,6 +190,28 @@ type AnswerRecord struct {
 	MasteryDelta    int     `json:"mastery_delta"`                                  // 掌握度变化
 }
 
+// ReviewPackage 专项复习包模型
+type ReviewPackage struct {
+	BaseModel
+	StudentID   string    `gorm:"size:36;not null;index" json:"student_id"`
+	Name        string    `gorm:"size:200;not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description"`
+	Status      string    `gorm:"size:20;default:'draft'" json:"status"` // draft, finalized, exported
+	ExportURL   string    `gorm:"size:500" json:"export_url"`
+	GeneratedAt time.Time `json:"generated_at"`
+}
+
+// ReviewPackageItem 复习包内容项
+type ReviewPackageItem struct {
+	BaseModel
+	PackageID       string `gorm:"size:36;not null;index" json:"package_id"`
+	ItemType        string `gorm:"size:20;not null" json:"item_type"`  // prerequisite, error_retake, similar_practice
+	ContentID       string `gorm:"size:36;not null" json:"content_id"` // 关联 Question ID 或 Note ID
+	KnowledgeNodeID string `gorm:"size:36" json:"knowledge_node_id"`
+	SortOrder       int    `gorm:"default:0" json:"sort_order"`
+	IsSelected      bool   `gorm:"default:true" json:"is_selected"` // 用于自定义勾选
+}
+
 // ReviewPlan 复习计划模型
 type ReviewPlan struct {
 	BaseModel
