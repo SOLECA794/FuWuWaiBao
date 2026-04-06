@@ -1,4 +1,5 @@
 <script setup>
+/* eslint-disable no-undef */
 import { ref } from 'vue'
 
 defineProps({

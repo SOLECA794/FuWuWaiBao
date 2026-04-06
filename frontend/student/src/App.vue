@@ -95,6 +95,14 @@
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
             </button>
+            <button class="menu-item" :class="{ active: showAskWorkspace }" @click="toggleAskWorkspace" title="问答浮窗">
+              <span class="menu-icon">问</span>
+              <span v-show="!isMenuCollapsed">问答</span>
+            </button>
+            <button class="menu-item" v-if="hasCourseSelected" @click="backToSelectionPage" title="返回选课页">
+              <span class="menu-icon">返</span>
+              <span v-show="!isMenuCollapsed">返回选课页</span>
+            </button>
             <button class="menu-item" :class="{ active: activeSection === 'personal' }" @click="activeSection = 'personal'" title="个人中心">
               <span class="menu-icon">我</span>
               <span v-show="!isMenuCollapsed">个人中心</span>
@@ -103,20 +111,43 @@
         </aside>
 
         <section class="workspace-content">
-          <section class="section-bar">
-            <div class="section-title-wrap">
-              <span class="section-tag">{{ activeSectionMeta.tag }}</span>
-              <h2>{{ activeSectionMeta.title }}</h2>
-            </div>
-            <div class="section-header-actions">
-              <p>{{ activeSectionMeta.desc }}</p>
-              <button class="outline-btn" @click="backToSelectionPage">返回选课页</button>
-              <button class="logout-btn" @click="handleLogout">退出登录</button>
-            </div>
-          </section>
-
           <transition name="page-fade" mode="out-in">
           <div v-if="activeSection === 'classroom'" key="classroom" class="page-layout classroom-grid">
+            <section class="center-stage">
+              <StudentCoursePanel
+                :current-course-name="currentCourseName"
+                :current-page="currentPage"
+                :total-page="totalPage"
+                :page-timeline-duration="pageTimelineDuration"
+                :current-timeline-sec="currentTimelineSec"
+                :active-node-elapsed-sec="activeNodeElapsedSec"
+                :active-node-duration="activeNodeDuration"
+                :current-node-title="currentNodeMeta?.title || ''"
+                :active-node-type-label="activeNodeTypeLabel"
+                :playback-mode="playbackMode"
+                :playback-audio-meta="playbackAudioMeta"
+                :progress-percent="progressPercent"
+                :course-img="courseImg"
+                :playback-nodes="[]"
+                :current-node-id="currentNodeId"
+                :tts-enabled="ttsEnabled"
+                :page-summary="''"
+                :script-content="currentPageMarkdown"
+                :is-script-loading="scriptLoading"
+                :trace-point="tracePoint"
+                :trace-top="traceTop"
+                :trace-left="traceLeft"
+                :is-play="isPlay"
+                :show-status-strip="false"
+                @prev-page="prevPage"
+                @select-node="selectPlaybackNode"
+                @toggle-play="togglePlay"
+                @toggle-tts="toggleTts"
+                @speak-current-node="speakCurrentNode"
+                @next-page="nextPage"
+              />
+            </section>
+
             <aside class="outline-stage">
               <div class="outline-header">
                 <div>
@@ -155,58 +186,25 @@
               <div class="outline-empty" v-else>当前页面暂无可用节点。</div>
             </aside>
 
-            <section class="center-stage">
-              <StudentCoursePanel
-                :current-course-name="currentCourseName"
-                :current-page="currentPage"
-                :total-page="totalPage"
-                :page-timeline-duration="pageTimelineDuration"
-                :current-timeline-sec="currentTimelineSec"
-                :active-node-elapsed-sec="activeNodeElapsedSec"
-                :active-node-duration="activeNodeDuration"
-                :current-node-title="currentNodeMeta?.title || ''"
-                :active-node-type-label="activeNodeTypeLabel"
-                :playback-mode="playbackMode"
-                :playback-audio-meta="playbackAudioMeta"
-                :progress-percent="progressPercent"
-                :course-img="courseImg"
-                :playback-nodes="[]"
-                :current-node-id="currentNodeId"
-                :tts-enabled="ttsEnabled"
-                :page-summary="''"
-                :script-content="currentPageMarkdown"
-                :is-script-loading="scriptLoading"
-                :trace-point="tracePoint"
-                :trace-top="traceTop"
-                :trace-left="traceLeft"
-                :is-play="isPlay"
-                @prev-page="prevPage"
-                @select-node="selectPlaybackNode"
-                @toggle-play="togglePlay"
-                @toggle-tts="toggleTts"
-                @speak-current-node="speakCurrentNode"
-                @next-page="nextPage"
-              />
+            <section class="classroom-status-strip">
+              <div class="status-row">
+                <span class="status-pill">进度 {{ progressPercent }}%</span>
+                <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
+                <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
+                <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
+              </div>
+              <div class="status-track" v-if="pageTimelineDuration > 0">
+                <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
+              </div>
+              <div class="status-track" v-else>
+                <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+              </div>
+              <div class="status-note" v-if="courseAudioStatusText || activeNodeDuration > 0">
+                <span v-if="activeNodeDuration > 0">节点 {{ formatNodeTime(activeNodeElapsedSec) }} / {{ formatNodeTime(activeNodeDuration) }}</span>
+                <span>{{ activeNodeTypeLabel }}</span>
+                <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
+              </div>
             </section>
-            <aside class="ai-stage">
-              <StudentAskPanel
-                :question="question"
-                :ask-loading="askLoading"
-                :ai-reply="aiReply"
-                :stream-typing-active="streamTypingActive"
-                :qa-history="qaHistory"
-                :latest-answer-meta="latestAnswerMeta"
-                :summary-mode="summaryMode"
-                :merged-summary="mergedSummary"
-                @update:question="question = $event"
-                @update:summaryMode="summaryMode = $event"
-                @open-upload="openUpload"
-                @generate-summary="generateMergedSummary"
-                @use-summary="injectSummaryToQuestion"
-                @clear-draft="clearQaDraft"
-                @send-question="sendMultiModalQuestion"
-              />
-            </aside>
           </div>
 
           <div v-else-if="activeSection === 'analytics'" key="analytics" class="page-layout single-col">
@@ -286,6 +284,40 @@
       </main>
     </div>
 
+    <transition name="qa-flyout-fade">
+      <div v-if="showAskWorkspace" class="qa-flyout-backdrop" @click.self="closeAskWorkspace">
+        <div class="qa-flyout-panel" :style="qaFlyoutStyle" role="dialog" aria-modal="true" aria-label="问答工作区悬浮窗">
+          <div class="qa-flyout-header">
+            <div class="qa-flyout-drag-handle" @pointerdown.prevent="startAskWorkspaceDrag">
+              <div class="qa-flyout-kicker">问答工作区</div>
+              <h3>悬浮答疑窗口</h3>
+              <p>可随时收起，不影响当前课程浏览。</p>
+            </div>
+            <button class="qa-flyout-close" @click="closeAskWorkspace" aria-label="关闭问答悬浮窗">×</button>
+          </div>
+
+          <StudentAskPanel
+            :question="question"
+            :ask-loading="askLoading"
+            :ai-reply="aiReply"
+            :stream-typing-active="streamTypingActive"
+            :qa-history="qaHistory"
+            :latest-answer-meta="latestAnswerMeta"
+            :summary-mode="summaryMode"
+            :merged-summary="mergedSummary"
+            @update:question="question = $event"
+            @update:summaryMode="summaryMode = $event"
+            @open-upload="openUpload"
+            @generate-summary="generateMergedSummary"
+            @use-summary="injectSummaryToQuestion"
+            @clear-draft="clearQaDraft"
+            @send-question="sendMultiModalQuestion"
+          />
+          <span class="qa-flyout-resize-handle" title="拖动调整大小" @pointerdown.prevent="startAskWorkspaceResize"></span>
+        </div>
+      </div>
+    </transition>
+
     <footer class="footer">© 2025 智能学习课堂系统 · 学生端</footer>
 
     <StudentBreakpointDialog
@@ -298,7 +330,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { studentV1Api } from './services/v1'
 import { API_BASE } from './config/api'
@@ -379,15 +411,24 @@ const totalPage = ref(10)
 const isPlay = ref(false)
 const courseImg = ref('')
 const activeSection = ref('classroom')
-const sectionMetas = {
-  classroom: { tag: 'Learning', title: '课堂学习', desc: '左看结构，中间看课件，右侧直接提问，学习流程一屏完成。' },
-  analytics: { tag: 'Analytics', title: '学习分析', desc: '聚焦薄弱点与练习反馈，快速找到下一步学习重点。' },
-  trace: { tag: 'Trace', title: '溯源定位', desc: '把问题定位到具体页面与节点，避免泛泛追问。' },
-  knowledge: { tag: 'Knowledge', title: '知识拆解', desc: '把资料拆成知识树，便于回看和定位关键概念。' },
-  personal: { tag: 'Profile', title: '个人中心', desc: '查看个人学习画像、收藏与练习记录。' }
-}
-const activeSectionMeta = computed(() => sectionMetas[activeSection.value] || sectionMetas.classroom)
 const isMenuCollapsed = ref(false)
+const showAskWorkspace = ref(false)
+const askWorkspaceLayout = reactive({
+  left: 0,
+  top: 0,
+  width: 360,
+  height: 620
+})
+const askWorkspaceInteraction = reactive({
+  mode: '',
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  startLeft: 0,
+  startTop: 0,
+  startWidth: 0,
+  startHeight: 0
+})
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
 const filteredSelectionClassOptions = computed(() => {
   if (!selectedTeachingCourseId.value) return selectionClassOptions.value
@@ -501,6 +542,17 @@ const activeNodeTypeLabel = computed(() => {
   return '核心讲解'
 })
 
+const courseAudioStatusText = computed(() => {
+  const status = playbackAudioMeta.value?.audio_status
+  const duration = Number(playbackAudioMeta.value?.audio_duration_sec || 0)
+  if (!status) return ''
+  if (status === 'ready' && duration > 0) {
+    return `音频已生成 ${formatNodeTime(duration)}`
+  }
+  if (status === 'processing') return '音频生成中'
+  return '使用时长驱动讲解'
+})
+
 const filteredOutlineNodes = computed(() => {
   if (outlineFilter.value === 'all') return playbackNodes.value
   if (outlineFilter.value === 'core') {
@@ -561,6 +613,193 @@ const injectSummaryToQuestion = () => {
   }
   question.value = `请基于以下摘要，帮我用更通俗的方式讲解：\n${mergedSummary.value}`
   ElMessage.success('摘要已写入提问框')
+}
+
+const closeAskWorkspace = () => {
+  showAskWorkspace.value = false
+}
+
+const toggleAskWorkspace = () => {
+  ensureAskWorkspaceLayout()
+  showAskWorkspace.value = !showAskWorkspace.value
+}
+
+const ASK_WORKSPACE_LAYOUT_KEY = 'fuww_student_ask_workspace_layout'
+const ASK_WORKSPACE_MARGIN = 12
+const ASK_WORKSPACE_TOP = 68
+const ASK_WORKSPACE_MIN_WIDTH = 320
+const ASK_WORKSPACE_MIN_HEIGHT = 420
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max)
+
+const getViewportBounds = () => {
+  if (typeof window === 'undefined') {
+    return { width: 1280, height: 720 }
+  }
+  return {
+    width: window.innerWidth || 1280,
+    height: window.innerHeight || 720
+  }
+}
+
+const getDefaultAskWorkspaceLayout = () => {
+  const viewport = getViewportBounds()
+  const width = clamp(360, ASK_WORKSPACE_MIN_WIDTH, Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2))
+  const height = clamp(620, ASK_WORKSPACE_MIN_HEIGHT, Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN))
+  return {
+    left: Math.max(ASK_WORKSPACE_MARGIN, viewport.width - width - ASK_WORKSPACE_MARGIN),
+    top: ASK_WORKSPACE_TOP,
+    width,
+    height
+  }
+}
+
+const clampAskWorkspaceLayout = (layout) => {
+  const viewport = getViewportBounds()
+  const widthLimit = Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2)
+  const heightLimit = Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN)
+  const width = clamp(Math.round(layout.width || 0), ASK_WORKSPACE_MIN_WIDTH, widthLimit)
+  const height = clamp(Math.round(layout.height || 0), ASK_WORKSPACE_MIN_HEIGHT, heightLimit)
+  const leftLimit = Math.max(ASK_WORKSPACE_MARGIN, viewport.width - width - ASK_WORKSPACE_MARGIN)
+  const topLimit = Math.max(ASK_WORKSPACE_TOP, viewport.height - height - ASK_WORKSPACE_MARGIN)
+  const left = clamp(Math.round(layout.left || 0), ASK_WORKSPACE_MARGIN, leftLimit)
+  const top = clamp(Math.round(layout.top || 0), ASK_WORKSPACE_TOP, topLimit)
+  return { left, top, width, height }
+}
+
+const ensureAskWorkspaceLayout = () => {
+  const clamped = clampAskWorkspaceLayout(askWorkspaceLayout)
+  askWorkspaceLayout.left = clamped.left
+  askWorkspaceLayout.top = clamped.top
+  askWorkspaceLayout.width = clamped.width
+  askWorkspaceLayout.height = clamped.height
+}
+
+const persistAskWorkspaceLayout = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(ASK_WORKSPACE_LAYOUT_KEY, JSON.stringify({
+    left: askWorkspaceLayout.left,
+    top: askWorkspaceLayout.top,
+    width: askWorkspaceLayout.width,
+    height: askWorkspaceLayout.height
+  }))
+}
+
+const loadAskWorkspaceLayout = () => {
+  if (typeof window === 'undefined') return
+  let parsed = null
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(ASK_WORKSPACE_LAYOUT_KEY) || 'null')
+  } catch (error) {
+    parsed = null
+  }
+  const merged = parsed && typeof parsed === 'object'
+    ? {
+        left: Number(parsed.left),
+        top: Number(parsed.top),
+        width: Number(parsed.width),
+        height: Number(parsed.height)
+      }
+    : getDefaultAskWorkspaceLayout()
+  const clamped = clampAskWorkspaceLayout(merged)
+  askWorkspaceLayout.left = clamped.left
+  askWorkspaceLayout.top = clamped.top
+  askWorkspaceLayout.width = clamped.width
+  askWorkspaceLayout.height = clamped.height
+}
+
+const qaFlyoutStyle = computed(() => ({
+  left: `${askWorkspaceLayout.left}px`,
+  top: `${askWorkspaceLayout.top}px`,
+  width: `${askWorkspaceLayout.width}px`,
+  height: `${askWorkspaceLayout.height}px`
+}))
+
+const stopAskWorkspaceInteraction = () => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointermove', handleAskWorkspacePointerMove)
+  window.removeEventListener('pointerup', handleAskWorkspacePointerUp)
+  window.removeEventListener('pointercancel', handleAskWorkspacePointerUp)
+  window.removeEventListener('blur', handleAskWorkspacePointerUp)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  askWorkspaceInteraction.mode = ''
+  askWorkspaceInteraction.pointerId = null
+}
+
+const handleAskWorkspacePointerMove = (event) => {
+  if (!askWorkspaceInteraction.mode || typeof window === 'undefined') return
+  const viewport = getViewportBounds()
+  if (askWorkspaceInteraction.mode === 'drag') {
+    const nextLayout = clampAskWorkspaceLayout({
+      left: askWorkspaceInteraction.startLeft + (event.clientX - askWorkspaceInteraction.startX),
+      top: askWorkspaceInteraction.startTop + (event.clientY - askWorkspaceInteraction.startY),
+      width: askWorkspaceLayout.width,
+      height: askWorkspaceLayout.height
+    })
+    askWorkspaceLayout.left = nextLayout.left
+    askWorkspaceLayout.top = nextLayout.top
+    return
+  }
+
+  const nextWidth = clamp(
+    askWorkspaceInteraction.startWidth + (event.clientX - askWorkspaceInteraction.startX),
+    ASK_WORKSPACE_MIN_WIDTH,
+    Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - askWorkspaceLayout.left - ASK_WORKSPACE_MARGIN)
+  )
+  const nextHeight = clamp(
+    askWorkspaceInteraction.startHeight + (event.clientY - askWorkspaceInteraction.startY),
+    ASK_WORKSPACE_MIN_HEIGHT,
+    Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - askWorkspaceLayout.top - ASK_WORKSPACE_MARGIN)
+  )
+  askWorkspaceLayout.width = nextWidth
+  askWorkspaceLayout.height = nextHeight
+}
+
+const handleAskWorkspacePointerUp = () => {
+  stopAskWorkspaceInteraction()
+  ensureAskWorkspaceLayout()
+  persistAskWorkspaceLayout()
+}
+
+const startAskWorkspaceDrag = (event) => {
+  if (!showAskWorkspace.value) return
+  if (event.button !== 0) return
+  ensureAskWorkspaceLayout()
+  askWorkspaceInteraction.mode = 'drag'
+  askWorkspaceInteraction.pointerId = event.pointerId
+  askWorkspaceInteraction.startX = event.clientX
+  askWorkspaceInteraction.startY = event.clientY
+  askWorkspaceInteraction.startLeft = askWorkspaceLayout.left
+  askWorkspaceInteraction.startTop = askWorkspaceLayout.top
+  askWorkspaceInteraction.startWidth = askWorkspaceLayout.width
+  askWorkspaceInteraction.startHeight = askWorkspaceLayout.height
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'move'
+  window.addEventListener('pointermove', handleAskWorkspacePointerMove)
+  window.addEventListener('pointerup', handleAskWorkspacePointerUp)
+  window.addEventListener('pointercancel', handleAskWorkspacePointerUp)
+  window.addEventListener('blur', handleAskWorkspacePointerUp)
+}
+
+const startAskWorkspaceResize = (event) => {
+  if (!showAskWorkspace.value) return
+  if (event.button !== 0) return
+  ensureAskWorkspaceLayout()
+  askWorkspaceInteraction.mode = 'resize'
+  askWorkspaceInteraction.pointerId = event.pointerId
+  askWorkspaceInteraction.startX = event.clientX
+  askWorkspaceInteraction.startY = event.clientY
+  askWorkspaceInteraction.startLeft = askWorkspaceLayout.left
+  askWorkspaceInteraction.startTop = askWorkspaceLayout.top
+  askWorkspaceInteraction.startWidth = askWorkspaceLayout.width
+  askWorkspaceInteraction.startHeight = askWorkspaceLayout.height
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'nwse-resize'
+  window.addEventListener('pointermove', handleAskWorkspacePointerMove)
+  window.addEventListener('pointerup', handleAskWorkspacePointerUp)
+  window.addEventListener('pointercancel', handleAskWorkspacePointerUp)
+  window.addEventListener('blur', handleAskWorkspacePointerUp)
 }
 
 const clearQaDraft = () => {
@@ -1105,6 +1344,7 @@ const backToSelectionPage = () => {
   hasCourseSelected.value = false
   isPlay.value = false
   playbackState.value = 'paused'
+  showAskWorkspace.value = false
   stopSpeechNarration()
   void loadCourseSelectionData()
 }
@@ -1133,6 +1373,7 @@ const handleLoginSuccess = (user) => {
 const handleLogout = () => {
   isLoggedIn.value = false
   hasCourseSelected.value = false
+  showAskWorkspace.value = false
   studentId.value = ''
   selectedTeachingCourseId.value = ''
   selectedCourseClassId.value = ''
@@ -1155,6 +1396,7 @@ const handleLogout = () => {
 
 onMounted(() => {
   if (typeof window !== 'undefined') {
+    loadAskWorkspaceLayout()
     window.localStorage.setItem('fuww_student_origin', window.location.origin)
     const params = new URLSearchParams(window.location.search)
     const role = String(params.get('role') || '').trim().toLowerCase()
@@ -1187,6 +1429,11 @@ onUnmounted(() => {
   stopPlaybackTimer()
   stopSpeechNarration()
   stopStreamTypewriter()
+  stopAskWorkspaceInteraction()
+})
+
+onBeforeUnmount(() => {
+  stopAskWorkspaceInteraction()
 })
 
 watch(selectedTeachingCourseId, () => {
@@ -1869,53 +2116,6 @@ const checkAnswer = async (option) => {
   gap: 8px;
 }
 
-.section-bar {
-  border: 1px solid #d7e5dd;
-  background: linear-gradient(135deg, #ffffff 0%, #f4f8f6 100%);
-  border-radius: 14px;
-  padding: 10px 12px;
-}
-
-.section-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.section-tag {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-radius: 999px;
-  padding: 3px 9px;
-  color: #2f605a;
-  background: #e9f3ee;
-  border: 1px solid #d2e4db;
-  font-weight: 700;
-}
-
-.section-bar h2 {
-  font-size: 17px;
-  color: #24453f;
-}
-
-.section-bar p {
-  margin-top: 4px;
-  color: #6b8178;
-  font-size: 12px;
-}
-
-.section-header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.section-header-actions p {
-  margin: 4px 0 0;
-}
-
 .logout-btn {
   border: 1px solid #cfe0d7;
   background: #ffffff;
@@ -1928,20 +2128,6 @@ const checkAnswer = async (option) => {
 
 .logout-btn:hover {
   border-color: #2f605a;
-}
-
-.outline-btn {
-  border: 1px solid #cfe0d7;
-  background: #f4fbf7;
-  color: #2f605a;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.outline-btn:hover {
-  border-color: #8fbcae;
 }
 
 .page-layout {
@@ -1980,10 +2166,9 @@ const checkAnswer = async (option) => {
 }
 
 .page-layout.classroom-grid {
-  display: grid;
-  grid-template-columns: 270px minmax(0, 1fr) 420px;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: stretch;
 }
 
 .outline-stage {
@@ -2120,19 +2305,187 @@ const checkAnswer = async (option) => {
   font-size: 13px;
 }
 
+.classroom-status-strip {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 250, 247, 0.96) 100%);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.classroom-status-strip .status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.classroom-status-strip .status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #3b5d54;
+  background: #edf4f0;
+  border: 1px solid #d5e4dc;
+}
+
+.classroom-status-strip .status-track,
+.classroom-status-strip .progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+}
+
+.classroom-status-strip .status-fill,
+.classroom-status-strip .progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f766e 0%, #0284c7 100%);
+}
+
+.classroom-status-strip .status-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 7px;
+  font-size: 12px;
+  color: #628075;
+}
+
 .center-stage {
   min-width: 0;
 }
 
-.ai-stage {
+.qa-flyout-backdrop {
+  position: fixed;
+  inset: 56px 0 0 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: none;
+}
+
+.qa-flyout-panel {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(247, 250, 248, 0.9);
+  border: 1px solid rgba(216, 229, 222, 0.88);
+  box-shadow: 0 18px 34px rgba(45, 72, 66, 0.12);
+  overflow: hidden;
+}
+
+.qa-flyout-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: move;
+  user-select: none;
+}
+
+.qa-flyout-drag-handle {
   min-width: 0;
 }
 
-.ai-stage :deep(.panel-box) {
+.qa-flyout-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6a8278;
+}
+
+.qa-flyout-header h3 {
+  margin-top: 4px;
+  font-size: 18px;
+  color: #23463f;
+}
+
+.qa-flyout-header p {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6f867d;
+}
+
+.qa-flyout-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid #d0dfd7;
+  background: #fff;
+  color: #50695f;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qa-flyout-resize-handle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 18px;
+  height: 18px;
+  border-right: 2px solid rgba(47, 96, 90, 0.42);
+  border-bottom: 2px solid rgba(47, 96, 90, 0.42);
+  border-radius: 0 0 14px 0;
+  cursor: nwse-resize;
+  opacity: 0.85;
+}
+
+.qa-flyout-panel :deep(.panel-box) {
   height: 100%;
-  min-height: 520px;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  background:
+    radial-gradient(circle at top right, rgba(143, 193, 181, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 251, 248, 0.84) 100%);
+}
+
+.qa-flyout-panel :deep(.conversation-board) {
+  flex: 1;
+  min-height: 0;
+}
+
+.qa-flyout-panel :deep(.conversation-thread) {
+  max-height: none;
+}
+
+.qa-flyout-panel:active .qa-flyout-resize-handle,
+.qa-flyout-panel:hover .qa-flyout-resize-handle {
+  opacity: 1;
+}
+
+@keyframes qa-flyout-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.qa-flyout-fade-enter-active,
+.qa-flyout-fade-leave-active {
+  transition: opacity 0.22s ease;
+}
+
+.qa-flyout-fade-enter-from,
+.qa-flyout-fade-leave-to {
+  opacity: 0;
+}
+
+.qa-flyout-fade-enter-active .qa-flyout-panel {
+  animation: qa-flyout-pop 0.24s ease both;
+}
+
+.qa-flyout-fade-leave-active .qa-flyout-panel {
+  animation: qa-flyout-pop 0.18s ease reverse both;
 }
 
 .footer {
@@ -2172,9 +2525,9 @@ const checkAnswer = async (option) => {
     max-height: 280px;
   }
 
-  .ai-stage :deep(.panel-box) {
-    height: auto;
-    min-height: 0;
+  .qa-flyout-panel {
+    width: min(360px, calc(100vw - 24px));
+    height: min(620px, calc(100vh - 80px));
   }
 }
 
@@ -2208,6 +2561,20 @@ const checkAnswer = async (option) => {
 
   .menu-item {
     flex: 1 1 calc(50% - 4px);
+  }
+
+  .qa-flyout-backdrop {
+    inset: 56px 0 0 0;
+  }
+
+  .qa-flyout-panel {
+    width: min(calc(100vw - 16px), 420px);
+    height: min(calc(100vh - 72px), 620px);
+    border-radius: 18px;
+  }
+
+  .qa-flyout-header {
+    cursor: default;
   }
 }
 </style>
