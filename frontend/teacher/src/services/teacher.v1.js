@@ -14,8 +14,10 @@ async function requestAiJson(path, options = {}, requestError = null) {
 }
 
 function toFiniteNumber(value, fallback) {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : fallback
+  const str = String(value || '').trim()
+  if (!str) return fallback
+  const n = Number(str)
+  return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
 function generateTempUuid(prefix = 'tmp') {

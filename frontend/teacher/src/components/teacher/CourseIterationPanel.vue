@@ -56,7 +56,7 @@
           </div>
 
           <div class="replay-recommend-block">
-            <div class="replay-recommend-title">🎬 智能复盘视频推荐（B站）</div>
+            <div class="replay-recommend-title">🎬 智能复盘资源推荐（B站 / 51教习）</div>
 
             <div v-if="!boundNodeIds.length" class="mini-empty">
               先在下方把疑问绑定到节点，再自动生成对应视频推荐。
@@ -74,7 +74,7 @@
                 </div>
 
                 <div v-if="recommendLoadingMap[nodeId]" class="mini-loading">
-                  正在加载推荐视频...
+                  正在加载推荐资源...
                 </div>
 
                 <div v-else-if="recommendErrorMap[nodeId]" class="mini-error">
@@ -94,7 +94,7 @@
                   </div>
                 </div>
 
-                <div v-else class="mini-empty">暂无匹配的 B 站视频。</div>
+                <div v-else class="mini-empty">暂无匹配的推荐资源。</div>
               </div>
             </div>
           </div>
@@ -632,7 +632,7 @@ const loadRecommendForNode = async (nodeId, force = false) => {
     const res = await teacherV1Service.fetchRecommendedResources({
       keyword: nodeTitle,
       type: '网课',
-      source_preference: ['Bilibili'],
+      source_preference: ['Bilibili', '51jiaoxi'],
       page: 1,
       pageSize: 6
     })
@@ -641,15 +641,9 @@ const loadRecommendForNode = async (nodeId, force = false) => {
       .map((item, index) => normalizeRecommendItem(item, index, nodeId))
       .filter(item => item.title)
 
-    const bilibiliList = list.filter(item => {
-      const sourceText = item.source.toLowerCase()
-      const linkText = item.link.toLowerCase()
-      return sourceText.includes('bilibili') || sourceText.includes('b站') || linkText.includes('bilibili.com')
-    })
-
     recommendByNodeId.value = {
       ...recommendByNodeId.value,
-      [nodeId]: (bilibiliList.length ? bilibiliList : list).slice(0, 3)
+      [nodeId]: list.slice(0, 3)
     }
   } catch (error) {
     recommendByNodeId.value = {

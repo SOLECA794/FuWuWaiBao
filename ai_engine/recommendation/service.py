@@ -169,10 +169,9 @@ class ResourceRecommendAgent:
             "你必须只输出 JSON，不要输出解释文本、Markdown 或代码块。"
             "无论上下文是否完整，都必须返回至少 3 个资源。"
             "如果找不到本地匹配资源，绝对不能返回空列表；"
-            "必须基于你的知识库与常识，推荐 B 站、知乎、国家中小学智慧教育平台等真实可访问的网课入口。"
+            "必须基于你的知识库与常识，推荐 B 站、51教习、知乎、国家中小学智慧教育平台等真实可访问的网课入口。"
             "如果无法精确得知资源 URL，请预测性生成可点击的搜索结果链接或首页链接。"
-            "例如针对‘选择排序’，可以生成标题‘B站：数据结构与算法之选择排序详解’，"
-            "链接指向 B 站搜索结果页。"
+            "视频讲解优先指向 B 站搜索结果页，课件、题单、试题类内容优先指向 51教习搜索结果页。"
             "最终 JSON 的根键名必须是 recommended_resources。"
             "recommended_resources 的每一项都必须包含字段：title,type,source,url,fit_reason。"
             "你可以额外补充 summary、tags、duration、price、score，但不要遗漏上述字段。"
@@ -240,6 +239,8 @@ class ResourceRecommendAgent:
         lower_title = title.lower()
         if "知乎" in title or "zhihu" in lower_title:
             return f"https://www.zhihu.com/search?type=content&q={keyword}"
+        if "51教习" in title or "51jiaoxi" in lower_title or "学科网" in title or "zxxk" in lower_title or "xkw" in lower_title:
+            return f"https://www.51jiaoxi.com/search?keyword={keyword}"
         if "B站" in title or "b站" in title or "bilibili" in lower_title:
             return f"https://search.bilibili.com/all?keyword={keyword}"
         if "智慧教育" in title or "smartedu" in lower_title or "国家" in title:
@@ -267,6 +268,13 @@ class ResourceRecommendAgent:
                 "source": "bilibili",
                 "url": f"https://search.bilibili.com/all?keyword={encoded_keyword}",
                 "fit_reason": fit_reason("bilibili"),
+            },
+            {
+                "title": f"51教习：{keyword} 课件与题单",
+                "type": resource_type,
+                "source": "51jiaoxi",
+                "url": f"https://www.51jiaoxi.com/search?keyword={encoded_keyword}",
+                "fit_reason": fit_reason("51jiaoxi"),
             },
             {
                 "title": f"知乎：{keyword} 教学讲解",

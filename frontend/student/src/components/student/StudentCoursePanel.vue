@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <div class="status-strip">
+    <div class="status-strip" v-if="showStatusStrip">
       <div class="status-row">
         <span class="status-pill">进度 {{ progressPercent }}%</span>
         <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
@@ -175,6 +175,10 @@ const props = defineProps({
   isScriptLoading: {
     type: Boolean,
     default: false
+  },
+  showStatusStrip: {
+    type: Boolean,
+    default: true
   }
 })
 
