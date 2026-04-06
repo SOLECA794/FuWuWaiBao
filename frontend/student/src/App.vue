@@ -87,9 +87,9 @@
               <span class="menu-icon">析</span>
               <span v-show="!isMenuCollapsed">学习分析</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'trace' }" @click="activeSection = 'trace'" title="溯源定位">
-              <span class="menu-icon">溯</span>
-              <span v-show="!isMenuCollapsed">溯源定位</span>
+            <button class="menu-item" :class="{ active: activeSection === 'recommend' }" @click="activeSection = 'recommend'" title="学习推荐">
+              <span class="menu-icon">荐</span>
+              <span v-show="!isMenuCollapsed">学习推荐</span>
             </button>
             <button class="menu-item" :class="{ active: activeSection === 'knowledge' }" @click="activeSection = 'knowledge'" title="知识拆解">
               <span class="menu-icon">知</span>
@@ -221,46 +221,12 @@
             />
           </div>
 
-          <div v-else-if="activeSection === 'trace'" key="trace" class="page-layout two-col">
-            <section class="left-stage">
-              <StudentCoursePanel
-                :current-course-name="currentCourseName"
-                :current-page="currentPage"
-                :total-page="totalPage"
-                :page-timeline-duration="pageTimelineDuration"
-                :current-timeline-sec="currentTimelineSec"
-                :active-node-elapsed-sec="activeNodeElapsedSec"
-                :active-node-duration="activeNodeDuration"
-                :current-node-title="currentNodeMeta?.title || ''"
-                :active-node-type-label="activeNodeTypeLabel"
-                :playback-mode="playbackMode"
-                :playback-audio-meta="playbackAudioMeta"
-                :progress-percent="progressPercent"
-                :course-img="courseImg"
-                :playback-nodes="playbackNodes"
-                :current-node-id="currentNodeId"
-                :tts-enabled="ttsEnabled"
-                :page-summary="pageSummary"
-                :script-content="currentPageMarkdown"
-                :is-script-loading="scriptLoading"
-                :trace-point="tracePoint"
-                :trace-top="traceTop"
-                :trace-left="traceLeft"
-                :is-play="isPlay"
-                @prev-page="prevPage"
-                @select-node="selectPlaybackNode"
-                @toggle-play="togglePlay"
-                @toggle-tts="toggleTts"
-                @speak-current-node="speakCurrentNode"
-                @next-page="nextPage"
-              />
-            </section>
-            <section class="right-stage">
-              <StudentTracePanel
-                :trace-log="traceLog"
-                @open-trace-mode="openTraceMode"
-              />
-            </section>
+          <div v-else-if="activeSection === 'recommend'" key="recommend" class="page-layout single-col">
+            <StudentRecommendPanel
+              :course-name="currentCourseName"
+              :current-node-title="currentNodeMeta?.title || ''"
+              :current-page="currentPage"
+            />
           </div>
 
           <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
@@ -337,7 +303,7 @@ import { API_BASE } from './config/api'
 import StudentCoursePanel from './components/student/StudentCoursePanel.vue'
 import StudentAskPanel from './components/student/StudentAskPanel.vue'
 import StudentStudyPanel from './components/student/StudentStudyPanel.vue'
-import StudentTracePanel from './components/student/StudentTracePanel.vue'
+import StudentRecommendPanel from './components/student/StudentRecommendPanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
@@ -430,6 +396,10 @@ const askWorkspaceInteraction = reactive({
   startHeight: 0
 })
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
+const timelinePercent = computed(() => {
+  if (!pageTimelineDuration.value) return 0
+  return Math.min(100, Math.max(0, Math.round((currentTimelineSec.value / pageTimelineDuration.value) * 100)))
+})
 const filteredSelectionClassOptions = computed(() => {
   if (!selectedTeachingCourseId.value) return selectionClassOptions.value
   return selectionClassOptions.value.filter((item) => item.teachingCourseId === selectedTeachingCourseId.value)
@@ -488,7 +458,6 @@ const latestAnswerMeta = ref({
 const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
-const traceLog = ref('')
 const outlineFilter = ref('all')
 const summaryMode = ref('quick')
 const mergedSummary = ref('')
@@ -1159,7 +1128,6 @@ const sendMultiModalQuestion = async () => {
     if (qaHistory.value.length > 5) {
       qaHistory.value = qaHistory.value.slice(0, 5)
     }
-    traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}，续接节点 ${resumeNodeId || currentNodeId.value}`
     question.value = ''
     if (finalPayload?.need_reteach) {
       ElMessage.success('已按追问语境切换为重讲模式')
@@ -1197,7 +1165,6 @@ const sendMultiModalQuestion = async () => {
       if (qaHistory.value.length > 5) {
         qaHistory.value = qaHistory.value.slice(0, 5)
       }
-      traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}`
       question.value = ''
       playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
       if (!latestAnswerMeta.value.needReteach) {
@@ -1219,14 +1186,6 @@ const sendMultiModalQuestion = async () => {
     }
     askLoading.value = false
   }
-}
-
-const openTraceMode = () => {
-  tracePoint.value = true
-  traceTop.value = 150
-  traceLeft.value = 200
-  const sourceNode = latestAnswerMeta.value?.sourceNodeId || currentNodeId.value
-  traceLog.value = `已定位：第 ${currentPage.value} 页 → 当前节点 ${currentNodeId.value}${sourceNode ? `（最近问答来源节点 ${sourceNode}）` : ''}`
 }
 
 const pickCoursewareCard = async (card) => {
@@ -1670,7 +1629,6 @@ const handleNodeClick = (data) => {
   tracePoint.value = true
   traceTop.value = 200
   traceLeft.value = 300
-  traceLog.value = `已定位知识点：${data.name}`
 }
 
 const startWeakPointLearn = async (point) => {
