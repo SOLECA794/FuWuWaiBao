@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"smart-teaching-backend/pkg/apiresp"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
@@ -30,13 +31,13 @@ type authRequest struct {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req authRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	username := strings.TrimSpace(req.Username)
 	if username == "" || len(req.Password) < 4 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名或密码不合法（密码至少4位）"})
+		apiresp.BadRequest(c, "用户名或密码不合法（密码至少4位）", "")
 		return
 	}
 
@@ -45,7 +46,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	var existing model.User
 	if err := h.db.Where("username = ?", username).First(&existing).Error; err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名已存在"})
+		apiresp.BadRequest(c, "用户名已存在", "")
 		return
 	}
 
@@ -57,7 +58,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		logger.Errorf("生成密码哈希失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "注册失败，请稍后重试"})
+		apiresp.Internal(c, "注册失败，请稍后重试", "")
 		return
 	}
 
@@ -69,32 +70,28 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if err := h.db.Create(user).Error; err != nil {
 		logger.Errorf("创建用户失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "注册失败，请稍后重试"})
+		apiresp.Internal(c, "注册失败，请稍后重试", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "注册成功",
-		"data": gin.H{
+	apiresp.OK(c, "注册成功", gin.H{
 			"id":       user.ID,
 			"username": user.Username,
 			"role":     user.Role,
-		},
-	})
+		})
 }
 
 // Login 用户登录
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req authRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	username := strings.TrimSpace(req.Username)
 	if username == "" || req.Password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名或密码不能为空"})
+		apiresp.BadRequest(c, "用户名或密码不能为空", "")
 		return
 	}
 
@@ -102,23 +99,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	var user model.User
 	if err := h.db.Where("username = ?", username).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "账号或密码错误"})
+		apiresp.Unauthorized(c, "账号或密码错误", "")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "账号或密码错误"})
+		apiresp.Unauthorized(c, "账号或密码错误", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "登录成功",
-		"data": gin.H{
+	apiresp.OK(c, "登录成功", gin.H{
 			"id":       user.ID,
 			"username": user.Username,
 			"role":     user.Role,
-		},
-	})
+		})
 }
 

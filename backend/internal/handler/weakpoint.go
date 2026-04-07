@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	"smart-teaching-backend/pkg/apiresp"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
@@ -31,7 +32,7 @@ func (h *WeakPointHandler) ParseKnowledge(c *gin.Context) {
 		StudentID   string `json:"studentId" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
@@ -43,12 +44,12 @@ func (h *WeakPointHandler) ParseKnowledge(c *gin.Context) {
 	if h.aiClient != nil {
 		resp, err := h.aiClient.ParseKnowledge(c.Request.Context(), service.ParseKnowledgeRequest{Text: text, Mode: "llm"})
 		if err == nil && len(resp.Structure) > 0 {
-			c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"structure": resp.Structure}})
+			apiresp.OK(c, "请求成功", gin.H{"structure": resp.Structure})
 			return
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "data": gin.H{"structure": fallbackKnowledgeStructure(text)}})
+	apiresp.OK(c, "请求成功", gin.H{"structure": fallbackKnowledgeStructure(text)})
 }
 
 func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
@@ -58,7 +59,7 @@ func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
 	}
 	studentID := strings.TrimSpace(c.Query("studentId"))
 	if studentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: studentId"})
+		apiresp.BadRequest(c, "缺少参数: studentId", "")
 		return
 	}
 
@@ -67,13 +68,13 @@ func (h *WeakPointHandler) GetWeakPointList(c *gin.Context) {
 		weakPoints = []gin.H{}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": weakPoints})
+	apiresp.OK(c, "请求成功", weakPoints)
 }
 
 func (h *WeakPointHandler) GetWeakPointExplain(c *gin.Context) {
 	weakPointID, weakPointName := h.resolveWeakPointExplainInput(c)
 	if weakPointID == "" && weakPointName == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少薄弱点参数"})
+		apiresp.BadRequest(c, "缺少薄弱点参数", "")
 		return
 	}
 	if weakPointName == "" {
@@ -88,7 +89,7 @@ func (h *WeakPointHandler) GetWeakPointExplain(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"id": weakPointID, "weakPointId": weakPointID, "name": weakPointName, "title": weakPointName + " · 知识点讲解", "content": content, "examples": []string{"结合当前页讲稿复述一遍", "尝试举一个自己的例子"}}})
+	apiresp.OK(c, "请求成功", gin.H{"id": weakPointID, "weakPointId": weakPointID, "name": weakPointName, "title": weakPointName + " · 知识点讲解", "content": content, "examples": []string{"结合当前页讲稿复述一遍", "尝试举一个自己的例子"}})
 }
 
 func (h *WeakPointHandler) GenerateTest(c *gin.Context) {
@@ -126,11 +127,11 @@ func (h *WeakPointHandler) GenerateTest(c *gin.Context) {
 	optionsJSON, _ := json.Marshal(payload.Options)
 	questionRecord := model.Question{WeakPointID: weakPointID, QuestionType: questionType, Content: payload.Content, Options: string(optionsJSON), Answer: payload.Answer, Explanation: payload.Explanation, Difficulty: 2}
 	if err := h.db.Create(&questionRecord).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存题目失败"})
+		apiresp.Internal(c, "保存题目失败", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"questionId": questionRecord.ID, "type": questionType, "content": payload.Content, "options": payload.Options}})
+	apiresp.OK(c, "请求成功", gin.H{"questionId": questionRecord.ID, "type": questionType, "content": payload.Content, "options": payload.Options})
 }
 
 func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
@@ -141,7 +142,7 @@ func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
 		UserAnswer string `json:"userAnswer" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: userAnswer"})
+		apiresp.BadRequest(c, "缺少参数: userAnswer", "")
 		return
 	}
 	if questionID == "" {
@@ -150,7 +151,7 @@ func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
 
 	var question model.Question
 	if err := h.db.First(&question, "id = ?", questionID).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": fallbackCheckAnswer(questionID, req.UserAnswer)})
+		apiresp.OK(c, "请求成功", fallbackCheckAnswer(questionID, req.UserAnswer))
 		return
 	}
 
@@ -168,7 +169,7 @@ func (h *WeakPointHandler) CheckAnswer(c *gin.Context) {
 		_ = h.db.Create(&model.AnswerRecord{StudentID: req.StudentID, QuestionID: questionID, UserAnswer: req.UserAnswer, IsCorrect: isCorrect, MasteryDelta: masteryDelta}).Error
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"isCorrect": isCorrect, "correctAnswer": correctAnswer, "explanation": question.Explanation, "masteryDelta": masteryDelta, "newMastery": 65 + masteryDelta}})
+	apiresp.OK(c, "请求成功", gin.H{"isCorrect": isCorrect, "correctAnswer": correctAnswer, "explanation": question.Explanation, "masteryDelta": masteryDelta, "newMastery": 65 + masteryDelta})
 }
 
 type weakPointTestPayload struct {
