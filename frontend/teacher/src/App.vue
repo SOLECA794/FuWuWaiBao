@@ -149,7 +149,7 @@
                 :current-course-name="currentCourseName"
                 :current-course-total-pages="currentCourseTotalPages"
                 :filter-page="filterPage"
-                :filtered-questions="filteredQuestions"
+                :filtered-questions="questionRecords"
                 :uncovered-node-ids="studentStats.mappingCoverage?.uncoveredNodeIds || []"
                 @update:filter-page="filterPage = $event"
                 @focus-node="handleFocusNodeFromQuestion"
