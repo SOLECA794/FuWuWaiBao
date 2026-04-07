@@ -65,11 +65,21 @@ const chartRef = ref(null)
 let chartInstance = null
 
 const chartOption = computed(() => {
-  const pages = props.cardData.map(item => `第${item.page}页`)
-  const questionCounts = props.cardData.map(item => item.提问量)
-  const stayTimes = props.cardData.map(item => item.停留时长)
-  const cardScores = props.cardData.map(item => item.卡点指数)
-  const reteachCounts = props.cardData.map(item => item.需重讲 || 0)
+  const normalized = [...(props.cardData || [])]
+    .map((item) => ({
+      page: Number(item.page) || 0,
+      questionCount: Number(item.提问量) || 0,
+      stayTime: Number(item.停留时长) || 0,
+      cardScore: Number(item.卡点指数) || 0,
+      reteachCount: Number(item.需重讲 || 0) || 0
+    }))
+    .sort((a, b) => a.page - b.page)
+
+  const pages = normalized.map(item => `第${item.page}页`)
+  const questionCounts = normalized.map(item => item.questionCount)
+  const stayTimes = normalized.map(item => item.stayTime)
+  const cardScores = normalized.map(item => item.cardScore)
+  const reteachCounts = normalized.map(item => item.reteachCount)
 
   if (props.chartType === 'line') {
     return {
@@ -77,32 +87,63 @@ const chartOption = computed(() => {
       tooltip: { trigger: 'axis' },
       legend: { data: ['提问量', '停留时长(秒)', '重讲次数', '卡点指数'] },
       xAxis: { type: 'category', data: pages },
-      yAxis: { type: 'value' },
+      yAxis: [
+        { type: 'value', name: '次数/指数', minInterval: 1 },
+        { type: 'value', name: '停留时长(秒)' }
+      ],
       series: [
-        { name: '提问量', type: 'line', data: questionCounts },
-        { name: '停留时长(秒)', type: 'line', data: stayTimes },
-        { name: '重讲次数', type: 'line', data: reteachCounts },
-        { name: '卡点指数', type: 'line', data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
+        { name: '提问量', type: 'line', yAxisIndex: 0, smooth: true, data: questionCounts },
+        { name: '停留时长(秒)', type: 'line', yAxisIndex: 1, smooth: true, data: stayTimes },
+        { name: '重讲次数', type: 'line', yAxisIndex: 0, smooth: true, data: reteachCounts },
+        { name: '卡点指数', type: 'line', yAxisIndex: 0, smooth: true, data: cardScores, lineStyle: { color: '#ff4d4f' }, itemStyle: { color: '#ff4d4f' } }
       ]
     }
   }
 
   if (props.chartType === 'pie') {
-    const top5CardData = [...props.cardData].sort((a, b) => b.卡点指数 - a.卡点指数).slice(0, 5)
+    const totalQuestion = questionCounts.reduce((sum, v) => sum + v, 0)
+    const totalStay = stayTimes.reduce((sum, v) => sum + v, 0)
+    const totalReteach = reteachCounts.reduce((sum, v) => sum + v, 0)
+    const totalCard = cardScores.reduce((sum, v) => sum + v, 0)
+
+    const pieData = [
+      { name: '提问量', value: totalQuestion },
+      { name: '停留时长(秒)', value: totalStay },
+      { name: '重讲次数', value: totalReteach },
+      { name: '卡点指数', value: totalCard }
+    ]
+    const sourceTotal = pieData.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
+    const normalizedPieData = sourceTotal > 0
+      ? pieData
+      : pieData.map((item) => ({ ...item, value: 1 }))
+    const pieTotal = normalizedPieData.reduce((sum, item) => sum + (Number(item.value) || 0), 0)
+
     return {
-      title: { text: 'TOP5 卡点页面占比' },
+      title: { text: '卡点成分占比' },
       tooltip: { trigger: 'item' },
-      legend: { orient: 'vertical', left: 'left', data: top5CardData.map(item => `第${item.page}页`) },
+      legend: {
+        orient: 'vertical',
+        left: 'left',
+        data: normalizedPieData.map(item => item.name),
+        formatter: (name) => {
+          const current = normalizedPieData.find(item => item.name === name)
+          const value = Number(current?.value || 0)
+          const percent = pieTotal > 0 ? ((value / pieTotal) * 100).toFixed(1) : '0.0'
+          return `${name}  ${percent}%`
+        }
+      },
       series: [
         {
           name: '卡点指数',
           type: 'pie',
           radius: ['40%', '70%'],
-          data: top5CardData.map(item => ({
-            name: `第${item.page}页`,
-            value: item.卡点指数
-          })),
-          label: { formatter: '{b}: {c} ({d}%)' }
+          data: normalizedPieData,
+          avoidLabelOverlap: true,
+          labelLine: { show: true, length: 10, length2: 8 },
+          label: {
+            show: true,
+            formatter: ({ name, percent }) => `${name}\n${Number(percent || 0).toFixed(1)}%`
+          }
         }
       ]
     }
@@ -129,7 +170,7 @@ const renderChart = async () => {
   if (!chartInstance) {
     chartInstance = echarts.init(chartRef.value)
   }
-  chartInstance.setOption(chartOption.value)
+  chartInstance.setOption(chartOption.value, true)
   chartInstance.resize()
 }
 

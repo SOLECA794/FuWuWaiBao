@@ -23,9 +23,11 @@
             <option v-for="page in currentCourseTotalPages" :key="page" :value="String(page)">第{{ page }}页</option>
           </select>
           <select v-model="selectedNode" multiple>
+            <option value="__ALL__">全部节点</option>
             <option v-for="node in nodeOptions" :key="node" :value="node">{{ node }}</option>
           </select>
           <select v-model="selectedStudents" multiple>
+            <option value="__ALL_STUDENTS__">全部学生</option>
             <option v-for="student in studentOptions" :key="student" :value="student">学生 {{ student }}</option>
           </select>
           <select v-model="selectedType">
@@ -33,6 +35,11 @@
             <option value="concept">概念类</option>
             <option value="exercise">习题类</option>
             <option value="extension">拓展类</option>
+          </select>
+          <select v-model="groupBy">
+            <option value="node">按知识点分组</option>
+            <option value="type">按疑问类型分组</option>
+            <option value="time">按时间分组</option>
           </select>
           <input v-model.trim="searchKeyword" placeholder="关键词搜索提问内容..." />
           <label class="checkbox-line">
@@ -112,34 +119,61 @@
               </button>
             </div>
           </div>
+
+          <div class="viz-block">
+            <h4>提问趋势（近 7 天）</h4>
+            <div class="trend-bars">
+              <button
+                v-for="item in questionTrend"
+                :key="item.day"
+                class="trend-item"
+                @click="searchKeyword = ''"
+                :title="`${item.day}：${item.count}条`"
+              >
+                <div class="bar-track">
+                  <i :style="{ height: `${item.ratio}%` }"></i>
+                </div>
+                <span>{{ item.day.slice(5) }}</span>
+                <em>{{ item.count }}</em>
+              </button>
+            </div>
+          </div>
         </aside>
 
         <main class="right-list">
-          <transition-group name="fade-move" tag="div" class="question-cards">
-            <article v-for="q in groupedQuestions" :key="q.id" class="question-card">
-              <header class="meta">
-                <span>学生 {{ q.studentId }}</span>
-                <span>第{{ q.page }}页</span>
-                <button class="node-tag" :class="{ uncovered: isUncoveredNode(q.nodeId) }" @click="$emit('focus-node', q)">
-                  {{ q.nodeTitle || q.nodeId || "未标注节点" }}
-                </button>
-                <span :class="['q-type', q.qType]">{{ q.typeLabel }}</span>
-                <span :class="['status', q.status]">{{ q.status === "handled" ? "已处理" : "未处理" }}</span>
-                <time>{{ q.time }}</time>
-              </header>
-              <div class="body">
-                <div class="question">{{ q.content }}</div>
-                <div v-if="q.answer" class="answer">AI 回复：{{ q.answer }}</div>
-              </div>
-              <footer class="ops">
-                <button class="mini" @click="markHandled(q.id)">标记已处理</button>
-                <button class="mini" @click="addToLesson(q)">添加到备课优化</button>
-                <button class="mini" @click="replyStudent(q)">回复学生</button>
-                <button class="mini" @click="viewSimilar(q)">查看同类提问</button>
-              </footer>
-            </article>
-          </transition-group>
-          <div v-if="groupedQuestions.length === 0" class="empty-tip">当前筛选条件下暂无提问记录</div>
+          <div class="group-section" v-for="section in groupedQuestionSections" :key="section.key">
+            <div class="group-header">
+              <button class="group-toggle" @click="toggleGroup(section.key)">
+                {{ collapsedGroups[section.key] ? '▶' : '▼' }} {{ section.title }}（{{ section.items.length }}）
+              </button>
+              <button class="mini" @click="batchReply(section.items)">批量回复本组</button>
+            </div>
+            <transition-group v-if="!collapsedGroups[section.key]" name="fade-move" tag="div" class="question-cards">
+              <article v-for="q in section.items" :key="q.id" class="question-card">
+                <header class="meta">
+                  <span>学生 {{ q.studentId }}</span>
+                  <span>第{{ q.page }}页</span>
+                  <button class="node-tag" :class="{ uncovered: isUncoveredNode(q.nodeId) }" @click="$emit('focus-node', q)">
+                    {{ q.nodeTitle || q.nodeId || "未标注节点" }}
+                  </button>
+                  <span :class="['q-type', q.qType]">{{ q.typeLabel }}</span>
+                  <span :class="['status', q.status]">{{ q.status === "handled" ? "已处理" : "未处理" }}</span>
+                  <time>{{ q.time }}</time>
+                </header>
+                <div class="body">
+                  <div class="question">{{ q.content }}</div>
+                  <div v-if="q.answer" class="answer">AI 回复：{{ q.answer }}</div>
+                </div>
+                <footer class="ops">
+                  <button class="mini" @click="markHandled(q.id)">标记已处理</button>
+                  <button class="mini" @click="addToLesson(q)">添加到备课优化</button>
+                  <button class="mini" @click="replyStudent(q)">回复学生</button>
+                  <button class="mini" @click="viewSimilar(q)">查看同类提问</button>
+                </footer>
+              </article>
+            </transition-group>
+          </div>
+          <div v-if="groupedQuestionSections.length === 0" class="empty-tip">当前筛选条件下暂无提问记录</div>
         </main>
       </section>
 
@@ -219,6 +253,8 @@ const aiGenerating = ref(false)
 const advicePanelOpen = ref(false)
 const handledMap = ref({})
 const aiAdvices = ref([])
+const groupBy = ref('node')
+const collapsedGroups = ref({})
 
 const uncoveredNodeIdSet = computed(() => {
   return new Set((props.uncoveredNodeIds || []).map(item => String(item || '').trim()).filter(Boolean))
@@ -228,6 +264,18 @@ const hasUncoveredNodes = computed(() => uncoveredNodeIdSet.value.size > 0)
 
 watch(() => props.filterPage, (val) => {
   localFilterPage.value = String(val || '')
+})
+
+watch(selectedNode, (val) => {
+  if (Array.isArray(val) && val.includes('__ALL__')) {
+    selectedNode.value = []
+  }
+})
+
+watch(selectedStudents, (val) => {
+  if (Array.isArray(val) && val.includes('__ALL_STUDENTS__')) {
+    selectedStudents.value = []
+  }
 })
 
 const rawQuestions = computed(() => Array.isArray(props.filteredQuestions) ? props.filteredQuestions : [])
@@ -327,7 +375,24 @@ const typeDistribution = computed(() => {
   }))
 })
 
-const groupedQuestions = computed(() => filteredQuestions.value)
+const groupedQuestionSections = computed(() => {
+  const map = new Map()
+  const buildKey = (q) => {
+    if (groupBy.value === 'type') return q.typeLabel
+    if (groupBy.value === 'time') return String(q.time || '').split(' ')[0] || '未知日期'
+    return String(q.nodeTitle || q.nodeId || '未标注节点')
+  }
+  filteredQuestions.value.forEach((q) => {
+    const k = buildKey(q)
+    if (!map.has(k)) map.set(k, [])
+    map.get(k).push(q)
+  })
+  return Array.from(map.entries()).map(([title, items]) => ({
+    key: `${groupBy.value}-${title}`,
+    title,
+    items
+  }))
+})
 
 const todayCount = computed(() => {
   const today = new Date().toLocaleDateString()
@@ -353,9 +418,44 @@ const markAllHandled = () => {
   handledMap.value = map
 }
 
+const toggleGroup = (key) => {
+  collapsedGroups.value = { ...collapsedGroups.value, [key]: !collapsedGroups.value[key] }
+}
+
 const addToLesson = () => alertAction('已加入备课优化列表')
 const replyStudent = () => alertAction('已发送补充讲解给学生（演示）')
 const viewSimilar = (q) => { selectedType.value = q.qType }
+const batchReply = (items) => alertAction(`已批量回复本组 ${items.length} 条提问（演示）`)
+
+const toDateKey = (value) => {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const head = text.split(' ')[0].replace(/\//g, '-')
+  const m = head.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+  if (!m) return ''
+  const y = m[1]
+  const mo = m[2].padStart(2, '0')
+  const d = m[3].padStart(2, '0')
+  return `${y}-${mo}-${d}`
+}
+
+const questionTrend = computed(() => {
+  const dayMap = new Map()
+  const now = new Date()
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(now)
+    d.setDate(now.getDate() - i)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    dayMap.set(key, 0)
+  }
+  filteredQuestions.value.forEach((q) => {
+    const key = toDateKey(q.time)
+    if (dayMap.has(key)) dayMap.set(key, dayMap.get(key) + 1)
+  })
+  const list = Array.from(dayMap.entries()).map(([day, count]) => ({ day, count }))
+  const max = Math.max(...list.map(i => i.count), 1)
+  return list.map(item => ({ ...item, ratio: Math.max(10, Math.round(item.count / max * 100)) }))
+})
 
 const generateSuggestions = async () => {
   aiGenerating.value = true
@@ -430,8 +530,17 @@ const emit = defineEmits(['update:filterPage', 'focus-node'])
 .pill.concept { background: #2563eb; }
 .pill.exercise { background: #ea580c; }
 .pill.extension { background: #059669; }
+.trend-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; align-items: end; min-height: 130px; }
+.trend-item { border: 1px solid #e2ebe7; border-radius: 8px; background: #f8fcfa; padding: 6px 4px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.bar-track { width: 18px; height: 72px; border-radius: 6px; background: #e8f2ee; position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+.trend-item i { position: absolute; left: 1px; right: 1px; bottom: 1px; display: block; border-radius: 6px 6px 0 0; background: linear-gradient(180deg,#9ddfcb,#2f605a); min-height: 6px; }
+.trend-item span { font-size: 11px; color: #5e756e; }
+.trend-item em { font-size: 11px; color: #2f605a; font-style: normal; }
 
 .question-cards { display: grid; gap: 10px; }
+.group-section + .group-section { margin-top: 10px; }
+.group-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.group-toggle { border: 1px solid #dce8e2; border-radius: 8px; background: #f7fbf9; color: #325f53; padding: 6px 10px; cursor: pointer; }
 .question-card { border: 1px solid #e3ece8; border-radius: 12px; background: #fff; padding: 12px; transition: all .2s ease; }
 .question-card:hover { transform: translateY(-2px); box-shadow: 0 10px 16px rgba(15,23,42,.08); }
 .meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #667b74; align-items: center; }
