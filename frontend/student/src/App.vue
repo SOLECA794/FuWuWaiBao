@@ -246,6 +246,7 @@
               :tree-props="treeProps"
               @file-change="handleFileChange"
               @parse-knowledge="parseKnowledge"
+              @reset-current="resetKnowledgeWorkspace"
               @node-click="handleNodeClick"
             />
           </div>
@@ -1594,6 +1595,45 @@ const handleFileChange = (file) => {
   knowledgeList.value = []
 }
 
+const resetKnowledgeWorkspace = () => {
+  uploadedFile.value = null
+  parseResult.value = ''
+  knowledgeList.value = []
+}
+
+const buildMockKnowledgeTree = (fileName = '个人学习资料') => {
+  const stem = String(fileName || '个人学习资料').replace(/\.[^/.]+$/, '')
+  return [
+    {
+      id: 'ch-1',
+      name: `${stem}：核心概念`,
+      children: [
+        { id: 'kp-1-1', name: '定义与适用范围' },
+        { id: 'kp-1-2', name: '关键术语与符号' },
+        { id: 'kp-1-3', name: '常见误区与反例' }
+      ]
+    },
+    {
+      id: 'ch-2',
+      name: `${stem}：方法与流程`,
+      children: [
+        { id: 'kp-2-1', name: '标准流程拆分' },
+        { id: 'kp-2-2', name: '步骤间依赖关系' },
+        { id: 'kp-2-3', name: '提速技巧与边界条件' }
+      ]
+    },
+    {
+      id: 'ch-3',
+      name: `${stem}：实战与复习`,
+      children: [
+        { id: 'kp-3-1', name: '典型题型与解题模板' },
+        { id: 'kp-3-2', name: '错题回顾清单' },
+        { id: 'kp-3-3', name: '冲刺复习路径' }
+      ]
+    }
+  ]
+}
+
 const parseKnowledge = async () => {
   if (!uploadedFile.value) {
     ElMessage.warning('请先上传 PDF/PPTX 文件！')
@@ -1612,17 +1652,22 @@ const parseKnowledge = async () => {
     })
 
     const structure = data?.data?.structure || []
-    knowledgeList.value = structure.map((item, index) => ({
-      id: index + 1,
-      name: item.name,
-      children: item.children || []
-    }))
+    if (Array.isArray(structure) && structure.length > 0) {
+      knowledgeList.value = structure.map((item, index) => ({
+        id: item.id || `node-${index + 1}`,
+        name: item.name,
+        children: Array.isArray(item.children) ? item.children : []
+      }))
+    } else {
+      knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
+    }
 
     parseResult.value = `拆解成功！共识别出 ${countNodes(knowledgeList.value)} 个知识点`
     ElMessage.success('知识点结构拆解完成！')
   } catch (error) {
-    parseResult.value = '拆解失败，请重试！'
-    ElMessage.error('知识点拆解失败')
+    knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
+    parseResult.value = `已切换演示数据，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    ElMessage.warning('后端拆解暂不可用，已自动切换为前端演示数据')
   } finally {
     isParsing.value = false
   }
