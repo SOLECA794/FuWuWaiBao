@@ -226,7 +226,15 @@
           </div>
 
           <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
-            <StudentPersonalCenter :student-id="studentId" />
+            <StudentPersonalCenter
+              :student-id="studentId"
+              :course-id="courseId"
+              :current-course-name="currentCourseName"
+              :learning-stats="learningStats"
+              :weak-point-tags="weakPointTags"
+              @jump-classroom="activeSection = 'classroom'"
+              @jump-analytics="activeSection = 'analytics'"
+            />
           </div>
 
           <div v-else key="knowledge" class="page-layout single-col">

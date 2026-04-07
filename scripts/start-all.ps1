@@ -118,6 +118,29 @@ function Test-EndpointReady {
     return $false
 }
 
+function Get-StudentFrontendUrlFromLog {
+    param(
+        [Parameter(Mandatory)][string]$LogPath
+    )
+
+    if (-not (Test-Path $LogPath)) { return $null }
+
+    try {
+        $tail = Get-Content -Path $LogPath -Tail 200 -ErrorAction Stop
+    } catch {
+        return $null
+    }
+
+    foreach ($line in $tail) {
+        $m = [regex]::Match($line, 'http://localhost:(\d+)\s*/?')
+        if ($m.Success) {
+            return "http://localhost:$($m.Groups[1].Value)"
+        }
+    }
+
+    return $null
+}
+
 function Start-Background {
     param(
         [Parameter(Mandatory)][string]$Name,
@@ -213,9 +236,11 @@ function Ensure-NodeDependencies {
     }
 
     $nodeModules = Join-Path $WorkingDirectory 'node_modules'
-    if (Test-Path $nodeModules) {
-        return
-    }
+    $binDir = Join-Path $nodeModules '.bin'
+    $cliServiceBin = Join-Path $binDir 'vue-cli-service'
+    $cliServiceBinCmd = Join-Path $binDir 'vue-cli-service.cmd'
+    $depsLookHealthy = (Test-Path $nodeModules) -and (Test-Path $binDir) -and ((Test-Path $cliServiceBin) -or (Test-Path $cliServiceBinCmd))
+    if ($depsLookHealthy) { return }
 
     $attempts = @()
     if (Test-Path (Join-Path $WorkingDirectory 'package-lock.json')) {
@@ -255,8 +280,11 @@ if (Test-EndpointReady -Url 'http://localhost:18080/health' -RetryCount 25 -Dela
     Write-Warning "Backend health check failed. Please inspect logs/backend.log and logs/backend.err.log"
 }
 
-if (Test-EndpointReady -Url 'http://localhost:8080' -RetryCount 25 -DelayMilliseconds 1000) {
-    Write-Host "Student frontend ready: http://localhost:8080"
+$studentLog = Join-Path $logsDir 'student_frontend.log'
+$studentUrl = Get-StudentFrontendUrlFromLog -LogPath $studentLog
+if (-not $studentUrl) { $studentUrl = 'http://localhost:8080' }
+if (Test-EndpointReady -Url $studentUrl -RetryCount 25 -DelayMilliseconds 1000) {
+    Write-Host "Student frontend ready: $studentUrl"
 } else {
     Write-Warning "Student frontend readiness check failed. Please inspect logs/student_frontend.log"
 }
