@@ -2,6 +2,7 @@ package router
 
 import (
 	"smart-teaching-backend/internal/handler"
+	"smart-teaching-backend/pkg/apiresp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,7 +15,7 @@ func RegisterStudentRoutes(api *gin.RouterGroup,
 
 	// Health Check
 	api.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "UP"})
+		apiresp.OK(c, "ok", gin.H{"status": "UP"})
 	})
 
 	// Legacy Student Routes

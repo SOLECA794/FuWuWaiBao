@@ -174,8 +174,8 @@ const emit = defineEmits(['generate-ai-script', 'save-script', 'update:current-s
 
 const localNodes = ref([])
 const selectedNodeIndex = ref(0)
-const isPreviewWindowOpen = ref(true)
-const isEditorWindowOpen = ref(true)
+const isPreviewWindowOpen = ref(false)
+const isEditorWindowOpen = ref(false)
 
 const windowGridClass = computed(() => {
   if (isPreviewWindowOpen.value && isEditorWindowOpen.value) return 'two-open'
@@ -365,9 +365,9 @@ function estimateDuration(text) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
-  padding: 16px;
+  padding: 12px;
   box-sizing: border-box;
   background: linear-gradient(180deg, var(--wb-bg-top) 0%, var(--wb-bg-bottom) 100%);
 }
@@ -458,7 +458,7 @@ function estimateDuration(text) {
   flex: 1;
   min-height: 0;
   display: grid;
-  gap: 16px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
 }
 
@@ -506,7 +506,7 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 10px;
+  padding: 12px 14px 8px;
   border-bottom: 0;
   background: transparent;
 }
@@ -555,7 +555,7 @@ function estimateDuration(text) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 6px 16px 16px;
+  padding: 4px 12px 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -580,19 +580,19 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .stage-head h4 {
   margin: 0;
-  font-size: 46px;
+  font-size: clamp(28px, 2.5vw, 40px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--wb-text);
 }
 
 .slide-index {
-  font-size: 34px;
+  font-size: clamp(22px, 2.1vw, 32px);
   font-weight: 500;
   color: var(--wb-muted);
 }
@@ -602,7 +602,7 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 48px;
+  padding: 0 clamp(12px, 4vw, 40px);
 }
 
 .slide-nav-btn {
@@ -638,24 +638,26 @@ function estimateDuration(text) {
 }
 
 .slide-canvas {
-  width: min(100%, 820px);
-  min-height: 430px;
+  /* 宽度按列宽与视口比例自适应，最大不超过 820px；高度由 aspect-ratio 决定，保证按比例缩放 */ 
+  width: min(100%, clamp(360px, 44vw, 820px));
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
   background: #ffffff;
   border: 1px solid var(--wb-border);
   border-radius: 16px;
-  padding: 14px;
+  padding: 10px;
   box-sizing: border-box;
+  transition: width 180ms ease, height 180ms ease;
 }
 
 .preview-image {
   width: 100%;
-  min-height: 390px;
+  height: 100%;
   border-radius: 14px;
   background: #ffffff;
   border: 0;
   object-fit: contain;
   display: block;
-  height: 100%;
 }
 
 .preview-placeholder {
@@ -663,7 +665,7 @@ function estimateDuration(text) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 56px 16px;
+  padding: 36px 14px;
   text-align: center;
   border-radius: 14px;
   background: #f7fcf9;
@@ -686,9 +688,9 @@ function estimateDuration(text) {
 
 .timeline-area {
   position: relative;
-  margin-top: 20px;
-  padding: 26px 10px 14px;
-  min-height: 176px;
+  margin-top: 12px;
+  padding: 18px 8px 10px;
+  min-height: 136px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -700,7 +702,7 @@ function estimateDuration(text) {
   position: absolute;
   left: 22px;
   right: 22px;
-  top: 104px;
+  top: 80px;
   border-top: 2px solid rgba(125, 162, 146, 0.36);
   pointer-events: none;
 }
@@ -709,8 +711,8 @@ function estimateDuration(text) {
   position: absolute;
   left: 22px;
   right: 22px;
-  top: 84px;
-  height: 48px;
+  top: 64px;
+  height: 34px;
   border-bottom: 2px solid rgba(125, 162, 146, 0.28);
   border-radius: 0 0 56px 56px;
   opacity: 0.75;
@@ -722,11 +724,11 @@ function estimateDuration(text) {
   z-index: 1;
   text-align: center;
   cursor: pointer;
-  flex: 0 0 176px;
+  flex: 0 0 150px;
 }
 
 .node-bubble {
-  min-height: 64px;
+  min-height: 54px;
   border-radius: 16px;
   border: 0;
   background: rgba(255, 255, 255, 0.95);
@@ -753,9 +755,9 @@ function estimateDuration(text) {
 
 .node-dot {
   display: inline-block;
-  margin-top: 16px;
-  width: 24px;
-  height: 24px;
+  margin-top: 12px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #d8e8e2;
   border: 0;
@@ -773,7 +775,7 @@ function estimateDuration(text) {
 
 .stage-actions {
   margin-top: auto;
-  padding: 14px 0 4px;
+  padding: 10px 0 2px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -854,7 +856,7 @@ button:disabled {
 
 .copilot-panel h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   color: #1e293b;
 }
 
@@ -868,7 +870,7 @@ button:disabled {
 
 .panel-block h5 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #1f2937;
 }
@@ -886,7 +888,7 @@ button:disabled {
 
 .grow {
   flex: 0 0 auto;
-  min-height: 230px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   overflow: visible;
@@ -917,8 +919,8 @@ button:disabled {
 
 .linked-editor {
   flex: 0 0 auto;
-  height: 190px;
-  min-height: 160px;
+  height: 150px;
+  min-height: 130px;
   margin-top: 10px;
   resize: none;
   line-height: 1.8;

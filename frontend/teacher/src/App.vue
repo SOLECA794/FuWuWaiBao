@@ -1319,7 +1319,7 @@ const handleIterationScriptUpdated = (scriptText) => {
 .workspace-shell {
   width: 100%;
   min-height: calc(100vh - 40px);
-  height: calc(100vh - 40px);
+  height: auto;
   border-radius: 26px;
   overflow: hidden;
   background: var(--app-surface);
@@ -1332,10 +1332,9 @@ const handleIterationScriptUpdated = (scriptText) => {
 .main-content {
   position: relative;
   display: flex;
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
+  min-height: calc(100vh - 158px);
+  height: auto;
+  overflow-y: auto;
   padding: 14px;
   gap: 14px;
 }
@@ -1343,8 +1342,7 @@ const handleIterationScriptUpdated = (scriptText) => {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  height: 100%;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   background: var(--app-surface);
@@ -1474,7 +1472,7 @@ const handleIterationScriptUpdated = (scriptText) => {
 .tab-container {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   border: 0;
@@ -1486,7 +1484,6 @@ const handleIterationScriptUpdated = (scriptText) => {
 .tab-switch-host {
   flex: 1;
   min-height: 0;
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -1848,10 +1845,6 @@ const handleIterationScriptUpdated = (scriptText) => {
 }
 
 @media (max-width: 980px) {
-  .main-content {
-    height: 100%;
-  }
-
   .right-sidebar-shell {
     flex-basis: 40px;
     width: 40px;
