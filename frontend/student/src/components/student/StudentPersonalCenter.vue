@@ -681,7 +681,11 @@ export default {
     resetFavoriteBoard() {
       if (!window.confirm('确认重置收藏看板状态吗？')) return
       this._favoriteBoardMap = {}
-      try { window.localStorage.removeItem(this.boardStateKey()) } catch (e) {}
+      try {
+        window.localStorage.removeItem(this.boardStateKey())
+      } catch (e) {
+        console.error('Failed to reset favorite board:', e)
+      }
       ElMessage.success('看板已重置')
     },
     async onDropToFavoriteCol(colKey) {
@@ -740,7 +744,11 @@ export default {
     },
     persistPersonalTasks() {
       if (typeof window === 'undefined') return
-      try { window.localStorage.setItem(this.personalTaskKey(), JSON.stringify(this.personalTasks)) } catch (e) {}
+      try {
+        window.localStorage.setItem(this.personalTaskKey(), JSON.stringify(this.personalTasks))
+      } catch (e) {
+        console.error('Failed to persist personal tasks:', e)
+      }
     },
     mergeTasks() {
       const personal = (this.personalTasks || []).map(t => ({ ...t, source: 'personal' }))
