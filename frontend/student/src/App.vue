@@ -87,17 +87,13 @@
               <span class="menu-icon">析</span>
               <span v-show="!isMenuCollapsed">学习分析</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'trace' }" @click="activeSection = 'trace'" title="溯源定位">
-              <span class="menu-icon">溯</span>
-              <span v-show="!isMenuCollapsed">溯源定位</span>
+            <button class="menu-item" :class="{ active: activeSection === 'recommend' }" @click="activeSection = 'recommend'" title="学习推荐">
+              <span class="menu-icon">荐</span>
+              <span v-show="!isMenuCollapsed">学习推荐</span>
             </button>
             <button class="menu-item" :class="{ active: activeSection === 'knowledge' }" @click="activeSection = 'knowledge'" title="知识拆解">
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
-            </button>
-            <button class="menu-item" :class="{ active: showAskWorkspace }" @click="toggleAskWorkspace" title="问答浮窗">
-              <span class="menu-icon">问</span>
-              <span v-show="!isMenuCollapsed">问答</span>
             </button>
             <button class="menu-item" v-if="hasCourseSelected" @click="backToSelectionPage" title="返回选课页">
               <span class="menu-icon">返</span>
@@ -221,50 +217,24 @@
             />
           </div>
 
-          <div v-else-if="activeSection === 'trace'" key="trace" class="page-layout two-col">
-            <section class="left-stage">
-              <StudentCoursePanel
-                :current-course-name="currentCourseName"
-                :current-page="currentPage"
-                :total-page="totalPage"
-                :page-timeline-duration="pageTimelineDuration"
-                :current-timeline-sec="currentTimelineSec"
-                :active-node-elapsed-sec="activeNodeElapsedSec"
-                :active-node-duration="activeNodeDuration"
-                :current-node-title="currentNodeMeta?.title || ''"
-                :active-node-type-label="activeNodeTypeLabel"
-                :playback-mode="playbackMode"
-                :playback-audio-meta="playbackAudioMeta"
-                :progress-percent="progressPercent"
-                :course-img="courseImg"
-                :playback-nodes="playbackNodes"
-                :current-node-id="currentNodeId"
-                :tts-enabled="ttsEnabled"
-                :page-summary="pageSummary"
-                :script-content="currentPageMarkdown"
-                :is-script-loading="scriptLoading"
-                :trace-point="tracePoint"
-                :trace-top="traceTop"
-                :trace-left="traceLeft"
-                :is-play="isPlay"
-                @prev-page="prevPage"
-                @select-node="selectPlaybackNode"
-                @toggle-play="togglePlay"
-                @toggle-tts="toggleTts"
-                @speak-current-node="speakCurrentNode"
-                @next-page="nextPage"
-              />
-            </section>
-            <section class="right-stage">
-              <StudentTracePanel
-                :trace-log="traceLog"
-                @open-trace-mode="openTraceMode"
-              />
-            </section>
+          <div v-else-if="activeSection === 'recommend'" key="recommend" class="page-layout single-col">
+            <StudentRecommendPanel
+              :course-name="currentCourseName"
+              :current-node-title="currentNodeMeta?.title || ''"
+              :current-page="currentPage"
+            />
           </div>
 
           <div v-else-if="activeSection === 'personal'" key="personal" class="page-layout single-col">
-            <StudentPersonalCenter :student-id="studentId" />
+            <StudentPersonalCenter
+              :student-id="studentId"
+              :course-id="courseId"
+              :current-course-name="currentCourseName"
+              :learning-stats="learningStats"
+              :weak-point-tags="weakPointTags"
+              @jump-classroom="activeSection = 'classroom'"
+              @jump-analytics="activeSection = 'analytics'"
+            />
           </div>
 
           <div v-else key="knowledge" class="page-layout single-col">
@@ -276,6 +246,7 @@
               :tree-props="treeProps"
               @file-change="handleFileChange"
               @parse-knowledge="parseKnowledge"
+              @reset-current="resetKnowledgeWorkspace"
               @node-click="handleNodeClick"
             />
           </div>
@@ -283,6 +254,17 @@
         </section>
       </main>
     </div>
+
+    <button
+      class="qa-fab"
+      :class="{ active: showAskWorkspace }"
+      @click="toggleAskWorkspace"
+      title="问答浮窗"
+      aria-label="打开问答悬浮窗口"
+    >
+      <span class="qa-fab-core">问</span>
+      <span class="qa-fab-tip">问答</span>
+    </button>
 
     <transition name="qa-flyout-fade">
       <div v-if="showAskWorkspace" class="qa-flyout-backdrop" @click.self="closeAskWorkspace">
@@ -337,7 +319,7 @@ import { API_BASE } from './config/api'
 import StudentCoursePanel from './components/student/StudentCoursePanel.vue'
 import StudentAskPanel from './components/student/StudentAskPanel.vue'
 import StudentStudyPanel from './components/student/StudentStudyPanel.vue'
-import StudentTracePanel from './components/student/StudentTracePanel.vue'
+import StudentRecommendPanel from './components/student/StudentRecommendPanel.vue'
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
@@ -430,6 +412,10 @@ const askWorkspaceInteraction = reactive({
   startHeight: 0
 })
 const progressPercent = computed(() => Math.round((currentPage.value / totalPage.value) * 100))
+const timelinePercent = computed(() => {
+  if (!pageTimelineDuration.value) return 0
+  return Math.min(100, Math.max(0, Math.round((currentTimelineSec.value / pageTimelineDuration.value) * 100)))
+})
 const filteredSelectionClassOptions = computed(() => {
   if (!selectedTeachingCourseId.value) return selectionClassOptions.value
   return selectionClassOptions.value.filter((item) => item.teachingCourseId === selectedTeachingCourseId.value)
@@ -488,7 +474,6 @@ const latestAnswerMeta = ref({
 const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
-const traceLog = ref('')
 const outlineFilter = ref('all')
 const summaryMode = ref('quick')
 const mergedSummary = ref('')
@@ -1159,7 +1144,6 @@ const sendMultiModalQuestion = async () => {
     if (qaHistory.value.length > 5) {
       qaHistory.value = qaHistory.value.slice(0, 5)
     }
-    traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}，续接节点 ${resumeNodeId || currentNodeId.value}`
     question.value = ''
     if (finalPayload?.need_reteach) {
       ElMessage.success('已按追问语境切换为重讲模式')
@@ -1197,7 +1181,6 @@ const sendMultiModalQuestion = async () => {
       if (qaHistory.value.length > 5) {
         qaHistory.value = qaHistory.value.slice(0, 5)
       }
-      traceLog.value = `问答定位：第 ${latestAnswerMeta.value.sourcePage || currentPage.value} 页 / 节点 ${latestAnswerMeta.value.sourceNodeId || currentNodeId.value}`
       question.value = ''
       playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
       if (!latestAnswerMeta.value.needReteach) {
@@ -1219,14 +1202,6 @@ const sendMultiModalQuestion = async () => {
     }
     askLoading.value = false
   }
-}
-
-const openTraceMode = () => {
-  tracePoint.value = true
-  traceTop.value = 150
-  traceLeft.value = 200
-  const sourceNode = latestAnswerMeta.value?.sourceNodeId || currentNodeId.value
-  traceLog.value = `已定位：第 ${currentPage.value} 页 → 当前节点 ${currentNodeId.value}${sourceNode ? `（最近问答来源节点 ${sourceNode}）` : ''}`
 }
 
 const pickCoursewareCard = async (card) => {
@@ -1620,6 +1595,45 @@ const handleFileChange = (file) => {
   knowledgeList.value = []
 }
 
+const resetKnowledgeWorkspace = () => {
+  uploadedFile.value = null
+  parseResult.value = ''
+  knowledgeList.value = []
+}
+
+const buildMockKnowledgeTree = (fileName = '个人学习资料') => {
+  const stem = String(fileName || '个人学习资料').replace(/\.[^/.]+$/, '')
+  return [
+    {
+      id: 'ch-1',
+      name: `${stem}：核心概念`,
+      children: [
+        { id: 'kp-1-1', name: '定义与适用范围' },
+        { id: 'kp-1-2', name: '关键术语与符号' },
+        { id: 'kp-1-3', name: '常见误区与反例' }
+      ]
+    },
+    {
+      id: 'ch-2',
+      name: `${stem}：方法与流程`,
+      children: [
+        { id: 'kp-2-1', name: '标准流程拆分' },
+        { id: 'kp-2-2', name: '步骤间依赖关系' },
+        { id: 'kp-2-3', name: '提速技巧与边界条件' }
+      ]
+    },
+    {
+      id: 'ch-3',
+      name: `${stem}：实战与复习`,
+      children: [
+        { id: 'kp-3-1', name: '典型题型与解题模板' },
+        { id: 'kp-3-2', name: '错题回顾清单' },
+        { id: 'kp-3-3', name: '冲刺复习路径' }
+      ]
+    }
+  ]
+}
+
 const parseKnowledge = async () => {
   if (!uploadedFile.value) {
     ElMessage.warning('请先上传 PDF/PPTX 文件！')
@@ -1638,17 +1652,22 @@ const parseKnowledge = async () => {
     })
 
     const structure = data?.data?.structure || []
-    knowledgeList.value = structure.map((item, index) => ({
-      id: index + 1,
-      name: item.name,
-      children: item.children || []
-    }))
+    if (Array.isArray(structure) && structure.length > 0) {
+      knowledgeList.value = structure.map((item, index) => ({
+        id: item.id || `node-${index + 1}`,
+        name: item.name,
+        children: Array.isArray(item.children) ? item.children : []
+      }))
+    } else {
+      knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
+    }
 
     parseResult.value = `拆解成功！共识别出 ${countNodes(knowledgeList.value)} 个知识点`
     ElMessage.success('知识点结构拆解完成！')
   } catch (error) {
-    parseResult.value = '拆解失败，请重试！'
-    ElMessage.error('知识点拆解失败')
+    knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
+    parseResult.value = `已切换演示数据，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    ElMessage.warning('后端拆解暂不可用，已自动切换为前端演示数据')
   } finally {
     isParsing.value = false
   }
@@ -1670,7 +1689,6 @@ const handleNodeClick = (data) => {
   tracePoint.value = true
   traceTop.value = 200
   traceLeft.value = 300
-  traceLog.value = `已定位知识点：${data.name}`
 }
 
 const startWeakPointLearn = async (point) => {
@@ -2108,6 +2126,87 @@ const checkAnswer = async (option) => {
   color: #fff;
 }
 
+.qa-fab {
+  position: fixed;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 45;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid rgba(172, 196, 186, 0.9);
+  background:
+    radial-gradient(circle at 30% 30%, #f8fffc 0%, #dcefe7 58%, #c5ddd2 100%);
+  box-shadow:
+    0 14px 24px rgba(61, 92, 85, 0.22),
+    0 2px 0 rgba(255, 255, 255, 0.65) inset;
+  color: #2f605a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  animation: qa-fab-float 2.8s ease-in-out infinite;
+}
+
+.qa-fab:hover {
+  transform: translateY(calc(-50% - 2px)) scale(1.02);
+  box-shadow:
+    0 16px 28px rgba(61, 92, 85, 0.26),
+    0 2px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+.qa-fab:active {
+  transform: translateY(calc(-50% + 1px)) scale(0.98);
+}
+
+.qa-fab.active {
+  filter: saturate(1.06);
+  box-shadow:
+    0 18px 32px rgba(38, 92, 81, 0.32),
+    0 0 0 5px rgba(83, 128, 116, 0.2);
+}
+
+.qa-fab-core {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #214842;
+  background: linear-gradient(160deg, #f3f8f6 0%, #d9e7e1 100%);
+  border: 1px solid rgba(159, 186, 176, 0.9);
+}
+
+.qa-fab-tip {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  font-size: 12px;
+  font-weight: 700;
+  color: #2d5c52;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d6e5de;
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.qa-fab:hover .qa-fab-tip,
+.qa-fab.active .qa-fab-tip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
 .workspace-content {
   flex: 1;
   min-width: 0;
@@ -2470,6 +2569,16 @@ const checkAnswer = async (option) => {
   }
 }
 
+@keyframes qa-fab-float {
+  0%,
+  100% {
+    transform: translateY(-50%);
+  }
+  50% {
+    transform: translateY(calc(-50% - 3px));
+  }
+}
+
 .qa-flyout-fade-enter-active,
 .qa-flyout-fade-leave-active {
   transition: opacity 0.22s ease;
@@ -2561,6 +2670,34 @@ const checkAnswer = async (option) => {
 
   .menu-item {
     flex: 1 1 calc(50% - 4px);
+  }
+
+  .qa-fab {
+    right: 10px;
+    width: 56px;
+    height: 56px;
+    top: auto;
+    bottom: 88px;
+    transform: none;
+    animation: none;
+  }
+
+  .qa-fab:hover {
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .qa-fab:active {
+    transform: scale(0.98);
+  }
+
+  .qa-fab-core {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+
+  .qa-fab-tip {
+    display: none;
   }
 
   .qa-flyout-backdrop {

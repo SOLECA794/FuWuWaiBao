@@ -251,6 +251,11 @@ func (s *courseService) DeleteCourse(id string) error {
 		return err
 	}
 
+	if err := tx.Unscoped().Where("course_id = ?", id).Delete(&model.TeachingNodeRelation{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
 	// 删除课件
 	if err := tx.Delete(&model.Course{}, "id = ?", id).Error; err != nil {
 		tx.Rollback()

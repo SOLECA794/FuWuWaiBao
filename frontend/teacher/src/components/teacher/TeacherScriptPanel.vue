@@ -11,14 +11,11 @@
       </button>
     </header>
 
-    <section v-if="!isPreviewWindowOpen && !isEditorWindowOpen" class="workbench-placeholder">
-      <div class="placeholder-orbit" aria-hidden="true">
-        <span class="orb orb-a"></span>
-        <span class="orb orb-b"></span>
-        <span class="orb orb-c"></span>
+    <section v-if="!isPreviewWindowOpen && !isEditorWindowOpen" class="workbench-empty-state">
+      <div class="empty-state-copy">
+        <h4>暂无打开窗口</h4>
+        <p>点击上方按钮打开课件预览或内容编辑器，窗口支持独立关闭与再次打开。</p>
       </div>
-      <h4>暂无打开窗口</h4>
-      <p>点击上方按钮打开课件预览或内容编辑器，窗口支持独立关闭与再次打开。</p>
     </section>
 
     <div v-else class="window-grid" :class="windowGridClass">
@@ -26,7 +23,6 @@
         <header class="dock-head">
           <div class="dock-title">
             <span class="dock-signal"></span>
-            课件预览窗口
           </div>
           <button class="dock-close-btn" @click="isPreviewWindowOpen = false" title="关闭预览窗口">×</button>
         </header>
@@ -105,7 +101,6 @@
         <header class="dock-head">
           <div class="dock-title">
             <span class="dock-signal"></span>
-            内容编辑器窗口
           </div>
           <button class="dock-close-btn" @click="isEditorWindowOpen = false" title="关闭内容编辑器">×</button>
         </header>
@@ -179,11 +174,13 @@ const emit = defineEmits(['generate-ai-script', 'save-script', 'update:current-s
 
 const localNodes = ref([])
 const selectedNodeIndex = ref(0)
-const isPreviewWindowOpen = ref(true)
-const isEditorWindowOpen = ref(true)
+const isPreviewWindowOpen = ref(false)
+const isEditorWindowOpen = ref(false)
 
 const windowGridClass = computed(() => {
   if (isPreviewWindowOpen.value && isEditorWindowOpen.value) return 'two-open'
+  if (isPreviewWindowOpen.value) return 'single-open preview-only'
+  if (isEditorWindowOpen.value) return 'single-open editor-only'
   return 'single-open'
 })
 
@@ -368,14 +365,17 @@ function estimateDuration(text) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
-  padding: 16px;
+  padding: 12px;
   box-sizing: border-box;
   background: linear-gradient(180deg, var(--wb-bg-top) 0%, var(--wb-bg-bottom) 100%);
 }
 
 .window-toolbar {
+  /* 出现动画：用于卡片进入时的淡入 + 轻微上移 */
+  animation: dock-appear 240ms cubic-bezier(.16,.84,.44,1) both;
+  will-change: transform, opacity;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -426,80 +426,40 @@ function estimateDuration(text) {
   box-shadow: 0 0 0 2px rgba(92, 166, 143, 0.28);
 }
 
-.workbench-placeholder {
+.workbench-empty-state {
   flex: 1;
   min-height: 0;
-  border-radius: 20px;
-  background: #ffffff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: 24px;
-  box-shadow: var(--wb-shadow);
+  padding: 28px 12px 14px;
+  color: var(--wb-muted);
 }
 
-.workbench-placeholder h4 {
-  margin: 4px 0 8px;
+.empty-state-copy {
+  text-align: center;
+  max-width: 460px;
+}
+
+.empty-state-copy h4 {
+  margin: 0 0 8px;
   font-size: 21px;
   font-weight: 600;
   color: #1e293b;
 }
 
-.workbench-placeholder p {
+.empty-state-copy p {
   margin: 0;
   font-size: 13px;
-  color: var(--wb-muted);
   line-height: 1.65;
-  max-width: 460px;
-}
-
-.placeholder-orbit {
-  position: relative;
-  width: 92px;
-  height: 92px;
-  margin-bottom: 14px;
-}
-
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  opacity: 0.85;
-}
-
-.orb-a {
-  width: 92px;
-  height: 92px;
-  inset: 0;
-  border: 2px solid rgba(148, 163, 184, 0.48);
-  animation: orbit-spin 5.6s linear infinite;
-}
-
-.orb-b {
-  width: 58px;
-  height: 58px;
-  left: 17px;
-  top: 17px;
-  border: 2px dashed rgba(92, 166, 143, 0.5);
-  animation: orbit-spin-rev 4.8s linear infinite;
-}
-
-.orb-c {
-  width: 12px;
-  height: 12px;
-  left: 40px;
-  top: 40px;
-  background: var(--wb-accent);
-  box-shadow: 0 0 0 6px rgba(92, 166, 143, 0.2);
-  animation: pulse 1.8s ease-in-out infinite;
 }
 
 .window-grid {
   flex: 1;
   min-height: 0;
   display: grid;
-  gap: 16px;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
 }
 
 .window-grid.two-open {
@@ -507,7 +467,25 @@ function estimateDuration(text) {
 }
 
 .window-grid.single-open {
-  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.window-grid.single-open .dock-window {
+  height: 100%;
+}
+
+.window-grid.single-open.preview-only {
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+}
+.window-grid.single-open.preview-only .dock-window {
+  grid-column: 1 / 2;
+}
+
+.window-grid.single-open.editor-only {
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+}
+.window-grid.single-open.editor-only .dock-window {
+  grid-column: 2 / 3;
 }
 
 .dock-window {
@@ -528,7 +506,7 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 16px 10px;
+  padding: 12px 14px 8px;
   border-bottom: 0;
   background: transparent;
 }
@@ -577,7 +555,7 @@ function estimateDuration(text) {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 6px 16px 16px;
+  padding: 4px 12px 12px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -602,19 +580,19 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .stage-head h4 {
   margin: 0;
-  font-size: 46px;
+  font-size: clamp(28px, 2.5vw, 40px);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--wb-text);
 }
 
 .slide-index {
-  font-size: 34px;
+  font-size: clamp(22px, 2.1vw, 32px);
   font-weight: 500;
   color: var(--wb-muted);
 }
@@ -624,7 +602,7 @@ function estimateDuration(text) {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 48px;
+  padding: 0 clamp(12px, 4vw, 40px);
 }
 
 .slide-nav-btn {
@@ -660,24 +638,26 @@ function estimateDuration(text) {
 }
 
 .slide-canvas {
-  width: min(100%, 820px);
-  min-height: 430px;
+  /* 宽度按列宽与视口比例自适应，最大不超过 820px；高度由 aspect-ratio 决定，保证按比例缩放 */ 
+  width: min(100%, clamp(360px, 44vw, 820px));
+  aspect-ratio: 16 / 9;
+  max-height: 80vh;
   background: #ffffff;
   border: 1px solid var(--wb-border);
   border-radius: 16px;
-  padding: 14px;
+  padding: 10px;
   box-sizing: border-box;
+  transition: width 180ms ease, height 180ms ease;
 }
 
 .preview-image {
   width: 100%;
-  min-height: 390px;
+  height: 100%;
   border-radius: 14px;
   background: #ffffff;
   border: 0;
   object-fit: contain;
   display: block;
-  height: 100%;
 }
 
 .preview-placeholder {
@@ -685,7 +665,7 @@ function estimateDuration(text) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 56px 16px;
+  padding: 36px 14px;
   text-align: center;
   border-radius: 14px;
   background: #f7fcf9;
@@ -708,9 +688,9 @@ function estimateDuration(text) {
 
 .timeline-area {
   position: relative;
-  margin-top: 20px;
-  padding: 26px 10px 14px;
-  min-height: 176px;
+  margin-top: 12px;
+  padding: 18px 8px 10px;
+  min-height: 136px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
@@ -722,7 +702,7 @@ function estimateDuration(text) {
   position: absolute;
   left: 22px;
   right: 22px;
-  top: 104px;
+  top: 80px;
   border-top: 2px solid rgba(125, 162, 146, 0.36);
   pointer-events: none;
 }
@@ -731,8 +711,8 @@ function estimateDuration(text) {
   position: absolute;
   left: 22px;
   right: 22px;
-  top: 84px;
-  height: 48px;
+  top: 64px;
+  height: 34px;
   border-bottom: 2px solid rgba(125, 162, 146, 0.28);
   border-radius: 0 0 56px 56px;
   opacity: 0.75;
@@ -744,11 +724,11 @@ function estimateDuration(text) {
   z-index: 1;
   text-align: center;
   cursor: pointer;
-  flex: 0 0 176px;
+  flex: 0 0 150px;
 }
 
 .node-bubble {
-  min-height: 64px;
+  min-height: 54px;
   border-radius: 16px;
   border: 0;
   background: rgba(255, 255, 255, 0.95);
@@ -775,9 +755,9 @@ function estimateDuration(text) {
 
 .node-dot {
   display: inline-block;
-  margin-top: 16px;
-  width: 24px;
-  height: 24px;
+  margin-top: 12px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #d8e8e2;
   border: 0;
@@ -795,7 +775,7 @@ function estimateDuration(text) {
 
 .stage-actions {
   margin-top: auto;
-  padding: 14px 0 4px;
+  padding: 10px 0 2px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -876,7 +856,7 @@ button:disabled {
 
 .copilot-panel h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   color: #1e293b;
 }
 
@@ -890,7 +870,7 @@ button:disabled {
 
 .panel-block h5 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 700;
   color: #1f2937;
 }
@@ -908,7 +888,7 @@ button:disabled {
 
 .grow {
   flex: 0 0 auto;
-  min-height: 230px;
+  min-height: 180px;
   display: flex;
   flex-direction: column;
   overflow: visible;
@@ -939,8 +919,8 @@ button:disabled {
 
 .linked-editor {
   flex: 0 0 auto;
-  height: 190px;
-  min-height: 160px;
+  height: 150px;
+  min-height: 130px;
   margin-top: 10px;
   resize: none;
   line-height: 1.8;
@@ -966,6 +946,20 @@ button:disabled {
     flex: 1;
     justify-content: center;
   }
+  
+  /* 窄屏时单卡回退为全宽 */
+  .window-grid.single-open {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+
+  .window-grid.single-open.preview-only .dock-window,
+  .window-grid.single-open.editor-only .dock-window {
+    width: 100%;
+    max-width: none;
+    grid-column: auto;
+  }
 }
 
 @keyframes orbit-spin {
@@ -974,6 +968,17 @@ button:disabled {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes dock-appear {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 

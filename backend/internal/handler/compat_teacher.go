@@ -267,3 +267,61 @@ func (h *CompatibilityHandler) UploadCoursewareV1(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "上传成功", "data": course})
 }
+
+func (h *CompatibilityHandler) SyncCourseKnowledgeGraphV1(c *gin.Context) {
+	courseID := strings.TrimSpace(c.Param("courseId"))
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 courseId"})
+		return
+	}
+	kg := service.NewKnowledgeGraphService(h.db)
+	if err := kg.RebuildTeachingNodeRelations(courseID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "知识图谱同步失败", "error": err.Error()})
+		return
+	}
+	relations, err := kg.ListTeachingNodeRelations(courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "知识图谱查询失败", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "同步成功", "data": gin.H{"courseId": courseID, "edgeCount": len(relations), "relations": relations}})
+}
+
+func (h *CompatibilityHandler) GetTeachingNodeReferenceHealthV1(c *gin.Context) {
+	courseID := strings.TrimSpace(c.Param("courseId"))
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 courseId"})
+		return
+	}
+	kg := service.NewKnowledgeGraphService(h.db)
+	report, err := kg.ScanOrphanTeachingNodeReferences(courseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "引用健康检查失败", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": report})
+}
+
+func (h *CompatibilityHandler) PostTeachingNodeReferenceRepairV1(c *gin.Context) {
+	courseID := strings.TrimSpace(c.Param("courseId"))
+	if courseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少 courseId"})
+		return
+	}
+	var req struct {
+		Confirm bool     `json:"confirm"`
+		NodeIDs []string `json:"nodeIds"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	if !req.Confirm {
+		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "请先确认修复操作(confirm=true)"})
+		return
+	}
+	kg := service.NewKnowledgeGraphService(h.db)
+	report, err := kg.RepairOrphanTeachingNodeReferences(courseID, req.NodeIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "引用修复失败", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "修复完成", "data": report})
+}
