@@ -2,6 +2,7 @@ package router
 
 import (
 	"smart-teaching-backend/internal/handler"
+	"smart-teaching-backend/pkg/apiresp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,7 +15,7 @@ func RegisterTeacherRoutes(api *gin.RouterGroup,
 
 	// Health Check
 	api.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "UP"})
+		apiresp.OK(c, "ok", gin.H{"status": "UP"})
 	})
 
 	// Courseware preview (Shared but often used in teacher tools)
@@ -56,6 +57,9 @@ func RegisterTeacherRoutes(api *gin.RouterGroup,
 			teacherV1.GET("/:courseId/stats", teacherHandler.GetClassStats)
 			teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
 			teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
+			teacherV1.POST("/:courseId/knowledge-graph/sync", compatHandler.SyncCourseKnowledgeGraphV1)
+			teacherV1.GET("/:courseId/knowledge-graph/reference-health", compatHandler.GetTeachingNodeReferenceHealthV1)
+			teacherV1.POST("/:courseId/knowledge-graph/reference-health/repair", compatHandler.PostTeachingNodeReferenceRepairV1)
 		}
 
 		// Specialized AI V1 for teachers

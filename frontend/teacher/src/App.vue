@@ -149,7 +149,7 @@
                 :current-course-name="currentCourseName"
                 :current-course-total-pages="currentCourseTotalPages"
                 :filter-page="filterPage"
-                :filtered-questions="filteredQuestions"
+                :filtered-questions="questionRecords"
                 :uncovered-node-ids="studentStats.mappingCoverage?.uncoveredNodeIds || []"
                 @update:filter-page="filterPage = $event"
                 @focus-node="handleFocusNodeFromQuestion"
@@ -181,20 +181,21 @@
       </div>
 
       <!-- 右侧课件管理（原左侧侧边栏移到右侧） -->
-      <TeacherCoursewareSidebar
-        v-show="isSidebarVisible"
-        :courseware-list="coursewareList"
-        :current-course-id="currentCourseId"
-        :current-course-name="currentCourseName"
-        :current-course-total-pages="currentCourseTotalPages"
-        :current-edit-page="currentEditPage"
-        :course-list-loading="courseListLoading"
-        @open-publish="openPublishModal"
-        @open-upload="showUploadModal = true"
-        @select-course="selectCourse"
-        @delete-course="deleteCourse"
-        @select-page="selectEditPage"
-      />
+      <div v-show="isSidebarVisible" class="right-sidebar-shell">
+        <TeacherCoursewareSidebar
+          :courseware-list="coursewareList"
+          :current-course-id="currentCourseId"
+          :current-course-name="currentCourseName"
+          :current-course-total-pages="currentCourseTotalPages"
+          :current-edit-page="currentEditPage"
+          :course-list-loading="courseListLoading"
+          @open-publish="openPublishModal"
+          @open-upload="showUploadModal = true"
+          @select-course="selectCourse"
+          @delete-course="deleteCourse"
+          @select-page="selectEditPage"
+        />
+      </div>
     </div>
     </div>
 
@@ -695,9 +696,18 @@ const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
 })
 
+const currentCourseFileType = computed(() => {
+  const current = coursewareList.value.find((item) => item.id === currentCourseId.value)
+  return String(current?.fileType || '').toLowerCase()
+})
+
 const realPreviewUrl = computed(() => {
   if (!currentCourseId.value) return ''
-  return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}?t=${Date.now()}`
+  // 当前后端预览链路对文档类资源会返回非图片地址，直接展示占位可避免大量ORB/404噪声。
+  if (['pdf', 'ppt', 'pptx', 'doc', 'docx'].includes(currentCourseFileType.value)) {
+    return ''
+  }
+  return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}`
 })
 
 const filteredPublishClassOptions = computed(() => {
@@ -1320,6 +1330,7 @@ const handleIterationScriptUpdated = (scriptText) => {
 }
 
 .main-content {
+  position: relative;
   display: flex;
   min-height: calc(100vh - 158px);
   height: auto;
@@ -1330,6 +1341,7 @@ const handleIterationScriptUpdated = (scriptText) => {
 .editor-section {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: visible;
   display: flex;
   flex-direction: column;
@@ -1337,6 +1349,17 @@ const handleIterationScriptUpdated = (scriptText) => {
   border-radius: 22px;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
   padding: 14px;
+  transition: filter 0.28s ease, transform 0.28s ease;
+}
+
+.right-sidebar-shell {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 0;
+  position: relative;
+  overflow: visible;
+  z-index: 3;
 }
 /* 左侧菜单导航栏 */
 .left-sidebar-menu {
@@ -1822,6 +1845,12 @@ const handleIterationScriptUpdated = (scriptText) => {
 }
 
 @media (max-width: 980px) {
+  .right-sidebar-shell {
+    flex-basis: 40px;
+    width: 40px;
+    min-width: 40px;
+  }
+
   .teacher-middle-layout {
     grid-template-columns: 1fr;
   }

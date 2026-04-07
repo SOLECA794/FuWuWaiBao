@@ -1,290 +1,277 @@
 package service
 
 import (
-	"encoding/json"
+	"strings"
 	"time"
 
-	"gorm.io/gorm"
-
 	"smart-teaching-backend/internal/model"
+	"gorm.io/gorm"
 )
 
-// KnowledgeMapService 知识图谱服务
+// KnowledgeMapItem 学生在某个知识点上的掌握度条目。
+type KnowledgeMapItem struct {
+	KnowledgePointID string     `json:"knowledgePointId"`
+	CourseID         string     `json:"courseId"`
+	Name             string     `json:"name"`
+	MasteryScore     float64    `json:"masteryScore"`
+	CorrectCount     int        `json:"correctCount"`
+	IncorrectCount   int        `json:"incorrectCount"`
+	LastResponseMs   int        `json:"lastResponseMs"`
+	LastPracticedAt  *time.Time `json:"lastPracticedAt,omitempty"`
+}
+
+// LearningProgressSummary 学习进展摘要。
+type LearningProgressSummary struct {
+	StudentID          string  `json:"studentId"`
+	Days               int     `json:"days"`
+	TotalKnowledgePts  int     `json:"totalKnowledgePoints"`
+	PracticedPts       int     `json:"practicedKnowledgePoints"`
+	AverageMastery     float64 `json:"averageMastery"`
+	MasteryAbove80Rate float64 `json:"masteryAbove80Rate"`
+}
+
+// StudyRecommendation 学习建议。
+type StudyRecommendation struct {
+	KnowledgePointID string  `json:"knowledgePointId"`
+	CourseID         string  `json:"courseId"`
+	Name             string  `json:"name"`
+	MasteryScore     float64 `json:"masteryScore"`
+	Reason           string  `json:"reason"`
+	Action           string  `json:"action"`
+}
+
+// KnowledgeMapService 负责学生知识点掌握度的计算与查询。
 type KnowledgeMapService struct {
 	db *gorm.DB
 }
 
-// NewKnowledgeMapService 创建知识图谱服务
 func NewKnowledgeMapService(db *gorm.DB) *KnowledgeMapService {
 	return &KnowledgeMapService{db: db}
 }
 
-// UpdateMasteryScore 更新知识点掌握度
-func (kms *KnowledgeMapService) UpdateMasteryScore(studentID, knowledgePointID string, isCorrect bool, responseTime int) error {
-	var knowledgeMap model.StudentKnowledgeMap
-
-	// 查找或创建知识图谱记录
-	err := kms.db.Where("student_id = ? AND knowledge_point_id = ?", studentID, knowledgePointID).
-		First(&knowledgeMap).Error
-
-	if err != nil && err != gorm.ErrRecordNotFound {
-		return err
+// UpdateMasteryScore 根据答题结果更新掌握度，范围固定在 [0, 1]。
+func (s *KnowledgeMapService) UpdateMasteryScore(studentID, knowledgePointID string, isCorrect bool, responseTimeMs int) error {
+	studentID = strings.TrimSpace(studentID)
+	knowledgePointID = strings.TrimSpace(knowledgePointID)
+	if studentID == "" || knowledgePointID == "" {
+		return nil
 	}
 
-	if err == gorm.ErrRecordNotFound {
-		// 创建新记录
-		knowledgeMap = model.StudentKnowledgeMap{
-			StudentID:        studentID,
-			KnowledgePointID: knowledgePointID,
-			MasteryScore:     0.5, // 初始掌握度
-			ConfidenceLevel:  0.1, // 初始置信度
-			AttemptCount:     0,
-			CorrectCount:     0,
-			LastUpdated:      time.Now(),
-			LearningCurve:    "[]",
-			StrengthAreas:    "[]",
-			WeakAreas:        "[]",
+	now := time.Now().UTC()
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var mastery model.StudentKnowledgeMastery
+		err := tx.Where("student_id = ? AND knowledge_point_id = ?", studentID, knowledgePointID).First(&mastery).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
 		}
-	}
-
-	// 更新统计数据
-	knowledgeMap.AttemptCount++
-	if isCorrect {
-		knowledgeMap.CorrectCount++
-	}
-
-	// 计算新的掌握度（使用Elo Rating类似算法）
-	accuracy := float32(knowledgeMap.CorrectCount) / float32(knowledgeMap.AttemptCount)
-	expectedScore := knowledgeMap.MasteryScore
-
-	// 根据响应时间调整（响应越快，掌握度越高）
-	timeBonus := float32(1.0)
-	if responseTime < 5000 { // 5秒内回答
-		timeBonus = 1.2
-	} else if responseTime > 30000 { // 30秒以上
-		timeBonus = 0.8
-	}
-
-	// 更新掌握度
-	K := float32(0.3) // 学习率
-	actualScore := accuracy * timeBonus
-	knowledgeMap.MasteryScore = expectedScore + K*(actualScore-expectedScore)
-
-	// 限制在0-1范围内
-	if knowledgeMap.MasteryScore > 1.0 {
-		knowledgeMap.MasteryScore = 1.0
-	} else if knowledgeMap.MasteryScore < 0.0 {
-		knowledgeMap.MasteryScore = 0.0
-	}
-
-	// 更新置信度（随着尝试次数增加）
-	knowledgeMap.ConfidenceLevel = 1.0 - (1.0 / float32(knowledgeMap.AttemptCount+1))
-
-	// 更新学习曲线
-	learningPoint := map[string]interface{}{
-		"timestamp": time.Now().Unix(),
-		"score":     knowledgeMap.MasteryScore,
-		"is_correct": isCorrect,
-		"response_time": responseTime,
-	}
-	kms.updateLearningCurve(&knowledgeMap, learningPoint)
-
-	// 分析强项和弱项
-	kms.analyzeStrengthsAndWeaknesses(&knowledgeMap)
-
-	knowledgeMap.LastUpdated = time.Now()
-
-	if err == gorm.ErrRecordNotFound {
-		return kms.db.Create(&knowledgeMap).Error
-	}
-	return kms.db.Save(&knowledgeMap).Error
-}
-
-// GetKnowledgeMap 获取学生的知识图谱
-func (kms *KnowledgeMapService) GetKnowledgeMap(studentID string) ([]model.StudentKnowledgeMap, error) {
-	var knowledgeMaps []model.StudentKnowledgeMap
-	err := kms.db.Where("student_id = ?", studentID).
-		Preload("KnowledgePoint").
-		Find(&knowledgeMaps).Error
-	return knowledgeMaps, err
-}
-
-// GetKnowledgePointMastery 获取特定知识点的掌握情况
-func (kms *KnowledgeMapService) GetKnowledgePointMastery(studentID, knowledgePointID string) (*model.StudentKnowledgeMap, error) {
-	var knowledgeMap model.StudentKnowledgeMap
-	err := kms.db.Where("student_id = ? AND knowledge_point_id = ?", studentID, knowledgePointID).
-		First(&knowledgeMap).Error
-	if err != nil {
-		return nil, err
-	}
-	return &knowledgeMap, nil
-}
-
-// GetWeakKnowledgePoints 获取薄弱知识点
-func (kms *KnowledgeMapService) GetWeakKnowledgePoints(studentID string, threshold float32) ([]model.StudentKnowledgeMap, error) {
-	var knowledgeMaps []model.StudentKnowledgeMap
-	err := kms.db.Where("student_id = ? AND mastery_score < ?", studentID, threshold).
-		Preload("KnowledgePoint").
-		Order("mastery_score ASC").
-		Find(&knowledgeMaps).Error
-	return knowledgeMaps, err
-}
-
-// GetStrongKnowledgePoints 获取强项知识点
-func (kms *KnowledgeMapService) GetStrongKnowledgePoints(studentID string, threshold float32) ([]model.StudentKnowledgeMap, error) {
-	var knowledgeMaps []model.StudentKnowledgeMap
-	err := kms.db.Where("student_id = ? AND mastery_score >= ?", studentID, threshold).
-		Preload("KnowledgePoint").
-		Order("mastery_score DESC").
-		Find(&knowledgeMaps).Error
-	return knowledgeMaps, err
-}
-
-// AnalyzeLearningProgress 分析学习进度
-func (kms *KnowledgeMapService) AnalyzeLearningProgress(studentID string, days int) (map[string]interface{}, error) {
-	startDate := time.Now().AddDate(0, 0, -days)
-
-	var knowledgeMaps []model.StudentKnowledgeMap
-	err := kms.db.Where("student_id = ? AND last_updated >= ?", studentID, startDate).
-		Find(&knowledgeMaps).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 计算统计数据
-	totalPoints := len(knowledgeMaps)
-	weakPoints := 0
-	strongPoints := 0
-	averageMastery := float32(0)
-
-	for _, km := range knowledgeMaps {
-		averageMastery += km.MasteryScore
-		if km.MasteryScore < 0.6 {
-			weakPoints++
-		} else if km.MasteryScore >= 0.8 {
-			strongPoints++
+		if err == gorm.ErrRecordNotFound {
+			mastery = model.StudentKnowledgeMastery{
+				StudentID:        studentID,
+				KnowledgePointID: knowledgePointID,
+				MasteryScore:     0.5,
+			}
 		}
-	}
 
-	if totalPoints > 0 {
-		averageMastery /= float32(totalPoints)
-	}
-
-	// 计算学习趋势（最近7天vs前7天）
-	midDate := time.Now().AddDate(0, 0, -days/2)
-	var recentMaps, oldMaps []model.StudentKnowledgeMap
-
-	for _, km := range knowledgeMaps {
-		if km.LastUpdated.After(midDate) {
-			recentMaps = append(recentMaps, km)
+		delta := -0.06
+		if isCorrect {
+			delta = 0.08
+		}
+		// 响应更快时给轻微加成，保证单次波动可控。
+		if responseTimeMs > 0 && responseTimeMs <= 5000 {
+			delta += 0.02
+		}
+		mastery.MasteryScore = clampScore(mastery.MasteryScore + delta)
+		if isCorrect {
+			mastery.CorrectCount++
 		} else {
-			oldMaps = append(oldMaps, km)
+			mastery.IncorrectCount++
+		}
+		if responseTimeMs > 0 {
+			mastery.LastResponseMs = responseTimeMs
+		}
+		mastery.LastPracticedAt = &now
+
+		if err == gorm.ErrRecordNotFound {
+			return tx.Create(&mastery).Error
+		}
+		return tx.Model(&model.StudentKnowledgeMastery{}).
+			Where("id = ?", mastery.ID).
+			Updates(map[string]any{
+				"mastery_score":     mastery.MasteryScore,
+				"correct_count":     mastery.CorrectCount,
+				"incorrect_count":   mastery.IncorrectCount,
+				"last_response_ms":  mastery.LastResponseMs,
+				"last_practiced_at": mastery.LastPracticedAt,
+			}).Error
+	})
+}
+
+func (s *KnowledgeMapService) GetKnowledgeMap(studentID string) ([]KnowledgeMapItem, error) {
+	return s.queryKnowledgeMap(studentID, nil)
+}
+
+func (s *KnowledgeMapService) GetKnowledgePointMastery(studentID, knowledgePointID string) (*KnowledgeMapItem, error) {
+	knowledgePointID = strings.TrimSpace(knowledgePointID)
+	if knowledgePointID == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	items, err := s.queryKnowledgeMap(studentID, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("m.knowledge_point_id = ?", knowledgePointID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &items[0], nil
+}
+
+func (s *KnowledgeMapService) GetWeakKnowledgePoints(studentID string, threshold float32) ([]KnowledgeMapItem, error) {
+	return s.queryKnowledgeMap(studentID, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("m.mastery_score <= ?", threshold)
+	})
+}
+
+func (s *KnowledgeMapService) GetStrongKnowledgePoints(studentID string, threshold float32) ([]KnowledgeMapItem, error) {
+	return s.queryKnowledgeMap(studentID, func(tx *gorm.DB) *gorm.DB {
+		return tx.Where("m.mastery_score >= ?", threshold)
+	})
+}
+
+func (s *KnowledgeMapService) AnalyzeLearningProgress(studentID string, days int) (LearningProgressSummary, error) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" {
+		return LearningProgressSummary{}, nil
+	}
+	if days <= 0 {
+		days = 7
+	}
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	var total int64
+	if err := s.db.Model(&model.StudentKnowledgeMastery{}).Where("student_id = ?", studentID).Count(&total).Error; err != nil {
+		return LearningProgressSummary{}, err
+	}
+	var practiced int64
+	if err := s.db.Model(&model.StudentKnowledgeMastery{}).
+		Where("student_id = ? AND last_practiced_at >= ?", studentID, cutoff).
+		Count(&practiced).Error; err != nil {
+		return LearningProgressSummary{}, err
+	}
+
+	var rows []model.StudentKnowledgeMastery
+	if err := s.db.Where("student_id = ?", studentID).Find(&rows).Error; err != nil {
+		return LearningProgressSummary{}, err
+	}
+	var sum float64
+	var above80 int
+	for _, row := range rows {
+		sum += row.MasteryScore
+		if row.MasteryScore >= 0.8 {
+			above80++
 		}
 	}
-
-	recentAvg := float32(0)
-	if len(recentMaps) > 0 {
-		for _, km := range recentMaps {
-			recentAvg += km.MasteryScore
-		}
-		recentAvg /= float32(len(recentMaps))
+	avg := 0.0
+	aboveRate := 0.0
+	if len(rows) > 0 {
+		avg = sum / float64(len(rows))
+		aboveRate = float64(above80) / float64(len(rows))
 	}
-
-	oldAvg := float32(0)
-	if len(oldMaps) > 0 {
-		for _, km := range oldMaps {
-			oldAvg += km.MasteryScore
-		}
-		oldAvg /= float32(len(oldMaps))
-	}
-
-	trend := "stable"
-	if recentAvg > oldAvg+0.05 {
-		trend = "improving"
-	} else if recentAvg < oldAvg-0.05 {
-		trend = "declining"
-	}
-
-	return map[string]interface{}{
-		"total_knowledge_points": totalPoints,
-		"weak_points":           weakPoints,
-		"strong_points":         strongPoints,
-		"average_mastery":       averageMastery,
-		"learning_trend":        trend,
-		"recent_average":        recentAvg,
-		"previous_average":      oldAvg,
+	return LearningProgressSummary{
+		StudentID:          studentID,
+		Days:               days,
+		TotalKnowledgePts:  int(total),
+		PracticedPts:       int(practiced),
+		AverageMastery:     avg,
+		MasteryAbove80Rate: aboveRate,
 	}, nil
 }
 
-// updateLearningCurve 更新学习曲线
-func (kms *KnowledgeMapService) updateLearningCurve(km *model.StudentKnowledgeMap, newPoint map[string]interface{}) {
-	var curve []map[string]interface{}
-	if err := json.Unmarshal([]byte(km.LearningCurve), &curve); err != nil {
-		curve = []map[string]interface{}{}
-	}
-
-	// 只保留最近50个数据点
-	if len(curve) >= 50 {
-		curve = curve[1:]
-	}
-	curve = append(curve, newPoint)
-
-	curveJSON, _ := json.Marshal(curve)
-	km.LearningCurve = string(curveJSON)
-}
-
-// analyzeStrengthsAndWeaknesses 分析强项和弱项
-func (kms *KnowledgeMapService) analyzeStrengthsAndWeaknesses(km *model.StudentKnowledgeMap) {
-	// 获取相关知识点
-	var knowledgePoint model.KnowledgePoint
-	kms.db.First(&knowledgePoint, "id = ?", km.KnowledgePointID)
-
-	// 简单的强项弱项分析（可以根据具体需求扩展）
-	strengths := []string{}
-	weaknesses := []string{}
-
-	if km.MasteryScore >= 0.8 {
-		strengths = append(strengths, knowledgePoint.Name)
-	} else if km.MasteryScore < 0.4 {
-		weaknesses = append(weaknesses, knowledgePoint.Name)
-	}
-
-	// 如果准确率很高但掌握度不高，可能是运气或简单题目
-	accuracy := float32(km.CorrectCount) / float32(km.AttemptCount)
-	if accuracy > 0.8 && km.MasteryScore < 0.6 {
-		weaknesses = append(weaknesses, knowledgePoint.Name+"(需要巩固)")
-	}
-
-	strengthsJSON, _ := json.Marshal(strengths)
-	weaknessesJSON, _ := json.Marshal(weaknesses)
-
-	km.StrengthAreas = string(strengthsJSON)
-	km.WeakAreas = string(weaknessesJSON)
-}
-
-// RecommendNextStudy 推荐下一步学习内容
-func (kms *KnowledgeMapService) RecommendNextStudy(studentID string) ([]model.KnowledgePoint, error) {
-	// 获取薄弱知识点
-	weakMaps, err := kms.GetWeakKnowledgePoints(studentID, 0.6)
+func (s *KnowledgeMapService) RecommendNextStudy(studentID string) ([]StudyRecommendation, error) {
+	items, err := s.GetWeakKnowledgePoints(studentID, 0.65)
 	if err != nil {
 		return nil, err
 	}
-
-	var knowledgePoints []model.KnowledgePoint
-	for _, wm := range weakMaps {
-		var kp model.KnowledgePoint
-		if err := kms.db.First(&kp, "id = ?", wm.KnowledgePointID).Error; err == nil {
-			knowledgePoints = append(knowledgePoints, kp)
+	if len(items) == 0 {
+		return []StudyRecommendation{}, nil
+	}
+	recommendations := make([]StudyRecommendation, 0, minInt(len(items), 5))
+	for i, item := range items {
+		if i >= 5 {
+			break
 		}
+		recommendations = append(recommendations, StudyRecommendation{
+			KnowledgePointID: item.KnowledgePointID,
+			CourseID:         item.CourseID,
+			Name:             item.Name,
+			MasteryScore:     item.MasteryScore,
+			Reason:           "该知识点掌握度偏低，建议优先复习。",
+			Action:           "先看讲解视频，再完成 3-5 题巩固练习。",
+		})
+	}
+	return recommendations, nil
+}
+
+func (s *KnowledgeMapService) queryKnowledgeMap(studentID string, extra func(*gorm.DB) *gorm.DB) ([]KnowledgeMapItem, error) {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" {
+		return []KnowledgeMapItem{}, nil
 	}
 
-	// 如果没有薄弱点，推荐难度适中的新知识点
-	if len(knowledgePoints) == 0 {
-		err := kms.db.Where("level = ?", 2).Limit(5).Find(&knowledgePoints).Error
-		if err != nil {
-			return nil, err
-		}
+	type row struct {
+		KnowledgePointID string
+		CourseID         string
+		Name             string
+		MasteryScore     float64
+		CorrectCount     int
+		IncorrectCount   int
+		LastResponseMs   int
+		LastPracticedAt  *time.Time
 	}
 
-	return knowledgePoints, nil
+	tx := s.db.Table("student_knowledge_masteries AS m").
+		Select("m.knowledge_point_id, kp.course_id, kp.name, m.mastery_score, m.correct_count, m.incorrect_count, m.last_response_ms, m.last_practiced_at").
+		Joins("LEFT JOIN knowledge_points AS kp ON kp.id = m.knowledge_point_id").
+		Where("m.student_id = ?", studentID).
+		Order("m.mastery_score ASC, m.updated_at DESC")
+	if extra != nil {
+		tx = extra(tx)
+	}
+
+	var rows []row
+	if err := tx.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]KnowledgeMapItem, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, KnowledgeMapItem{
+			KnowledgePointID: r.KnowledgePointID,
+			CourseID:         r.CourseID,
+			Name:             r.Name,
+			MasteryScore:     r.MasteryScore,
+			CorrectCount:     r.CorrectCount,
+			IncorrectCount:   r.IncorrectCount,
+			LastResponseMs:   r.LastResponseMs,
+			LastPracticedAt:  r.LastPracticedAt,
+		})
+	}
+	return items, nil
+}
+
+func clampScore(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

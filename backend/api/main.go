@@ -15,10 +15,12 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
+	"smart-teaching-backend/internal/database/sqlmigrate"
 	"smart-teaching-backend/internal/handler"
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/repository"
 	"smart-teaching-backend/internal/service"
+	"smart-teaching-backend/pkg/apiresp"
 	"smart-teaching-backend/pkg/config"
 	applogger "smart-teaching-backend/pkg/logger"
 	"smart-teaching-backend/pkg/oss"
@@ -62,6 +64,7 @@ func main() {
 		&model.Course{},
 		&model.CoursePage{},
 		&model.TeachingNode{},
+		&model.TeachingNodeRelation{},
 		&model.UserProgress{},
 		&model.DialogueSession{},
 		&model.DialogueTurn{},
@@ -77,16 +80,17 @@ func main() {
 		&model.StudentFavorite{},
 		&model.PracticeTask{},
 		&model.PracticeAttempt{},
+		&model.ReviewPlan{},
+		&model.ReviewPlanItem{},
+		&model.ScheduledTask{},
 		&model.WeakPoint{},
 		&model.KnowledgePoint{},
+		&model.StudentKnowledgeMastery{},
 		&model.Question{},
 		&model.AnswerRecord{},
 		&model.NodeFavorite{},
 		&model.User{},
-		&model.ReviewPlan{},
-		&model.ReviewPlanItem{},
 		&model.StudentKnowledgeMap{},
-		&model.ScheduledTask{},
 		&model.Notification{},
 		&model.TaskStatus{},
 	)
@@ -94,8 +98,17 @@ func main() {
 		applogger.Sugar.Fatalf("数据库迁移失败: %v", err)
 	}
 
+	migrationsDir := filepath.Join(projectRoot, "internal", "database", "migrations")
+	if err := sqlmigrate.Run(db, migrationsDir); err != nil {
+		applogger.Sugar.Fatalf("SQL 版本迁移失败: %v", err)
+	}
+
 	if err = model.RunPostMigrateBackfill(db); err != nil {
 		applogger.Sugar.Fatalf("数据库回填失败: %v", err)
+	}
+
+	if err = service.BackfillTeachingNodeRelationsForAllCourses(db); err != nil {
+		applogger.Sugar.Fatalf("知识节点关联回填失败: %v", err)
 	}
 
 	applogger.Info("数据库连接成功", zap.String("database", cfg.Database.DBName))
@@ -192,7 +205,7 @@ func main() {
 	})
 
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "time": time.Now().Format("2006-01-02 15:04:05")})
+		apiresp.OK(c, "ok", gin.H{"status": "ok", "time": time.Now().Format("2006-01-02 15:04:05")})
 	})
 
 	api := r.Group("/api")
@@ -265,6 +278,9 @@ func main() {
 				teacherV1.GET("/:courseId/questions", teacherHandler.GetQuestionRecords)
 				teacherV1.GET("/:courseId/card-data", compatHandler.GetCardDataV1)
 				teacherV1.GET("/:courseId/node-insights", compatHandler.GetNodeInsightsV1)
+				teacherV1.POST("/:courseId/knowledge-graph/sync", compatHandler.SyncCourseKnowledgeGraphV1)
+				teacherV1.GET("/:courseId/knowledge-graph/reference-health", compatHandler.GetTeachingNodeReferenceHealthV1)
+				teacherV1.POST("/:courseId/knowledge-graph/reference-health/repair", compatHandler.PostTeachingNodeReferenceRepairV1)
 			}
 
 			aiV1 := v1.Group("/ai")

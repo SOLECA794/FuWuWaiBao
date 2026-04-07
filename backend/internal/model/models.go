@@ -89,6 +89,16 @@ type TeachingNode struct {
 	SortOrder            int    `gorm:"default:0" json:"sort_order"`
 }
 
+// TeachingNodeRelation 讲授节点关系边
+type TeachingNodeRelation struct {
+	BaseModel
+	CourseID     string  `gorm:"size:36;not null;index:idx_course_node_relation,priority:1" json:"course_id"`
+	FromNodeID   string  `gorm:"size:100;not null;index:idx_course_node_relation,priority:2" json:"from_node_id"`
+	ToNodeID     string  `gorm:"size:100;not null;index:idx_course_node_relation,priority:3" json:"to_node_id"`
+	RelationType string  `gorm:"size:30;not null;index:idx_course_node_relation,priority:4" json:"relation_type"`
+	Weight       float32 `gorm:"default:1" json:"weight"`
+}
+
 // UserProgress 用户进度表
 type UserProgress struct {
 	BaseModel
@@ -384,6 +394,18 @@ type StudentKnowledgeMap struct {
 	StrengthAreas    string         `gorm:"type:text" json:"strength_areas"` // JSON: 强项领域
 	WeakAreas        string         `gorm:"type:text" json:"weak_areas"`     // JSON: 薄弱领域
 	KnowledgePoint   KnowledgePoint `gorm:"foreignKey:KnowledgePointID;references:ID" json:"knowledge_point,omitempty"`
+}
+
+// StudentKnowledgeMastery 学生知识点掌握度（轻量统计）
+type StudentKnowledgeMastery struct {
+	BaseModel
+	StudentID        string     `gorm:"size:36;not null;index:idx_student_kp_mastery,priority:1" json:"student_id"`
+	KnowledgePointID string     `gorm:"size:36;not null;index:idx_student_kp_mastery,priority:2" json:"knowledge_point_id"`
+	MasteryScore     float64    `gorm:"type:decimal(6,4);default:0.5" json:"mastery_score"`
+	CorrectCount     int        `gorm:"default:0" json:"correct_count"`
+	IncorrectCount   int        `gorm:"default:0" json:"incorrect_count"`
+	LastResponseMs   int        `gorm:"default:0" json:"last_response_ms"`
+	LastPracticedAt  *time.Time `json:"last_practiced_at,omitempty"`
 }
 
 // ScheduledTask 定时任务模型

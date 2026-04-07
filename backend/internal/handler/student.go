@@ -13,6 +13,8 @@ import (
 
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/service"
+	"smart-teaching-backend/pkg/apiresp"
+	"smart-teaching-backend/pkg/learningevent"
 	"smart-teaching-backend/pkg/logger"
 )
 
@@ -72,13 +74,25 @@ func (h *StudentHandler) StartSession(c *gin.Context) {
 		CourseID string `json:"courseId" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", err.Error())
+		return
+	}
+	if err := learningevent.ValidateCourseID(req.CourseID); err != nil {
+		apiresp.BadRequest(c, "课件参数不合法", err.Error())
+		return
+	}
+	if strings.TrimSpace(req.UserID) == "" {
+		apiresp.BadRequest(c, "参数错误", "userId required")
+		return
+	}
+	if err := learningevent.ValidateUserID(req.UserID); err != nil {
+		apiresp.BadRequest(c, "用户参数不合法", err.Error())
 		return
 	}
 
 	sessionID := uuid.NewString()
 	syncDialogueSessionState(h.db, sessionID, req.UserID, req.CourseID, 1, "p1_n1", 0)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"sessionId": sessionID, "courseId": req.CourseID}})
+	apiresp.OK(c, "请求成功", gin.H{"sessionId": sessionID, "courseId": req.CourseID})
 }
 
 func (h *StudentHandler) UpdateProgress(c *gin.Context) {
@@ -93,7 +107,23 @@ func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 		CurrentTimeSec int    `json:"currentTimeSec"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", err.Error())
+		return
+	}
+	if err := learningevent.ValidateCourseID(req.CourseID); err != nil {
+		apiresp.BadRequest(c, "课件参数不合法", err.Error())
+		return
+	}
+	if err := learningevent.ValidateUserID(req.UserID); err != nil {
+		apiresp.BadRequest(c, "用户参数不合法", err.Error())
+		return
+	}
+	if err := learningevent.ValidateSessionID(req.SessionID); err != nil {
+		apiresp.BadRequest(c, "会话参数不合法", err.Error())
+		return
+	}
+	if err := learningevent.ValidateTimeSec(req.CurrentTimeSec); err != nil {
+		apiresp.BadRequest(c, "播放时间参数不合法", err.Error())
 		return
 	}
 
@@ -103,6 +133,10 @@ func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 	}
 	if page <= 0 {
 		page = 1
+	}
+	if err := learningevent.ValidateProgressPage(page); err != nil {
+		apiresp.BadRequest(c, "页码不合法", err.Error())
+		return
 	}
 	if strings.TrimSpace(req.UserID) != "" {
 		h.saveProgress(req.UserID, req.CourseID, page)
@@ -115,33 +149,37 @@ func (h *StudentHandler) UpdateProgress(c *gin.Context) {
 	if nodeID == "" {
 		nodeID = fmt.Sprintf("p%d_n1", page)
 	}
+	if err := learningevent.ValidateNodeID(nodeID); err != nil {
+		apiresp.BadRequest(c, "节点参数不合法", err.Error())
+		return
+	}
 	syncDialogueSessionState(h.db, req.SessionID, req.UserID, req.CourseID, page, nodeID, req.CurrentTimeSec)
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": gin.H{"sessionId": req.SessionID, "page": page, "nodeId": nodeID}})
+	apiresp.OK(c, "ok", gin.H{"sessionId": req.SessionID, "page": page, "nodeId": nodeID})
 }
 
 func (h *StudentHandler) GetBreakpoint(c *gin.Context) {
 	courseID := c.Param("courseId")
 	userID := strings.TrimSpace(c.Query("userId"))
 	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: userId"})
+		apiresp.BadRequest(c, "缺少参数: userId", "")
 		return
 	}
 
 	lastPage := h.getLastPage(userID, courseID)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"lastPageNum": lastPage, "pageNum": lastPage}})
+	apiresp.OK(c, "请求成功", gin.H{"lastPageNum": lastPage, "pageNum": lastPage})
 }
 
 func (h *StudentHandler) GetStudentBreakpoint(c *gin.Context) {
 	courseID := strings.TrimSpace(c.Query("courseId"))
 	studentID := strings.TrimSpace(c.Query("studentId"))
 	if studentID == "" || courseID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数: studentId 或 courseId"})
+		apiresp.BadRequest(c, "缺少必填参数: studentId 或 courseId", "")
 		return
 	}
 
 	lastPage := h.getLastPage(studentID, courseID)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"lastPageNum": lastPage}})
+	apiresp.OK(c, "请求成功", gin.H{"lastPageNum": lastPage})
 }
 
 func (h *StudentHandler) UpdateBreakpoint(c *gin.Context) {
@@ -151,7 +189,7 @@ func (h *StudentHandler) UpdateBreakpoint(c *gin.Context) {
 func (h *StudentHandler) UpdateStudentBreakpoint(c *gin.Context) {
 	var req UpdateBreakpointRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数: studentId, courseId 或 lastPage"})
+		apiresp.BadRequest(c, "缺少必填参数: studentId, courseId 或 lastPage", "")
 		return
 	}
 
@@ -164,12 +202,12 @@ func (h *StudentHandler) UpdateStudentBreakpoint(c *gin.Context) {
 		page = 1
 	}
 	if studentID == "" || strings.TrimSpace(req.CourseID) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数: studentId, courseId 或 lastPage"})
+		apiresp.BadRequest(c, "缺少必填参数: studentId, courseId 或 lastPage", "")
 		return
 	}
 
 	h.saveProgress(studentID, req.CourseID, page)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "断点更新成功", "data": gin.H{"lastPageNum": page}})
+	apiresp.OK(c, "断点更新成功", gin.H{"lastPageNum": page})
 }
 
 func (h *StudentHandler) SaveNote(c *gin.Context) {
@@ -179,7 +217,7 @@ func (h *StudentHandler) SaveNote(c *gin.Context) {
 func (h *StudentHandler) SaveStudentNote(c *gin.Context) {
 	var req SaveNoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数"})
+		apiresp.BadRequest(c, "缺少必填参数", "")
 		return
 	}
 
@@ -189,18 +227,18 @@ func (h *StudentHandler) SaveStudentNote(c *gin.Context) {
 		content = strings.TrimSpace(req.Note)
 	}
 	if studentID == "" || strings.TrimSpace(req.CourseID) == "" || content == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数"})
+		apiresp.BadRequest(c, "缺少必填参数", "")
 		return
 	}
 
 	note := model.StudentNote{UserID: studentID, CourseID: req.CourseID, PageNum: req.PageNum, Note: content}
 	if err := h.db.Create(&note).Error; err != nil {
 		logger.Errorf("保存笔记失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		apiresp.Internal(c, "保存失败", "")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"status": "saved", "noteId": note.ID}})
+	apiresp.OK(c, "保存成功", gin.H{"status": "saved", "noteId": note.ID})
 }
 
 func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
@@ -211,45 +249,45 @@ func (h *StudentHandler) GetCoursewarePage(c *gin.Context) {
 
 	var req GetCoursewarePageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	content, title := h.loadPageScript(req.CourseID, req.CurrentPage)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"courseId": req.CourseID, "currentPage": req.CurrentPage, "content": content, "title": title}})
+	apiresp.OK(c, "成功", gin.H{"courseId": req.CourseID, "currentPage": req.CurrentPage, "content": content, "title": title})
 }
 
 func (h *StudentHandler) GetPlaybackAudio(c *gin.Context) {
 	courseID := c.Param("courseId")
 	pageNum, err := strconv.Atoi(c.Param("pageNum"))
 	if err != nil || pageNum < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
 	nodes := loadTeachingNodesByPage(h.db, courseID, pageNum)
 	audioMeta := buildPlaybackAudioMeta(courseID, pageNum, nodes)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": audioMeta})
+	apiresp.OK(c, "请求成功", audioMeta)
 }
 
 func (h *StudentHandler) AskAIQuestion(c *gin.Context) {
 	var req AIQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Errorf("参数错误: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数: courseId, pageNum 或 question"})
+		apiresp.BadRequest(c, "缺少必填参数: courseId, pageNum 或 question", "")
 		return
 	}
 
 	nodeID := resolveStudentNodeID(req.NodeID, req.PageNum)
 	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, nodeID, req.Question)
 	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, nodeID, req.Question, resp.Answer)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt, "needReteach": resp.Intent.NeedReteach, "followUpSuggestion": resp.FollowUpSuggestion, "aiUnavailable": resp.Fallback}})
+	apiresp.OK(c, "成功", gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt, "needReteach": resp.Intent.NeedReteach, "followUpSuggestion": resp.FollowUpSuggestion, "aiUnavailable": resp.Fallback})
 }
 
 func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
 	var req TraceQuestionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
@@ -257,7 +295,7 @@ func (h *StudentHandler) TraceAIQuestion(c *gin.Context) {
 	nodeID := resolveStudentNodeID(req.NodeID, req.PageNum)
 	resp := h.askQuestionWithFallback(c, req.CourseID, req.PageNum, nodeID, question)
 	h.recordQuestion(defaultStudentID(req.StudentID, c.GetString("userId")), req.CourseID, req.PageNum, nodeID, req.Question, resp.Answer)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "成功", "data": gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt}})
+	apiresp.OK(c, "成功", gin.H{"answer": resp.Answer, "sourcePage": resp.SourcePage, "source_page": resp.SourcePage, "sourceNodeId": nodeID, "source_node_id": nodeID, "sourceExcerpt": resp.SourceExcerpt})
 }
 
 func (h *StudentHandler) QAStream(c *gin.Context) {
@@ -269,7 +307,7 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 		Question  string `json:"question" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 	sessionID := strings.TrimSpace(req.SessionID)
@@ -311,7 +349,7 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "当前连接不支持流式输出"})
+		apiresp.Internal(c, "当前连接不支持流式输出", "")
 		return
 	}
 
@@ -341,10 +379,10 @@ func (h *StudentHandler) GetStudentStudyData(c *gin.Context) {
 	studentID := strings.TrimSpace(c.Query("studentId"))
 	courseID := strings.TrimSpace(c.Query("courseId"))
 	if studentID == "" || courseID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少必填参数: studentId 或 courseId"})
+		apiresp.BadRequest(c, "缺少必填参数: studentId 或 courseId", "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": h.buildStudyStats(studentID, courseID)})
+	apiresp.OK(c, "请求成功", h.buildStudyStats(studentID, courseID))
 }
 
 func (h *StudentHandler) GetPersonalStats(c *gin.Context) {
@@ -354,16 +392,16 @@ func (h *StudentHandler) GetPersonalStats(c *gin.Context) {
 		studentID = strings.TrimSpace(c.Query("studentId"))
 	}
 	if studentID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "缺少参数: userId"})
+		apiresp.BadRequest(c, "缺少参数: userId", "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": h.buildStudyStats(studentID, courseID)})
+	apiresp.OK(c, "请求成功", h.buildStudyStats(studentID, courseID))
 }
 
 func (h *StudentHandler) getCoursewarePageV1(c *gin.Context, courseID string) {
 	pageNum, err := strconv.Atoi(c.Param("pageNum"))
 	if err != nil || pageNum < 1 {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "页码必须是数字"})
+		apiresp.BadRequest(c, "页码必须是数字", "")
 		return
 	}
 
@@ -378,13 +416,13 @@ func (h *StudentHandler) getCoursewarePageV1(c *gin.Context, courseID string) {
 	if len(teachingNodes) > 0 {
 		pageSummary = buildTeachingNodePageSummary(teachingNodes)
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "请求成功", "data": gin.H{"courseId": courseID, "page": pageNum, "nodes": nodes, "page_summary": pageSummary, "audio_meta": audioMeta, "playback_mode": audioMeta["playback_mode"]}})
+	apiresp.OK(c, "请求成功", gin.H{"courseId": courseID, "page": pageNum, "nodes": nodes, "page_summary": pageSummary, "audio_meta": audioMeta, "playback_mode": audioMeta["playback_mode"]})
 }
 
 func (h *StudentHandler) updateBreakpointCore(c *gin.Context, courseID string) {
 	var req UpdateBreakpointRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
@@ -397,18 +435,18 @@ func (h *StudentHandler) updateBreakpointCore(c *gin.Context, courseID string) {
 		page = 1
 	}
 	if studentID == "" || courseID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	h.saveProgress(studentID, courseID, page)
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "ok", "data": gin.H{"lastPageNum": page, "pageNum": page}})
+	apiresp.OK(c, "ok", gin.H{"lastPageNum": page, "pageNum": page})
 }
 
 func (h *StudentHandler) saveNoteCore(c *gin.Context, courseID string) {
 	var req SaveNoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
@@ -418,16 +456,16 @@ func (h *StudentHandler) saveNoteCore(c *gin.Context, courseID string) {
 		content = strings.TrimSpace(req.Note)
 	}
 	if studentID == "" || courseID == "" || content == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "参数错误"})
+		apiresp.BadRequest(c, "参数错误", "")
 		return
 	}
 
 	note := model.StudentNote{UserID: studentID, CourseID: courseID, PageNum: req.PageNum, Note: content}
 	if err := h.db.Create(&note).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "保存失败"})
+		apiresp.Internal(c, "保存失败", "")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "保存成功", "data": gin.H{"noteId": note.ID, "status": "saved"}})
+	apiresp.OK(c, "保存成功", gin.H{"noteId": note.ID, "status": "saved"})
 }
 
 type questionReply struct {
