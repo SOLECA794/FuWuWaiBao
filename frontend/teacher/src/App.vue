@@ -87,6 +87,13 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
             <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
           </div>
+          <div class="menu-item" :class="{ active: activeTab === 'knowledge' }" @click="activeTab = 'knowledge'" title="知识库">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6.5C3 5.12 4.12 4 5.5 4H10v16H5.5A2.5 2.5 0 0 1 3 17.5v-11z"></path>
+              <path d="M21 6.5C21 5.12 19.88 4 18.5 4H14v16h4.5a2.5 2.5 0 0 0 2.5-2.5v-11z"></path>
+            </svg>
+            <span v-show="!isLeftMenuCollapsed">知识库</span>
+          </div>
           <div class="menu-item" :class="{ active: activeTab === 'iteration' }" @click="activeTab = 'iteration'" title="学情迭代">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path><path d="M22 12.5a10 10 0 0 1-18.8 2.2"></path></svg>
             <span v-show="!isLeftMenuCollapsed">学情迭代</span>
@@ -125,6 +132,9 @@
                 :current-script-nodes="currentScriptNodes"
                 :script-generating="scriptGenerating"
                 :script-saving="scriptSaving"
+                :ai-generate-progress="aiGenerateProgress"
+                :ai-generate-stage-text="aiGenerateStageText"
+                :iteration-sync-notice="iterationSyncNotice"
                 @generate-ai-script="generateAIScript"
                 @save-script="saveScript"
                 @update:current-script="currentScript = $event"
@@ -175,6 +185,17 @@
               ></TeacherCardAnalysisPanel>
             </div>
 
+            <div v-else-if="activeTab === 'knowledge'" class="tab-container">
+              <div v-if="!currentCourseId" class="empty-tip-container">
+                <div class="empty-tip">请先选择课件，再进入知识库</div>
+              </div>
+              <TeacherKnowledgeGraphPanel
+                v-else
+                :course-id="currentCourseId"
+                :course-name="currentCourseName"
+              />
+            </div>
+
             <div v-else class="tab-container"></div>
           </div>
         </transition>
@@ -217,6 +238,8 @@
       :course-class-id="publishCourseClassId"
       :teaching-course-options="publishCourseOptions"
       :course-class-options="filteredPublishClassOptions"
+      :publish-loading="publishSubmitting"
+      :publish-success-info="publishSuccessInfo"
       @close="showPublishModal = false"
       @submit="publishCourseware"
       @update:publish-scope="publishScope = $event"
@@ -242,6 +265,7 @@ import TeacherScriptPanel from './components/teacher/TeacherScriptPanel.vue'
 import TeacherStatsPanel from './components/teacher/TeacherStatsPanel.vue'
 import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vue'
 import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
+import TeacherKnowledgeGraphPanel from './components/teacher/TeacherKnowledgeGraphPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
@@ -291,10 +315,15 @@ const publishTeachingCourseId = ref('')
 const publishCourseClassId = ref('')
 const publishCourseOptions = ref([])
 const publishClassOptions = ref([])
+const publishSubmitting = ref(false)
+const publishSuccessInfo = ref(null)
 const backendStatus = ref('checking')
 const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
+const aiGenerateProgress = ref(0)
+const aiGenerateStageText = ref('')
+const iterationSyncNotice = ref('')
 
 const isSidebarVisible = ref(true)
 const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
@@ -680,6 +709,7 @@ const openPublishModal = () => {
   const current = coursewareList.value.find((item) => item.id === currentCourseId.value)
   publishTeachingCourseId.value = current?.teachingCourseId || publishTeachingCourseId.value || ''
   publishCourseClassId.value = current?.courseClassId || publishCourseClassId.value || ''
+  publishSuccessInfo.value = null
   showPublishModal.value = true
 }
 
@@ -990,8 +1020,16 @@ const handleAutosaveMapping = (payload) => {
 
 const generateAIScript = async () => {
   scriptGenerating.value = true
+  aiGenerateProgress.value = 8
+  aiGenerateStageText.value = '正在分析课件内容'
   try {
     currentScript.value = 'AI正在生成讲稿...'
+    await new Promise((resolve) => window.setTimeout(resolve, 260))
+    aiGenerateProgress.value = 28
+    aiGenerateStageText.value = '正在拆解知识点结构'
+    await new Promise((resolve) => window.setTimeout(resolve, 260))
+    aiGenerateProgress.value = 56
+    aiGenerateStageText.value = '正在生成节点讲稿'
     const data = await teacherV1Api.coursewares.generateScript({
       courseId: currentCourseId.value,
       pageNum: currentEditPage.value
@@ -1008,10 +1046,14 @@ const generateAIScript = async () => {
       })
 
     if (!generatedContent && !generatedNodes.length) {
+      aiGenerateProgress.value = 82
+      aiGenerateStageText.value = 'AI结果为空，切换演示讲稿'
       currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
       currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
       alert('AI 返回空结果或处理中占位文本，已切换前端模拟生成讲稿。')
     } else {
+      aiGenerateProgress.value = 82
+      aiGenerateStageText.value = '正在组装讲稿与节点'
       currentScriptNodes.value = generatedNodes.length
         ? generatedNodes
         : normalizeNodes([], currentEditPage.value, generatedContent)
@@ -1022,13 +1064,21 @@ const generateAIScript = async () => {
       }
     }
 
+    aiGenerateProgress.value = 100
+    aiGenerateStageText.value = '生成完成'
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
   } catch (err) {
+    aiGenerateProgress.value = 84
+    aiGenerateStageText.value = '服务波动，切换演示讲稿'
     currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
     currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
     alert('AI 服务不可用，已切换前端模拟生成讲稿。')
   } finally {
+    window.setTimeout(() => {
+      aiGenerateProgress.value = 0
+      aiGenerateStageText.value = ''
+    }, 650)
     scriptGenerating.value = false
   }
 }
@@ -1079,6 +1129,7 @@ const uploadCourseware = async () => {
 }
 
 const publishCourseware = async () => {
+  publishSubmitting.value = true
   try {
     const selectedCourse = publishCourseOptions.value.find((item) => item.id === publishTeachingCourseId.value)
     const selectedClass = publishClassOptions.value.find((item) => item.id === publishCourseClassId.value)
@@ -1092,17 +1143,25 @@ const publishCourseware = async () => {
       courseClassName: selectedClass?.name || ''
     })
     const course = coursewareList.value.find((c) => c.id === currentCourseId.value)
+    const publishedAt = new Date().toLocaleString()
     if (course) {
       course.published = true
       course.teachingCourseId = publishTeachingCourseId.value
       course.teachingCourseTitle = selectedCourse?.name || ''
       course.courseClassId = publishCourseClassId.value
       course.courseClassName = selectedClass?.name || ''
+      course.publishVersion = Number(course.publishVersion || 0) + 1
+      course.lastPublishedAt = publishedAt
     }
-    alert('课件发布成功！学生端已可查看。')
-    showPublishModal.value = false
+    publishSuccessInfo.value = {
+      version: Number(course?.publishVersion || 1),
+      publishedAt,
+      courseName: selectedCourse?.name || '',
+      className: selectedClass?.name || ''
+    }
   } catch (err) {
     const course = coursewareList.value.find((c) => c.id === currentCourseId.value)
+    const publishedAt = new Date().toLocaleString()
     if (course) {
       const selectedCourse = publishCourseOptions.value.find((item) => item.id === publishTeachingCourseId.value)
       const selectedClass = publishClassOptions.value.find((item) => item.id === publishCourseClassId.value)
@@ -1111,9 +1170,17 @@ const publishCourseware = async () => {
       course.teachingCourseTitle = selectedCourse?.name || ''
       course.courseClassId = publishCourseClassId.value
       course.courseClassName = selectedClass?.name || ''
+      course.publishVersion = Number(course.publishVersion || 0) + 1
+      course.lastPublishedAt = publishedAt
+      publishSuccessInfo.value = {
+        version: Number(course.publishVersion || 1),
+        publishedAt,
+        courseName: selectedCourse?.name || '',
+        className: selectedClass?.name || ''
+      }
     }
-    showPublishModal.value = false
-    alert('后端发布不可用，已按前端模拟发布成功。')
+  } finally {
+    publishSubmitting.value = false
   }
 }
 
@@ -1274,10 +1341,12 @@ const handleIterationScriptGenerated = (scriptData) => {
   currentScript.value = scriptData.content
   currentScriptNodes.value = normalizeNodes(scriptData.nodeTree || [], currentEditPage.value, scriptData.content)
 
-  // 可选：自动切换到编辑讲稿标签页
+  // 自动切换到编辑讲稿标签页，并展示一次性同步提示
   activeTab.value = 'script'
-
-  alert('讲稿已生成并加载到编辑区，请继续编辑')
+  iterationSyncNotice.value = '已同步学情迭代讲稿，建议先检查新增节点与重讲段落。'
+  window.setTimeout(() => {
+    if (iterationSyncNotice.value) iterationSyncNotice.value = ''
+  }, 4500)
 }
 
 const handleIterationScriptUpdated = (scriptText) => {
@@ -1290,7 +1359,10 @@ const handleIterationScriptUpdated = (scriptText) => {
   currentScript.value = content
   currentScriptNodes.value = normalizeNodes([], currentEditPage.value, content)
   activeTab.value = 'script'
-  alert('讲稿已生成并加载到编辑区，请继续编辑')
+  iterationSyncNotice.value = '已同步学情迭代讲稿，请确认节点顺序后保存。'
+  window.setTimeout(() => {
+    if (iterationSyncNotice.value) iterationSyncNotice.value = ''
+  }, 4500)
 }
 </script>
 

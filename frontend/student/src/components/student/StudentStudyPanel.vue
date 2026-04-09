@@ -195,7 +195,10 @@
             <div class="trend-chart">
               <h4>正确率趋势</h4>
               <div class="mini-chart">
-                <div v-for="day in 7" :key="`trend-${day}`" class="trend-bar" :style="{ height: (50 + Math.random() * 30) + '%' }"></div>
+                <div v-for="bar in trendBars" :key="bar.key" class="trend-col">
+                  <div class="trend-bar" :style="{ height: bar.height }"></div>
+                  <small>{{ bar.label }}</small>
+                </div>
               </div>
             </div>
             <div class="mistake-list">
@@ -369,11 +372,12 @@
 /* eslint-disable no-undef */
 import { computed, onMounted, ref, unref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { studentCoursewareApi } from '../../services/v1/coursewareApi'
 
 const selectedCourse = ref('current')
 const activeTab = ref('mastery')
 
-defineProps({
+const props = defineProps({
   learningStats: {
     type: Object,
     default: () => ({})
@@ -381,6 +385,14 @@ defineProps({
   weakPointTags: {
     type: Array,
     default: () => []
+  },
+  studentId: {
+    type: String,
+    default: ''
+  },
+  courseId: {
+    type: String,
+    default: ''
   },
   currentExplain: String,
   currentWeakPoint: String,
@@ -450,10 +462,31 @@ const avgMastery = computed(() => {
   return Math.round(sum / Math.max(1, totalPoints.value))
 })
 
-const totalPractices = 86
-const avgCorrectRate = 72
-const mistakeCount = 24
-const retakeRate = 58
+const practiceHistory = ref([])
+const wrongQuestions = ref([])
+const totalPracticeCount = ref(0)
+const totalWrongCount = ref(0)
+const totalRetriedCount = ref(0)
+
+const totalPractices = computed(() => Number(totalPracticeCount.value || practiceHistory.value.length || 0))
+const avgCorrectRate = computed(() => {
+  const rows = Array.isArray(practiceHistory.value) ? practiceHistory.value : []
+  if (!rows.length) return 0
+  const sum = rows.reduce((acc, item) => {
+    const attempt = item?.attempt || {}
+    const total = Number(attempt.totalCount || item.questionCount || item.questionCnt || 0)
+    const correct = Number(attempt.correctCount || 0)
+    if (total <= 0) return acc
+    return acc + (correct / total) * 100
+  }, 0)
+  return Math.round(sum / rows.length)
+})
+const mistakeCount = computed(() => Number(totalWrongCount.value || wrongQuestions.value.length || 0))
+const retakeRate = computed(() => {
+  const total = Number(totalWrongCount.value || wrongQuestions.value.length || 0)
+  if (total <= 0) return 0
+  return Math.min(100, Math.round((Number(totalRetriedCount.value || 0) / total) * 100))
+})
 const totalQa = 12
 const qaResolveRate = 92
 
@@ -471,13 +504,49 @@ const improvementPlan = ref([
   { id: 3, step: '3', title: '专项测试', desc: '一周后进行小测试，检验学习效果' }
 ])
 
-const mistakeList = ref([
-  { id: 1, stem: '受力面积为 10cm²，作用力 100N，求正应力', poi: '正应力', cause: '单位换算错误', answer: '10 MPa' },
-  { id: 2, stem: '材料直径 20mm，拉伸力 30kN，求应力', poi: '应力计算', cause: '公式理解有误', answer: '95.5 MPa' },
-  { id: 3, stem: '应变 0.001，原长 200mm，求伸长量', poi: '应变定义', cause: '混淆了相对与绝对变形', answer: '0.2 mm' },
-  { id: 4, stem: '弹性模量是什么？', poi: '弹性模量', cause: '概念记忆不清', answer: '应力与应变的比值' },
-  { id: 5, stem: '剪应力的计算公式', poi: '切应力', cause: '记错了公式', answer: 'τ = F/A' }
-])
+const mistakeList = computed(() => {
+  return (wrongQuestions.value || []).map((item, index) => ({
+    id: item.recordId || item.questionId || `wrong-${index + 1}`,
+    questionId: item.questionId || '',
+    stem: item.content || '未提供题干',
+    poi: item.questionType || item.nodeId || '知识点',
+    cause: item.aiComment || item.explanation || '可在重做后查看更详细分析',
+    answer: item.correctAnswer || item.referenceAnswer || '主观题请查看参考答案'
+  }))
+})
+
+const trendBars = computed(() => {
+  const map = new Map()
+  const today = new Date()
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    map.set(key, { score: 0, count: 0 })
+  }
+  (practiceHistory.value || []).forEach((item) => {
+    const dt = item?.attempt?.submittedAt || item?.createdAt
+    if (!dt) return
+    const key = String(dt).slice(0, 10)
+    if (!map.has(key)) return
+    const bucket = map.get(key)
+    const total = Number(item?.attempt?.totalCount || item.questionCount || item.questionCnt || 0)
+    const correct = Number(item?.attempt?.correctCount || 0)
+    if (total > 0) {
+      bucket.score += (correct / total) * 100
+      bucket.count += 1
+    }
+  })
+  return Array.from(map.entries()).map(([key, bucket]) => {
+    const avg = bucket.count > 0 ? Math.round(bucket.score / bucket.count) : 0
+    return {
+      key,
+      label: key.slice(5).replace('-', '/'),
+      value: avg,
+      height: `${Math.max(8, avg)}%`
+    }
+  })
+})
 
 const qaHistory = ref([
   { id: 1, question: '正应力和切应力的区别是什么？', answer: '正应力垂直于截面，切应力平行于截面。', time: '今天 14:30' },
@@ -495,7 +564,7 @@ const aiDiagnosisText = {
 // eslint-disable-next-line vue/no-ref-as-operand
 const overviewCards = computed(() => {
   const masterValue = unref(avgMastery)
-  const correctValue = avgCorrectRate
+  const correctValue = unref(avgCorrectRate)
   const weakValue = unref(weakCount)
   const qaValue = unref(totalQa)
   const rateValue = unref(qaResolveRate)
@@ -589,8 +658,21 @@ const addToTodo = () => {
   ElMessage.success('已添加到待办任务（演示模式）')
 }
 
-const redoMistake = (mistake) => {
-  ElMessage.success(`已为你生成 "${mistake.stem}" 的重做版本（演示模式）`)
+const redoMistake = async (mistake) => {
+  if (!mistake?.questionId || !props.studentId) {
+    ElMessage.warning('当前错题缺少必要信息，无法生成重做任务')
+    return
+  }
+  try {
+    await studentCoursewareApi.retryWrongQuestion({
+      questionId: mistake.questionId,
+      studentId: props.studentId
+    })
+    totalRetriedCount.value += 1
+    ElMessage.success('已生成错题重做任务')
+  } catch (error) {
+    ElMessage.error(`生成重做任务失败：${error.message}`)
+  }
 }
 
 const addToReview = () => {
@@ -641,8 +723,38 @@ const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+const loadPracticeRecords = async () => {
+  if (!props.studentId) return
+  try {
+    const [historyRes, wrongRes] = await Promise.all([
+      studentCoursewareApi.getPracticeHistory({
+        studentId: props.studentId,
+        courseId: props.courseId,
+        pageSize: 100
+      }),
+      studentCoursewareApi.getWrongQuestions({
+        studentId: props.studentId,
+        courseId: props.courseId,
+        pageSize: 100
+      })
+    ])
+    const historyData = historyRes?.data || {}
+    const wrongData = wrongRes?.data || {}
+    practiceHistory.value = Array.isArray(historyData.items) ? historyData.items : []
+    wrongQuestions.value = Array.isArray(wrongData.items) ? wrongData.items : []
+    totalPracticeCount.value = Number(historyData.total || practiceHistory.value.length || 0)
+    totalWrongCount.value = Number(wrongData.total || wrongQuestions.value.length || 0)
+  } catch (error) {
+    practiceHistory.value = []
+    wrongQuestions.value = []
+    totalPracticeCount.value = 0
+    totalWrongCount.value = 0
+    ElMessage.error(`加载错题记录失败：${error.message}`)
+  }
+}
+
 onMounted(() => {
-  ElMessage.info('学习分析数据已加载（前端模拟数据）')
+  loadPracticeRecords()
 })
 </script>
 
@@ -858,6 +970,8 @@ h3 {
 
 .poi-list,
 .ai-diagnosis,
+.weak-top3-panel,
+.teaching-advice-panel,
 .weakness-top5,
 .weakness-radar,
 .weakness-plan,
@@ -1031,10 +1145,25 @@ h3 {
   height: 120px;
 }
 
-.trend-bar {
+.trend-col {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.trend-bar {
+  width: 100%;
   background: linear-gradient(180deg, #52c41a 0%, #1f8f57 100%);
   border-radius: 4px;
+}
+
+.trend-col small {
+  font-size: 10px;
+  color: #6f857b;
 }
 
 .mistake-item {

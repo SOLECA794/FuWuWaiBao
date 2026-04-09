@@ -6,6 +6,14 @@
         <button @click="$emit('close')" class="close-btn">×</button>
       </div>
       <div class="publish-form">
+        <div v-if="publishSuccessInfo" class="publish-success-card">
+          <h4>发布成功</h4>
+          <p>版本号：v{{ publishSuccessInfo.version }}</p>
+          <p>发布时间：{{ publishSuccessInfo.publishedAt }}</p>
+          <p>发布课程：{{ publishSuccessInfo.courseName || '-' }}</p>
+          <p>发布班级：{{ publishSuccessInfo.className || '-' }}</p>
+          <p class="publish-tip">学生端已可见本次发布内容，可继续发布到更多班级。</p>
+        </div>
         <div class="form-item">
           <label>当前课件：</label>
           <span>{{ currentCourseName || '未选择课件' }}</span>
@@ -32,7 +40,9 @@
           </select>
         </div>
         <div class="form-actions">
-          <button @click="$emit('submit')" class="confirm-btn" :disabled="!teachingCourseId || !courseClassId">确认发布</button>
+          <button @click="$emit('submit')" class="confirm-btn" :disabled="publishLoading || !teachingCourseId || !courseClassId">
+            {{ publishLoading ? '发布中...' : '确认发布' }}
+          </button>
           <button @click="$emit('close')" class="cancel-btn">取消</button>
         </div>
       </div>
@@ -69,6 +79,14 @@ defineProps({
   courseClassOptions: {
     type: Array,
     default: () => []
+  },
+  publishLoading: {
+    type: Boolean,
+    default: false
+  },
+  publishSuccessInfo: {
+    type: Object,
+    default: null
   }
 })
 
@@ -110,6 +128,24 @@ defineEmits(['close', 'submit', 'update:publishScope', 'update:teachingCourseId'
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+.publish-success-card {
+  border: 1px solid #b8e2d1;
+  background: #f2fbf7;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: #24453f;
+}
+.publish-success-card h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.publish-success-card p {
+  margin: 2px 0;
+  font-size: 12px;
+}
+.publish-tip {
+  color: #4f6e64;
 }
 .form-item {
   display: flex;

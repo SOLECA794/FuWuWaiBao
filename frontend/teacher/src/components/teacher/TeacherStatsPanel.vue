@@ -50,6 +50,28 @@
             </ul>
           </article>
         </div>
+        <div class="decision-grid extra">
+          <article class="decision-card">
+            <h5>薄弱知识点 Top3</h5>
+            <ul>
+              <li v-for="(item, idx) in weakTop3" :key="item.nodeId || idx">
+                <strong>TOP{{ idx + 1 }} · {{ item.title || item.nodeId }}</strong>
+                <span>掌握度 {{ Math.round(Number(item.masteryScore || 0)) }}% · 错误率 {{ Math.round(Number(item.errorRate || 0) * 1000) / 10 }}%</span>
+              </li>
+              <li v-if="weakTop3.length === 0" class="empty-row">暂无薄弱知识点数据</li>
+            </ul>
+          </article>
+          <article class="decision-card">
+            <h5>AI 生成教学优化建议</h5>
+            <ul>
+              <li v-for="tip in aiTeachingSuggestions" :key="tip.id">
+                <strong>{{ tip.title }}</strong>
+                <span>{{ tip.detail }}</span>
+              </li>
+              <li v-if="aiTeachingSuggestions.length === 0" class="empty-row">暂无可生成建议</li>
+            </ul>
+          </article>
+        </div>
       </section>
 
       <section class="chart-grid">
@@ -181,6 +203,48 @@ const filteredNodeStats = computed(() => {
     return nodeStats.value
   }
   return nodeStats.value.filter(item => uncoveredNodeIdSet.value.has(String(item?.nodeId || '').trim()))
+})
+
+const weakTop3 = computed(() => {
+  const list = (nodeStats.value || [])
+    .map((item) => ({
+      ...item,
+      masteryScore: Number(item?.masteryScore || 0),
+      errorRate: Number(item?.errorRate || 0),
+      questionCount: Number(item?.questionCount || item?.dialogueCount || 0)
+    }))
+    .sort((a, b) => {
+      if (a.masteryScore !== b.masteryScore) return a.masteryScore - b.masteryScore
+      if (a.errorRate !== b.errorRate) return b.errorRate - a.errorRate
+      return b.questionCount - a.questionCount
+    })
+  return list.slice(0, 3)
+})
+
+const aiTeachingSuggestions = computed(() => {
+  const top = weakTop3.value
+  if (!top.length) return []
+
+  const first = top[0]
+  const second = top[1] || top[0]
+  const third = top[2] || top[0]
+  return [
+    {
+      id: 'teacher-opt-1',
+      title: `优先重讲「${first.title || first.nodeId}」`,
+      detail: `建议先用 8-10 分钟回顾核心概念，再安排 2-3 题当堂检测；当前掌握度 ${Math.round(first.masteryScore)}%。`
+    },
+    {
+      id: 'teacher-opt-2',
+      title: `前置补偿「${second.title || second.nodeId}」`,
+      detail: `该节点错误率 ${Math.round(second.errorRate * 1000) / 10}%，建议在讲新内容前增加前置知识快问快答。`
+    },
+    {
+      id: 'teacher-opt-3',
+      title: `分层练习强化「${third.title || third.nodeId}」`,
+      detail: `按基础/提升两层布置练习，结合课堂追问数据（提问 ${third.questionCount} 次）做针对性讲评。`
+    }
+  ]
 })
 
 const ensureCharts = () => {
@@ -395,6 +459,10 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.decision-grid.extra {
+  margin-top: 10px;
 }
 
 .decision-card {

@@ -95,6 +95,10 @@
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
             </button>
+            <button class="menu-item" :class="{ active: activeSection === 'practice' }" @click="activeSection = 'practice'" title="随堂练习">
+              <span class="menu-icon">练</span>
+              <span v-show="!isMenuCollapsed">随堂练习</span>
+            </button>
             <button class="menu-item" v-if="hasCourseSelected" @click="backToSelectionPage" title="返回选课页">
               <span class="menu-icon">返</span>
               <span v-show="!isMenuCollapsed">返回选课页</span>
@@ -110,6 +114,22 @@
           <transition name="page-fade" mode="out-in">
           <div v-if="activeSection === 'classroom'" key="classroom" class="page-layout classroom-grid">
             <section class="center-stage">
+              <div class="playback-hud" v-if="playbackHudVisible">{{ playbackHudText }}</div>
+              <div class="shortcut-help-card" v-if="shortcutHelpVisible">
+                <div class="shortcut-help-header">
+                  <strong>课堂快捷键</strong>
+                  <button type="button" @click="closeShortcutHelp()">关闭</button>
+                </div>
+                <div class="shortcut-help-grid">
+                  <span><kbd>Space</kbd> 播放/暂停</span>
+                  <span><kbd>← / →</kbd> 快退/快进 5 秒</span>
+                  <span><kbd>Shift + ← / →</kbd> 快退/快进 10 秒</span>
+                  <span><kbd>[ / ]</kbd> 调整倍速</span>
+                  <span><kbd>0</kbd> 恢复 1.0x</span>
+                  <span><kbd>M</kbd> 语音开关</span>
+                  <span><kbd>K</kbd> 打开/关闭帮助</span>
+                </div>
+              </div>
               <StudentCoursePanel
                 :current-course-name="currentCourseName"
                 :current-page="currentPage"
@@ -124,7 +144,7 @@
                 :playback-audio-meta="playbackAudioMeta"
                 :progress-percent="progressPercent"
                 :course-img="courseImg"
-                :playback-nodes="[]"
+                :playback-nodes="playbackNodes"
                 :current-node-id="currentNodeId"
                 :tts-enabled="ttsEnabled"
                 :page-summary="''"
@@ -134,12 +154,18 @@
                 :trace-top="traceTop"
                 :trace-left="traceLeft"
                 :is-play="isPlay"
+                :playback-rate="playbackRate"
                 :show-status-strip="false"
                 @prev-page="prevPage"
                 @select-node="selectPlaybackNode"
                 @toggle-play="togglePlay"
                 @toggle-tts="toggleTts"
                 @speak-current-node="speakCurrentNode"
+                @seek-timeline="seekTimeline"
+                @seek-step="handleSeekStep"
+                @seek-to-start="handleSeekToStart"
+                @open-shortcuts="openShortcutHelp(true)"
+                @update:playback-rate="updatePlaybackRate"
                 @next-page="nextPage"
               />
             </section>
@@ -166,7 +192,7 @@
                   v-for="(node, idx) in filteredOutlineNodes"
                   :key="node.node_id"
                   class="outline-item"
-                  :class="{ active: node.node_id === currentNodeId }"
+                  :class="{ active: node.node_id === currentNodeId, 'jump-highlight': seekNoticeVisible && node.node_id === currentNodeId }"
                   @click="selectPlaybackNode(node.node_id)"
                 >
                   <span class="outline-index">{{ String(idx + 1).padStart(2, '0') }}</span>
@@ -188,6 +214,7 @@
                 <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
                 <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
                 <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
+                <span class="status-pill seek-notice" v-if="seekNoticeVisible">{{ seekNoticeText }}</span>
               </div>
               <div class="status-track" v-if="pageTimelineDuration > 0">
                 <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
@@ -207,6 +234,8 @@
             <StudentStudyPanel
               :learning-stats="learningStats"
               :weak-point-tags="weakPointTags"
+              :student-id="studentId"
+              :course-id="courseId"
               :current-explain="currentExplain"
               :current-weak-point="currentWeakPoint"
               :current-test="currentTest"
@@ -232,8 +261,21 @@
               :current-course-name="currentCourseName"
               :learning-stats="learningStats"
               :weak-point-tags="weakPointTags"
+              :initial-tab="personalCenterInitialTab"
               @jump-classroom="activeSection = 'classroom'"
               @jump-analytics="activeSection = 'analytics'"
+            />
+          </div>
+
+          <div v-else-if="activeSection === 'practice'" key="practice" class="page-layout single-col">
+            <StudentPracticePanel
+              :course-name="currentCourseName"
+              :current-node-title="currentNodeMeta?.title || ''"
+              :student-id="studentId"
+              :course-id="courseId"
+              :node-id="currentNodeId"
+              :page-num="currentPage"
+              @jump-personal-practice="jumpToPersonalPractice"
             />
           </div>
 
@@ -323,6 +365,7 @@ import StudentRecommendPanel from './components/student/StudentRecommendPanel.vu
 import StudentKnowledgePanel from './components/student/StudentKnowledgePanel.vue'
 import StudentBreakpointDialog from './components/student/StudentBreakpointDialog.vue'
 import StudentPersonalCenter from './components/student/StudentPersonalCenter.vue'
+import StudentPracticePanel from './components/student/StudentPracticePanel.vue'
 import StudentTopBar from './components/StudentTopBar.vue'
 import HomeLogin from './components/HomeLogin.vue'
 
@@ -387,12 +430,24 @@ const playbackMode = ref('duration_timeline')
 const playbackAudioMeta = ref(null)
 const playbackState = ref('paused')
 const ttsEnabled = ref(true)
+const playbackRate = ref(1)
+const seekNoticeText = ref('')
+const seekNoticeVisible = ref(false)
+let seekNoticeTimer = null
+const playbackHudText = ref('')
+const playbackHudVisible = ref(false)
+let playbackHudTimer = null
+const shortcutHelpVisible = ref(false)
+const shortcutHelpSeenKey = 'fuww_student_shortcuts_seen'
+let arrowSeekTimer = null
+let arrowSeekDirection = ''
 const currentCourseName = ref('')
 const currentPage = ref(1)
 const totalPage = ref(10)
 const isPlay = ref(false)
 const courseImg = ref('')
 const activeSection = ref('classroom')
+const personalCenterInitialTab = ref('notes')
 const isMenuCollapsed = ref(false)
 const showAskWorkspace = ref(false)
 const askWorkspaceLayout = reactive({
@@ -909,7 +964,7 @@ const speakCurrentNode = () => {
   stopSpeechNarration()
   const utter = new SpeechSynthesisUtterance(text)
   utter.lang = 'zh-CN'
-  utter.rate = 1
+  utter.rate = Math.min(2, Math.max(0.5, Number(playbackRate.value || 1)))
   utter.pitch = 1
   utter.volume = 1
   utter.__mark = speakingMark
@@ -932,7 +987,7 @@ const startPlaybackTimer = () => {
   if (!playbackNodes.value.length) return
   playbackTimer = window.setInterval(async () => {
     if (!isPlay.value) return
-    currentTimelineSec.value += 1
+    currentTimelineSec.value += Number(playbackRate.value || 1)
     syncCurrentNodeWithTimeline()
 
     if (pageTimelineDuration.value > 0 && currentTimelineSec.value >= pageTimelineDuration.value) {
@@ -1015,7 +1070,185 @@ const loadStudentScript = async () => {
 const selectPlaybackNode = async (nodeId) => {
   currentNodeId.value = nodeId
   normalizeTimelineForNode(nodeId)
+  const node = playbackNodes.value.find(item => item.node_id === nodeId)
+  flashSeekNotice(currentTimelineSec.value, node?.title || '')
   await saveBreakpoint()
+}
+
+const seekTimeline = async (targetSec) => {
+  currentTimelineSec.value = clampTimelineSec(targetSec)
+  syncCurrentNodeWithTimeline()
+  flashSeekNotice(currentTimelineSec.value, currentNodeMeta.value?.title || '')
+  await saveBreakpoint()
+}
+
+const handleSeekStep = async (deltaSec) => {
+  const step = Number(deltaSec || 0)
+  if (!step) return
+  await seekTimeline(currentTimelineSec.value + step)
+  flashPlaybackHud(step > 0 ? `⏩ +${Math.abs(step)} 秒` : `⏪ -${Math.abs(step)} 秒`)
+}
+
+const handleSeekToStart = async () => {
+  await seekTimeline(0)
+  flashPlaybackHud('↺ 回到页首')
+}
+
+const stopContinuousArrowSeek = () => {
+  if (arrowSeekTimer) {
+    window.clearInterval(arrowSeekTimer)
+    arrowSeekTimer = null
+  }
+  arrowSeekDirection = ''
+}
+
+const flashPlaybackHud = (text) => {
+  const message = String(text || '').trim()
+  if (!message) return
+  if (playbackHudTimer) {
+    window.clearTimeout(playbackHudTimer)
+    playbackHudTimer = null
+  }
+  playbackHudText.value = message
+  playbackHudVisible.value = true
+  playbackHudTimer = window.setTimeout(() => {
+    playbackHudVisible.value = false
+    playbackHudText.value = ''
+    playbackHudTimer = null
+  }, 900)
+}
+
+const openShortcutHelp = (markSeen = false) => {
+  shortcutHelpVisible.value = true
+  if (markSeen && typeof window !== 'undefined') {
+    window.localStorage.setItem(shortcutHelpSeenKey, '1')
+  }
+}
+
+const closeShortcutHelp = () => {
+  shortcutHelpVisible.value = false
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(shortcutHelpSeenKey, '1')
+  }
+}
+
+const startContinuousArrowSeek = (direction) => {
+  if (!['left', 'right'].includes(direction)) return
+  if (arrowSeekDirection === direction && arrowSeekTimer) return
+  stopContinuousArrowSeek()
+  arrowSeekDirection = direction
+  arrowSeekTimer = window.setInterval(() => {
+    if (arrowSeekDirection === 'left') {
+      void seekTimeline(currentTimelineSec.value - 5)
+      return
+    }
+    if (arrowSeekDirection === 'right') {
+      void seekTimeline(currentTimelineSec.value + 5)
+    }
+  }, 220)
+}
+
+const handlePlaybackShortcut = (event) => {
+  if (!hasCourseSelected.value || activeSection.value !== 'classroom') return
+  const target = event.target
+  const tag = String(target?.tagName || '').toLowerCase()
+  const isTyping = tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable
+  if (isTyping) return
+
+  if (event.code === 'Space') {
+    event.preventDefault()
+    togglePlay()
+    flashPlaybackHud(isPlay.value ? '▶ 播放' : '⏸ 暂停')
+    return
+  }
+  if (event.code === 'ArrowLeft') {
+    event.preventDefault()
+    const step = event.shiftKey ? 10 : 5
+    if (event.repeat) {
+      startContinuousArrowSeek('left')
+      flashPlaybackHud(event.shiftKey ? '⏪ 连续快退 10 秒' : '⏪ 连续快退')
+      return
+    }
+    void handleSeekStep(-step)
+    return
+  }
+  if (event.code === 'ArrowRight') {
+    event.preventDefault()
+    const step = event.shiftKey ? 10 : 5
+    if (event.repeat) {
+      startContinuousArrowSeek('right')
+      flashPlaybackHud(event.shiftKey ? '⏩ 连续快进 10 秒' : '⏩ 连续快进')
+      return
+    }
+    void handleSeekStep(step)
+    return
+  }
+  if (event.code === 'BracketLeft') {
+    event.preventDefault()
+    const rates = [0.75, 1, 1.25, 1.5]
+    const idx = rates.indexOf(Number(playbackRate.value || 1))
+    const next = rates[Math.max(0, idx - 1)]
+    updatePlaybackRate(next)
+    return
+  }
+  if (event.code === 'BracketRight') {
+    event.preventDefault()
+    const rates = [0.75, 1, 1.25, 1.5]
+    const idx = rates.indexOf(Number(playbackRate.value || 1))
+    const next = rates[Math.min(rates.length - 1, idx + 1)]
+    updatePlaybackRate(next)
+    return
+  }
+  if (event.code === 'KeyM') {
+    event.preventDefault()
+    toggleTts()
+    flashPlaybackHud(ttsEnabled.value ? '🔊 语音已开' : '🔇 语音已关')
+    return
+  }
+  if (event.code === 'Digit0') {
+    event.preventDefault()
+    updatePlaybackRate(1)
+    flashPlaybackHud('🎯 1.0x')
+    return
+  }
+  if (event.code === 'KeyK') {
+    event.preventDefault()
+    shortcutHelpVisible.value = !shortcutHelpVisible.value
+    if (shortcutHelpVisible.value && typeof window !== 'undefined') {
+      window.localStorage.setItem(shortcutHelpSeenKey, '1')
+    }
+    flashPlaybackHud(shortcutHelpVisible.value ? '⌨️ 已打开快捷键帮助' : '⌨️ 已关闭快捷键帮助')
+  }
+}
+
+const handlePlaybackShortcutKeyup = (event) => {
+  if (event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
+    stopContinuousArrowSeek()
+  }
+}
+
+const updatePlaybackRate = (rate) => {
+  const normalized = Number(rate || 1)
+  playbackRate.value = [0.75, 1, 1.25, 1.5].includes(normalized) ? normalized : 1
+  if (isPlay.value && ttsEnabled.value) {
+    speakCurrentNode()
+  }
+  flashPlaybackHud(`⚡ ${playbackRate.value}x`)
+}
+
+const flashSeekNotice = (sec, nodeTitle = '') => {
+  if (seekNoticeTimer) {
+    window.clearTimeout(seekNoticeTimer)
+    seekNoticeTimer = null
+  }
+  const title = String(nodeTitle || '').trim()
+  seekNoticeText.value = title ? `已定位 ${formatNodeTime(sec)} · ${title}` : `已定位 ${formatNodeTime(sec)}`
+  seekNoticeVisible.value = true
+  seekNoticeTimer = window.setTimeout(() => {
+    seekNoticeVisible.value = false
+    seekNoticeText.value = ''
+    seekNoticeTimer = null
+  }, 1500)
 }
 
 const refreshCurrentPageData = async ({ preserveCurrentNode = true, targetNodeId = '', targetTimeSec = null } = {}) => {
@@ -1324,6 +1557,11 @@ const backToSelectionPage = () => {
   void loadCourseSelectionData()
 }
 
+const jumpToPersonalPractice = () => {
+  personalCenterInitialTab.value = 'practice'
+  activeSection.value = 'personal'
+}
+
 const handleLoginSuccess = (user) => {
   const role = String(user?.role || '').trim().toLowerCase()
   const username = String(user?.username || '').trim().toLowerCase() || 'xuesheng'
@@ -1372,6 +1610,12 @@ const handleLogout = () => {
 onMounted(() => {
   if (typeof window !== 'undefined') {
     loadAskWorkspaceLayout()
+    window.addEventListener('keydown', handlePlaybackShortcut)
+    window.addEventListener('keyup', handlePlaybackShortcutKeyup)
+    window.addEventListener('blur', stopContinuousArrowSeek)
+    if (window.localStorage.getItem(shortcutHelpSeenKey) !== '1') {
+      openShortcutHelp(true)
+    }
     window.localStorage.setItem('fuww_student_origin', window.location.origin)
     const params = new URLSearchParams(window.location.search)
     const role = String(params.get('role') || '').trim().toLowerCase()
@@ -1397,9 +1641,23 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handlePlaybackShortcut)
+    window.removeEventListener('keyup', handlePlaybackShortcutKeyup)
+    window.removeEventListener('blur', stopContinuousArrowSeek)
+  }
+  stopContinuousArrowSeek()
+  if (playbackHudTimer) {
+    window.clearTimeout(playbackHudTimer)
+    playbackHudTimer = null
+  }
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
     backendHealthTimer = null
+  }
+  if (seekNoticeTimer) {
+    window.clearTimeout(seekNoticeTimer)
+    seekNoticeTimer = null
   }
   stopPlaybackTimer()
   stopSpeechNarration()
@@ -2349,6 +2607,10 @@ const checkAnswer = async (option) => {
   background: linear-gradient(180deg, #eff6f3 0%, #ffffff 100%);
 }
 
+.outline-item.jump-highlight {
+  animation: nodePulse 0.85s ease;
+}
+
 .outline-index {
   width: 28px;
   height: 28px;
@@ -2429,6 +2691,13 @@ const checkAnswer = async (option) => {
   border: 1px solid #d5e4dc;
 }
 
+.classroom-status-strip .status-pill.seek-notice {
+  color: #0f766e;
+  border-color: rgba(15, 118, 110, 0.35);
+  background: rgba(240, 253, 250, 0.98);
+  animation: noticePop 0.25s ease-out;
+}
+
 .classroom-status-strip .status-track,
 .classroom-status-strip .progress-track {
   height: 8px;
@@ -2453,8 +2722,108 @@ const checkAnswer = async (option) => {
   color: #628075;
 }
 
+@keyframes nodePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(15, 118, 110, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(15, 118, 110, 0);
+  }
+}
+
+@keyframes noticePop {
+  0% {
+    transform: translateY(2px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .center-stage {
   min-width: 0;
+  position: relative;
+}
+
+.playback-hud {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 4;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f766e;
+  background: rgba(236, 253, 245, 0.96);
+  border: 1px solid rgba(15, 118, 110, 0.25);
+  box-shadow: 0 10px 18px rgba(15, 118, 110, 0.12);
+  animation: hudPop 0.2s ease-out;
+}
+
+.shortcut-help-card {
+  position: absolute;
+  top: 50px;
+  right: 12px;
+  z-index: 4;
+  width: min(360px, calc(100% - 24px));
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.shortcut-help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.shortcut-help-header strong {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.shortcut-help-header button {
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shortcut-help-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  font-size: 12px;
+  color: #3f5b53;
+}
+
+.shortcut-help-grid kbd {
+  font-family: inherit;
+  border-radius: 6px;
+  border: 1px solid #d5e4dc;
+  background: #f8fbf9;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+@keyframes hudPop {
+  0% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .qa-flyout-backdrop {

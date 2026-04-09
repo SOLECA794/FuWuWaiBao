@@ -240,6 +240,180 @@
           </div>
         </section>
 
+        <section v-else-if="activeTab === 'plans'" key="plans" class="panel">
+          <div class="panel-head">
+            <div class="head-left">
+              <h3>复习计划</h3>
+              <p>把笔记/收藏转成可执行复习清单，形成学习闭环。</p>
+            </div>
+            <div class="head-right">
+              <button class="btn primary" @click="startPlanEdit()">创建计划</button>
+            </div>
+          </div>
+
+          <div v-if="showPlanForm" class="editor">
+            <div class="grid">
+              <input v-model="planForm.name" class="input" placeholder="计划名称（例如：本周薄弱点复习）" />
+              <select v-model="planForm.frequency" class="input select">
+                <option value="daily">每日</option>
+                <option value="weekly">每周</option>
+                <option value="monthly">每月</option>
+              </select>
+            </div>
+            <textarea v-model="planForm.description" class="input textarea" rows="3" placeholder="计划说明（可选）"></textarea>
+            <div class="row actions">
+              <button class="btn" @click="showPlanForm = false; editingPlan = null">取消</button>
+              <button class="btn primary" @click="savePlan">保存计划</button>
+            </div>
+          </div>
+
+          <div v-if="!reviewPlans.length" class="empty-card">
+            <div class="empty-title">暂无复习计划</div>
+            <div class="empty-desc">你可以从收藏看板一键加入计划，或先新建一个空计划。</div>
+            <div class="empty-actions">
+              <button class="btn primary" @click="startPlanEdit()">创建第一个计划</button>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="grid-2">
+              <div v-for="plan in reviewPlans" :key="plan.id" class="card compact">
+                <div class="card-top">
+                  <div class="card-title">{{ plan.name || '未命名计划' }}</div>
+                  <span class="badge">{{ formatPlanStatus(plan.status) }}</span>
+                </div>
+                <div class="card-body">{{ plan.description || '暂无计划说明' }}</div>
+                <div class="card-foot">
+                  <span class="muted">频率：{{ formatFrequency(plan.frequency) }}</span>
+                  <span class="muted">下次：{{ formatDate(plan.nextReviewDate) || '-' }}</span>
+                </div>
+                <div class="row actions">
+                  <button class="btn" @click="viewPlanItems(plan)">查看复习项</button>
+                  <button class="btn" @click="startPlanEdit(plan)">编辑</button>
+                  <button class="btn danger" @click="deletePlan(plan.id)">删除</button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentPlan" class="subpanel">
+              <div class="section-head">
+                <h4>计划详情：{{ currentPlan.name }}</h4>
+                <button class="btn ghost" @click="viewPlanItems(currentPlan)">刷新复习项</button>
+              </div>
+
+              <div class="editor slim">
+                <div class="grid">
+                  <select v-model="addItemForm.type" class="input select">
+                    <option value="note">笔记</option>
+                    <option value="favorite">收藏</option>
+                  </select>
+                  <select v-model="addItemForm.itemId" class="input select">
+                    <option disabled value="">选择要加入的内容</option>
+                    <option v-for="item in availablePlanItems" :key="item.id" :value="item.id">
+                      {{ addItemForm.type === 'favorite' ? getFavoriteTitle(item.id) : (item.title || `第${item.pageNum}页笔记`) }}
+                    </option>
+                  </select>
+                </div>
+                <div class="row actions">
+                  <button class="btn primary" @click="addPlanItem">加入复习项</button>
+                </div>
+              </div>
+
+              <div v-if="!planItems.length" class="empty">当前计划还没有复习项。</div>
+              <div v-else class="note-list">
+                <div v-for="item in planItems" :key="item.id" class="card compact">
+                  <div class="card-top">
+                    <div class="card-title">
+                      {{ item.itemType === 'favorite' ? getFavoriteTitle(item.itemId) : getNoteContent(item.itemId) }}
+                    </div>
+                    <span class="pill">{{ item.itemType === 'favorite' ? '收藏' : '笔记' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">优先级：{{ item.priority || '-' }}</span>
+                    <span class="muted">复习次数：{{ item.reviewCount || 0 }}</span>
+                    <span class="muted">最近复习：{{ formatDate(item.lastReviewedAt) || '-' }}</span>
+                  </div>
+                  <div class="row actions">
+                    <button class="btn primary" @click="markReviewed(item)">标记已复习</button>
+                    <button class="btn danger" @click="removePlanItem(item.id)">移除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <section v-else-if="activeTab === 'practice'" key="practice" class="panel">
+          <div class="panel-head">
+            <div class="head-left">
+              <h3>练习记录</h3>
+              <p>展示最近练习历史与错题，支持一键重做。</p>
+            </div>
+            <div class="head-right">
+              <button class="btn ghost" @click="loadPracticeData">刷新</button>
+            </div>
+          </div>
+
+          <div v-if="!practiceHistory.length && !wrongQuestions.length" class="empty-card">
+            <div class="empty-title">暂无练习记录</div>
+            <div class="empty-desc">先去「随堂练习」做题，结果会自动同步到这里。</div>
+            <div class="empty-actions">
+              <button class="btn primary" @click="jumpToClassroom">去课堂学习</button>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="subpanel">
+              <div class="section-head">
+                <h4>最近练习</h4>
+                <span class="muted">共 {{ practiceHistory.length }} 条</span>
+              </div>
+              <div v-if="!practiceHistory.length" class="empty">暂无已提交练习。</div>
+              <div v-else class="grid-2">
+                <div v-for="item in practiceHistory" :key="item.taskId" class="card compact">
+                  <div class="card-top">
+                    <div class="card-title">任务 {{ item.taskId }}</div>
+                    <span class="badge">{{ item.status === 'completed' ? '已完成' : '待完成' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">页码：{{ item.pageNum || '-' }}</span>
+                    <span class="muted">难度：{{ item.difficulty || '-' }}</span>
+                    <span class="muted">提交：{{ formatDate(item.attempt?.submittedAt || item.createdAt) || '-' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">正确：{{ item.attempt?.correctCount || 0 }}/{{ item.attempt?.totalCount || item.questionCount || item.questionCnt || 0 }}</span>
+                    <span class="muted">得分：{{ item.attempt?.score || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="section-head">
+                <h4>错题列表</h4>
+                <span class="muted">共 {{ wrongQuestions.length }} 题</span>
+              </div>
+              <div v-if="!wrongQuestions.length" class="empty">当前没有错题，继续保持。</div>
+              <div v-else class="note-list">
+                <div v-for="item in wrongQuestions" :key="item.recordId || item.questionId" class="card">
+                  <div class="card-top">
+                    <div class="card-title">{{ item.content || '未提供题干' }}</div>
+                    <span class="pill">{{ item.questionType || '题目' }}</span>
+                  </div>
+                  <div class="card-body">
+                    <div>你的答案：{{ item.userAnswer || '未作答' }}</div>
+                    <div>正确答案：{{ item.correctAnswer || item.referenceAnswer || '主观题请查看解析' }}</div>
+                    <div>解析：{{ item.explanation || item.aiComment || '暂无解析' }}</div>
+                  </div>
+                  <div class="row actions">
+                    <button class="btn primary" @click="retryWrongQuestion(item.questionId)">重做本题</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </section>
+
         <section v-else-if="activeTab === 'tasks'" key="tasks" class="panel">
           <div class="panel-head">
             <div class="head-left">
@@ -391,7 +565,8 @@ export default {
     courseId: { type: String, default: '' },
     currentCourseName: { type: String, default: '' },
     learningStats: { type: Object, default: null },
-    weakPointTags: { type: Array, default: () => [] }
+    weakPointTags: { type: Array, default: () => [] },
+    initialTab: { type: String, default: 'notes' }
   },
   data() {
     return {
@@ -476,8 +651,24 @@ export default {
       return [...planReminders, ...notificationReminders].slice(0, 5)
     }
   },
-  async created() { await this.loadData() },
+  async created() {
+    this.applyInitialTab(this.initialTab)
+    await this.loadData()
+  },
+  watch: {
+    initialTab(next) {
+      this.applyInitialTab(next)
+    }
+  },
   methods: {
+    applyInitialTab(tab) {
+      const safe = String(tab || '').trim()
+      if (!safe) return
+      const exists = this.tabs.some((item) => item.key === safe)
+      if (!exists) return
+      if (this.activeTab === safe) return
+      this.activeTab = safe
+    },
     switchTab(key) {
       this.persistActiveTabScroll()
       this.activeTab = key
@@ -499,6 +690,8 @@ export default {
     tabCount(key) {
       if (key === 'notes') return (this.notes || []).length
       if (key === 'favorites') return (this.favorites || []).length
+      if (key === 'plans') return (this.reviewPlans || []).length
+      if (key === 'practice') return (this.practiceHistory || []).length
       if (key === 'notifications') return this.unreadNotificationCount
       if (key === 'tasks') return (this.mergeTasks() || []).filter(t => t.status !== 'done').length
       return null

@@ -28,6 +28,10 @@
         </header>
 
         <section class="viewer-stage">
+          <div v-if="iterationSyncNotice" class="iteration-sync-banner">
+            <strong>学情迭代已回填</strong>
+            <span>{{ iterationSyncNotice }}</span>
+          </div>
           <header class="stage-head">
             <h4>课件预览</h4>
             <div class="slide-index">第 {{ currentEditPage }}/{{ totalPages || 1 }} 页</div>
@@ -79,6 +83,15 @@
           </div>
 
           <footer class="stage-actions">
+            <div v-if="scriptGenerating || aiGenerateProgress > 0" class="ai-progress-card">
+              <div class="ai-progress-head">
+                <strong>{{ aiGenerateStageText || 'AI 处理中' }}</strong>
+                <span>{{ Math.max(0, Math.min(100, Number(aiGenerateProgress) || 0)) }}%</span>
+              </div>
+              <div class="ai-progress-track">
+                <i :style="{ width: `${Math.max(0, Math.min(100, Number(aiGenerateProgress) || 0))}%` }"></i>
+              </div>
+            </div>
             <div class="left-actions">
               <button class="ghost-btn" @click="addNode" :disabled="!currentCourseId">+ 新增节点</button>
               <button class="ghost-btn" @click="$emit('generate-ai-script')" :disabled="!currentCourseId || scriptGenerating || scriptSaving">
@@ -167,6 +180,18 @@ const props = defineProps({
   scriptSaving: {
     type: Boolean,
     default: false
+  },
+  aiGenerateProgress: {
+    type: Number,
+    default: 0
+  },
+  aiGenerateStageText: {
+    type: String,
+    default: ''
+  },
+  iterationSyncNotice: {
+    type: String,
+    default: ''
   }
 })
 
@@ -562,6 +587,26 @@ function estimateDuration(text) {
   scrollbar-color: #c7cde8 #edf2f7;
 }
 
+.iteration-sync-banner {
+  margin-bottom: 10px;
+  border: 1px solid rgba(92, 166, 143, 0.45);
+  background: #eef8f3;
+  color: #295a4f;
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  animation: dock-appear 220ms ease both;
+}
+
+.iteration-sync-banner strong {
+  font-size: 12px;
+}
+
+.iteration-sync-banner span {
+  font-size: 12px;
+}
+
 .viewer-stage::-webkit-scrollbar {
   width: 8px;
 }
@@ -780,6 +825,39 @@ function estimateDuration(text) {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.ai-progress-card {
+  width: 100%;
+  border: 1px solid rgba(125, 162, 146, 0.3);
+  background: #f5fbf8;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.ai-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #2f6052;
+}
+
+.ai-progress-track {
+  margin-top: 6px;
+  height: 7px;
+  border-radius: 999px;
+  background: #dbece5;
+  overflow: hidden;
+}
+
+.ai-progress-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #79c3ab 0%, #4f9c84 100%);
+  transition: width 220ms ease;
 }
 
 .left-actions,

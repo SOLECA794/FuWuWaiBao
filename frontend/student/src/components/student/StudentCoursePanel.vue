@@ -63,18 +63,52 @@
 
     <div class="course-control">
       <el-button @click="$emit('prev-page')" icon="el-icon-arrow-left" size="small">上一页</el-button>
+      <el-button @click="emit('seek-step', -5)" size="small" plain>快退 5 秒</el-button>
       <el-button @click="$emit('toggle-play')" :icon="isPlay ? 'el-icon-pause' : 'el-icon-play'" size="small">
         {{ isPlay ? '暂停' : '播放' }}
       </el-button>
+      <el-select
+        :model-value="playbackRate"
+        size="small"
+        style="width: 110px"
+        @change="$emit('update:playback-rate', Number($event || 1))"
+      >
+        <el-option label="0.75x" :value="0.75" />
+        <el-option label="1.0x" :value="1" />
+        <el-option label="1.25x" :value="1.25" />
+        <el-option label="1.5x" :value="1.5" />
+      </el-select>
       <el-button @click="$emit('toggle-tts')" :type="ttsEnabled ? 'primary' : 'default'" plain size="small">
         {{ ttsEnabled ? '语音已开' : '语音已关' }}
       </el-button>
       <el-button @click="$emit('speak-current-node')" icon="el-icon-microphone" size="small" plain>
         朗读当前节点
       </el-button>
+      <el-button @click="emit('seek-step', 5)" size="small" plain>快进 5 秒</el-button>
+      <el-button @click="emit('seek-to-start')" size="small" plain>重播本页</el-button>
+      <el-button @click="emit('open-shortcuts')" size="small" plain>快捷键帮助</el-button>
       <el-button @click="$emit('next-page')" icon="el-icon-arrow-right" size="small">下一页</el-button>
     </div>
-    <div class="control-tip">系统会自动记录到当前页，下次可直接续学。</div>
+    <div class="timeline-seek" v-if="pageTimelineDuration > 0">
+      <span>{{ formatTime(currentTimelineSec) }}</span>
+      <div class="seek-box">
+        <div class="seek-preview-bubble" v-if="seekPreviewText" :style="seekPreviewStyle">
+          {{ seekPreviewText }}
+        </div>
+        <input
+          class="seek-input"
+          type="range"
+          min="0"
+          :max="Math.max(0, pageTimelineDuration)"
+          :value="Math.max(0, Math.min(pageTimelineDuration, currentTimelineSec))"
+          step="1"
+          @input="handleSeekInput"
+          @change="handleSeekCommit"
+        />
+      </div>
+      <span>{{ formatTime(pageTimelineDuration) }}</span>
+    </div>
+    <div class="control-tip">系统会自动记录到当前页，下次可直接续学。快捷键：Space 播放/暂停，←/→ 快退快进 5 秒（长按连续），Shift+←/→ 10 秒，[ / ] 调整倍速，0 重置倍速，M 语音开关，K 打开帮助。</div>
   </div>
 </template>
 
@@ -179,10 +213,28 @@ const props = defineProps({
   showStatusStrip: {
     type: Boolean,
     default: true
+  },
+  playbackRate: {
+    type: Number,
+    default: 1
   }
 })
 
-defineEmits(['prev-page', 'toggle-play', 'next-page', 'select-node', 'toggle-tts', 'speak-current-node', 'script-error', 'script-warning'])
+const emit = defineEmits([
+  'prev-page',
+  'toggle-play',
+  'next-page',
+  'select-node',
+  'toggle-tts',
+  'speak-current-node',
+  'script-error',
+  'script-warning',
+  'seek-timeline',
+  'seek-step',
+  'seek-to-start',
+  'open-shortcuts',
+  'update:playback-rate'
+])
 
 // 内容切换模式
 const viewMode = ref('script') // 'script' 或 'image'
@@ -225,6 +277,52 @@ const audioStatusText = computed(() => {
   if (status === 'processing') return '音频生成中'
   return '使用时长驱动讲解'
 })
+
+const seekDraftSec = ref(-1)
+let seekPreviewTimer = null
+
+const seekPreviewText = computed(() => {
+  if (seekDraftSec.value < 0) return ''
+  const sec = Math.max(0, Math.floor(seekDraftSec.value))
+  const matchedNode = (props.playbackNodes || []).find((node) => {
+    const start = Number(node?.start_sec || 0)
+    const end = Number(node?.end_sec || start + 1)
+    return sec >= start && sec < end
+  })
+  const title = String(matchedNode?.title || '').trim()
+  return title ? `预览 ${formatTime(sec)} · ${title}` : `预览 ${formatTime(sec)}`
+})
+
+const seekPreviewStyle = computed(() => {
+  const total = Math.max(1, Number(props.pageTimelineDuration || 1))
+  const sec = Math.max(0, Math.min(total, Number(seekDraftSec.value || 0)))
+  const percent = (sec / total) * 100
+  return {
+    left: `calc(${percent}% - 6px)`
+  }
+})
+
+function handleSeekInput(event) {
+  const value = Number(event?.target?.value || 0)
+  if (seekPreviewTimer) {
+    window.clearTimeout(seekPreviewTimer)
+    seekPreviewTimer = null
+  }
+  seekDraftSec.value = value
+  emit('seek-timeline', value)
+}
+
+function handleSeekCommit(event) {
+  const value = Number(event?.target?.value || 0)
+  emit('seek-timeline', value)
+  if (seekPreviewTimer) {
+    window.clearTimeout(seekPreviewTimer)
+  }
+  seekPreviewTimer = window.setTimeout(() => {
+    seekDraftSec.value = -1
+    seekPreviewTimer = null
+  }, 900)
+}
 
 const formatTime = (seconds) => {
   const normalized = Math.max(0, Math.floor(seconds || 0))
@@ -379,6 +477,40 @@ const formatTime = (seconds) => {
   text-align: center;
   font-size: 12px;
   color: #64748b;
+}
+.timeline-seek {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+.seek-box {
+  position: relative;
+  padding-top: 28px;
+}
+.seek-input {
+  width: 100%;
+}
+.seek-preview-bubble {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  max-width: min(300px, 78vw);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: #0f766e;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  background: rgba(236, 253, 245, 0.98);
+  box-shadow: 0 6px 12px rgba(15, 118, 110, 0.08);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 .page-summary,
 .node-panel {
