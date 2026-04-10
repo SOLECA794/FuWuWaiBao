@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-﻿-- Teacher feedback behavior tracking table
-=======
 -- Teacher feedback behavior tracking table
->>>>>>> d17b116d297b507f8a5227ba4474640a7e13e8e0
 CREATE TABLE IF NOT EXISTS teacher_feedback (
     id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     teacher_id VARCHAR(64) NOT NULL,

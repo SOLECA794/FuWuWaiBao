@@ -93,6 +93,20 @@ export const studentCoursewareApi = {
     body: JSON.stringify({ courseId, pageNum, question })
   }),
 
+  // 图谱维护能力：与教师端保持一致，复用同一后端能力
+  syncKnowledgeGraph: (courseId) =>
+    requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/sync`, {
+      method: 'POST'
+    }),
+  getKnowledgeGraphReferenceHealth: (courseId) =>
+    requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/reference-health`),
+  repairKnowledgeGraphReferences: (courseId, body) =>
+    requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/reference-health/repair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || { confirm: true })
+    }),
+
   // 复习计划相关接口
   createReviewPlan: ({ studentId, name, description, frequency }) => requestJson('/api/v1/student/review-plans', {
     method: 'POST',

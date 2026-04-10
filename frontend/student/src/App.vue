@@ -112,7 +112,26 @@
 
         <section class="workspace-content">
           <transition name="page-fade" mode="out-in">
-          <div v-if="activeSection === 'classroom'" key="classroom" class="page-layout classroom-grid">
+          <div v-if="activeSection === 'classroom'" key="classroom" class="page-layout classroom-workbench">
+            <header class="classroom-header-row">
+              <div class="classroom-title-group">
+                <p class="classroom-kicker">课堂学习工作台</p>
+                <h3>左侧学习区 · 右侧 AI 课堂助手</h3>
+              </div>
+              <div class="classroom-header-actions">
+                <el-switch
+                  v-model="qaContextBinding"
+                  size="small"
+                  inline-prompt
+                  active-text="上下文绑定"
+                  inactive-text="自由问答"
+                />
+                <el-button v-if="isCompactViewport" size="small" plain @click="toggleQaPanel">
+                  {{ isQaPanelCollapsed ? '展开 AI 助手' : '收起 AI 助手' }}
+                </el-button>
+              </div>
+            </header>
+
             <section class="center-stage">
               <div class="playback-hud" v-if="playbackHudVisible">{{ playbackHudText }}</div>
               <div class="shortcut-help-card" v-if="shortcutHelpVisible">
@@ -170,64 +189,338 @@
               />
             </section>
 
-            <aside class="outline-stage">
-              <div class="outline-header">
-                <div>
-                  <div class="outline-label">二级导航</div>
-                  <h3>节点树大纲</h3>
-                </div>
-                <span>{{ filteredOutlineNodes.length }}/{{ playbackNodes.length }}</span>
-              </div>
-              <div class="outline-tools">
-                <el-select v-model="outlineFilter" size="small" placeholder="筛选节点">
-                  <el-option label="全部节点" value="all" />
-                  <el-option label="关键讲解" value="core" />
-                  <el-option label="开场节点" value="opening" />
-                  <el-option label="过渡节点" value="transition" />
-                </el-select>
-                <el-button size="small" plain @click="focusCurrentNode">定位当前</el-button>
-              </div>
-              <div class="outline-list" v-if="filteredOutlineNodes.length">
-                <button
-                  v-for="(node, idx) in filteredOutlineNodes"
-                  :key="node.node_id"
-                  class="outline-item"
-                  :class="{ active: node.node_id === currentNodeId, 'jump-highlight': seekNoticeVisible && node.node_id === currentNodeId }"
-                  @click="selectPlaybackNode(node.node_id)"
-                >
-                  <span class="outline-index">{{ String(idx + 1).padStart(2, '0') }}</span>
-                  <div class="outline-content">
-                    <div class="outline-row">
-                      <strong>{{ node.title || node.node_id }}</strong>
-                      <span class="outline-time">{{ formatNodeTime(node.start_sec) }}</span>
-                    </div>
-                    <p>{{ node.text || '暂无节点说明' }}</p>
-                  </div>
-                </button>
-              </div>
-              <div class="outline-empty" v-else>当前页面暂无可用节点。</div>
-            </aside>
+            <div class="classroom-split-layout" :class="{ compact: isCompactViewport, collapsed: isQaPanelCollapsed }">
+              <section class="workbench-main center-workbench-pane classroom-left-pane" :style="classroomLeftPaneStyle">
+                <div class="tab-workspace-pane merged-tabs-pane left-unified-tabs-pane">
+                  <el-tabs v-model="activeWorkbenchTab" class="workbench-tabs left-main-tabs">
+                    <el-tab-pane label="知识树" name="tree">
+                      <div class="tab-scroll-area">
+                        <div class="knowledge-tree-pane merged-tree-pane">
+                          <div class="tree-pane-header">
+                            <div>
+                              <div class="outline-label">Knowledge Tree</div>
+                              <h3>知识节点树</h3>
+                            </div>
+                            <span>{{ filteredOutlineNodes.length }}/{{ playbackNodes.length }}</span>
+                          </div>
+                          <div class="tree-progress-row">
+                            <span>学习进度</span>
+                            <strong>{{ currentPage }}/{{ totalPage }}</strong>
+                          </div>
+                          <div class="outline-tools">
+                            <el-select v-model="outlineFilter" size="small" placeholder="筛选节点">
+                              <el-option label="全部节点" value="all" />
+                              <el-option label="关键讲解" value="core" />
+                              <el-option label="开场节点" value="opening" />
+                              <el-option label="过渡节点" value="transition" />
+                            </el-select>
+                            <el-button size="small" plain @click="focusCurrentNode">定位当前</el-button>
+                          </div>
+                          <div class="knowledge-tree-scroll" v-if="knowledgeWorkbenchTree.length">
+                            <el-tree
+                              :data="knowledgeWorkbenchTree"
+                              :props="treeProps"
+                              node-key="id"
+                              default-expand-all
+                              :expand-on-click-node="false"
+                              :highlight-current="true"
+                              :current-node-key="currentNodeId"
+                              @node-click="handleWorkbenchTreeNodeClick"
+                            />
+                          </div>
+                          <div class="outline-empty" v-else>当前页面暂无可用节点。</div>
+                        </div>
+                      </div>
+                    </el-tab-pane>
 
-            <section class="classroom-status-strip">
-              <div class="status-row">
-                <span class="status-pill">进度 {{ progressPercent }}%</span>
-                <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
-                <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
-                <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
-                <span class="status-pill seek-notice" v-if="seekNoticeVisible">{{ seekNoticeText }}</span>
+                    <el-tab-pane label="学习状态" name="knowledge">
+                      <div class="tab-scroll-area">
+                        <div class="classroom-status-strip">
+                          <div class="status-row">
+                            <span class="status-pill">进度 {{ progressPercent }}%</span>
+                            <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
+                            <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
+                            <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
+                          </div>
+                          <div class="status-track" v-if="pageTimelineDuration > 0">
+                            <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
+                          </div>
+                          <div class="status-track" v-else>
+                            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+                          </div>
+                          <div class="status-note" v-if="courseAudioStatusText || activeNodeDuration > 0">
+                            <span v-if="activeNodeDuration > 0">节点 {{ formatNodeTime(activeNodeElapsedSec) }} / {{ formatNodeTime(activeNodeDuration) }}</span>
+                            <span>{{ activeNodeTypeLabel }}</span>
+                            <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
+                          </div>
+                        </div>
+
+                        <div class="dashboard-grid">
+                          <section class="status-group-card mastered">
+                            <div class="group-head">
+                              <h4>Mastered</h4>
+                              <span>{{ masteredNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="masteredNodes.length">
+                              <article v-for="node in masteredNodes" :key="`m_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '该节点已掌握。' }}</p>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无已掌握节点</div>
+                          </section>
+
+                          <section class="status-group-card unmastered">
+                            <div class="group-head">
+                              <h4>Unmastered</h4>
+                              <span>{{ unmasteredNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="unmasteredNodes.length">
+                              <article v-for="node in unmasteredNodes" :key="`u_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '建议先补充示例再练习。' }}</p>
+                                <div class="node-actions">
+                                  <el-button size="small" type="primary" plain @click="askAboutUnmasteredNode(node)">问 AI</el-button>
+                                  <el-button size="small" type="warning" plain @click="reinforceNode(node)">薄弱强化</el-button>
+                                  <el-button size="small" type="danger" plain @click="findPracticeForNode(node)">查找习题</el-button>
+                                </div>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无未掌握节点</div>
+                          </section>
+
+                          <section class="status-group-card prerequisite">
+                            <div class="group-head">
+                              <h4>Prerequisite</h4>
+                              <span>{{ prerequisiteNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="prerequisiteNodes.length">
+                              <article v-for="node in prerequisiteNodes" :key="`p_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '建议先预习该节点。' }}</p>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无前置节点</div>
+                          </section>
+                        </div>
+                      </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="课堂交互" name="interaction">
+                      <div class="tab-scroll-area interaction-layout">
+                        <section class="interaction-card exercise-card">
+                          <div class="interaction-title">随堂练习</div>
+                          <div class="exercise-paper">
+                            <div class="exercise-section">
+                              <h4>一、选择题（每题2分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div v-for="(item, index) in practiceChoiceQuestions" :key="item.id" class="exercise-question-card">
+                                  <p class="exercise-question-title">{{ index + 1 }}. {{ item.question }}</p>
+                                  <el-radio-group v-model="practiceAnswers[item.id]" class="exercise-radio-group">
+                                    <el-radio v-for="option in item.options" :key="option.value" :label="option.value">
+                                      {{ option.label }}
+                                    </el-radio>
+                                  </el-radio-group>
+                                  <div class="exercise-answer-line" v-if="exerciseSubmitted">
+                                    <span :class="practiceAnswers[item.id] === item.answer ? 'answer-correct' : 'answer-wrong'">
+                                      正确答案：{{ item.answerLabel }}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>二、填空题（每空2分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">1. 遗传算法中，个体通常用__________表示，其中的每个字符称为__________。</p>
+                                  <div class="exercise-fill-row">
+                                    <el-input v-model="practiceAnswers.fill1a" placeholder="第1空" />
+                                    <el-input v-model="practiceAnswers.fill1b" placeholder="第2空" />
+                                  </div>
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill1a', ['染色体', '染色体串']) && isFillAnswerCorrect('fill1b', ['基因']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：染色体 / 基因
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">2. 选择-复制操作中，个体被选中的概率与其__________成正比。</p>
+                                  <el-input v-model="practiceAnswers.fill2" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill2', ['适应度']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：适应度
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">3. 交叉操作是交换两个染色体的__________。</p>
+                                  <el-input v-model="practiceAnswers.fill3" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill3', ['部分', '片段', '一部分']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：部分 / 片段
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">4. 遗传算法中的“种群”是指__________的集合。</p>
+                                  <el-input v-model="practiceAnswers.fill4" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill4', ['个体']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：个体
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>三、简答题（每题5分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">1. 简述遗传算法中“选择-复制”操作的基本过程。</p>
+                                  <el-input
+                                    v-model="practiceAnswers.short1"
+                                    type="textarea"
+                                    :rows="3"
+                                    placeholder="请在这里填写答案"
+                                  />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span class="exercise-reference">参考要点：按适应度选择个体，保留高适应度个体并复制到下一代。</span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">2. 举例说明交叉操作是如何进行的（可用二进制串示例）。</p>
+                                  <el-input
+                                    v-model="practiceAnswers.short2"
+                                    type="textarea"
+                                    :rows="3"
+                                    placeholder="请在这里填写答案"
+                                  />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span class="exercise-reference">参考要点：选择两个父代，在某一点后交换片段生成子代。</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>四、应用题（10分）</h4>
+                              <p>假设有一个二进制编码的遗传算法，种群大小为 4，个体如下：</p>
+                              <div class="exercise-code-block">
+                                <div>s1 = 1010</div>
+                                <div>s2 = 0101</div>
+                                <div>s3 = 1100</div>
+                                <div>s4 = 0011</div>
+                              </div>
+                              <p>若采用轮盘赌选择，适应度分别为：s1=2, s2=3, s3=1, s4=4，请计算每个个体的选择概率。</p>
+                              <div class="exercise-fill-row probability-row">
+                                <el-input v-model="practiceAnswers.app1" placeholder="s1 选择概率" />
+                                <el-input v-model="practiceAnswers.app2" placeholder="s2 选择概率" />
+                                <el-input v-model="practiceAnswers.app3" placeholder="s3 选择概率" />
+                                <el-input v-model="practiceAnswers.app4" placeholder="s4 选择概率" />
+                              </div>
+                              <p>若选择 s2 和 s4 进行单点交叉（交叉点在第 2 位之后），写出子代染色体。</p>
+                              <el-input
+                                v-model="practiceAnswers.app5"
+                                type="textarea"
+                                :rows="2"
+                                placeholder="请写出子代染色体"
+                              />
+                              <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                <span class="exercise-reference">参考答案：轮盘赌概率分别为 0.2、0.3、0.1、0.4；交叉子代为 0111 和 0001。</span>
+                              </div>
+                            </div>
+
+                            <div class="exercise-actions">
+                              <el-button type="primary" @click="submitPracticeExercise">提交练习</el-button>
+                              <el-button plain @click="resetPracticeExercise">重置答案</el-button>
+                              <span class="exercise-score" v-if="exerciseSubmitted">得分：{{ exerciseScore }} / 40</span>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section class="interaction-card feedback-card">
+                          <div class="interaction-title">满意度反馈</div>
+                          <div class="feedback-row">
+                            <span>本节点讲解满意度</span>
+                            <el-rate v-model="lessonFeedbackRating" />
+                          </div>
+                          <el-input
+                            v-model="lessonFeedbackComment"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="可选：填写你的反馈建议"
+                          />
+                          <el-button type="success" plain @click="submitLessonFeedback">提交反馈</el-button>
+                        </section>
+                      </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="课堂笔记" name="notes">
+                      <div class="tab-scroll-area notes-layout">
+                        <div class="notes-head">
+                          <h4>节点笔记</h4>
+                          <span>{{ currentNodeMeta?.title || currentNodeId }}</span>
+                        </div>
+                        <el-input
+                          v-model="currentNodeNote"
+                          type="textarea"
+                          :rows="16"
+                          placeholder="在这里记录当前节点笔记，切换节点后会按 NodeID 自动区分保存。"
+                        />
+                        <div class="note-actions-row">
+                          <el-button size="small" type="primary" plain @click="optimizeCurrentNoteWithAI">AI 优化</el-button>
+                        </div>
+                      </div>
+                    </el-tab-pane>
+                  </el-tabs>
+                </div>
+              </section>
+
+              <div
+                v-if="!isCompactViewport && !isQaPanelCollapsed"
+                class="classroom-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                title="拖拽调整左右栏宽度"
+                @pointerdown.prevent="startClassroomResize"
+              >
+                <span></span>
               </div>
-              <div class="status-track" v-if="pageTimelineDuration > 0">
-                <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
-              </div>
-              <div class="status-track" v-else>
-                <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-              </div>
-              <div class="status-note" v-if="courseAudioStatusText || activeNodeDuration > 0">
-                <span v-if="activeNodeDuration > 0">节点 {{ formatNodeTime(activeNodeElapsedSec) }} / {{ formatNodeTime(activeNodeDuration) }}</span>
-                <span>{{ activeNodeTypeLabel }}</span>
-                <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
-              </div>
-            </section>
+
+              <aside v-if="!isQaPanelCollapsed" class="classroom-qa-pane" :style="classroomQaPaneStyle">
+                <div class="classroom-qa-head">
+                  <div>
+                    <p class="qa-kicker">AI课堂助手</p>
+                    <h4>课程联动问答面板</h4>
+                  </div>
+                  <el-tag size="small" :type="qaContextBinding ? 'success' : 'info'">
+                    {{ qaContextBinding ? '已绑定当前知识点' : '未绑定上下文' }}
+                  </el-tag>
+                </div>
+                <StudentAskPanel
+                  :question="question"
+                  :ask-loading="askLoading"
+                  :ai-reply="aiReply"
+                  :stream-typing-active="streamTypingActive"
+                  :qa-history="qaHistory"
+                  :latest-answer-meta="latestAnswerMeta"
+                  :summary-mode="summaryMode"
+                  :merged-summary="mergedSummary"
+                  :can-ask="Boolean(courseId)"
+                  :external-action="askPanelAction"
+                  @update:question="question = $event"
+                  @update:summaryMode="summaryMode = $event"
+                  @open-upload="openUpload"
+                  @generate-summary="generateMergedSummary"
+                  @use-summary="injectSummaryToQuestion"
+                  @clear-draft="clearQaDraft"
+                  @send-question="sendMultiModalQuestion"
+                />
+              </aside>
+            </div>
           </div>
 
           <div v-else-if="activeSection === 'analytics'" key="analytics" class="page-layout single-col">
@@ -297,51 +590,6 @@
       </main>
     </div>
 
-    <button
-      class="qa-fab"
-      :class="{ active: showAskWorkspace }"
-      @click="toggleAskWorkspace"
-      title="问答浮窗"
-      aria-label="打开问答悬浮窗口"
-    >
-      <span class="qa-fab-core">问</span>
-      <span class="qa-fab-tip">问答</span>
-    </button>
-
-    <transition name="qa-flyout-fade">
-      <div v-if="showAskWorkspace" class="qa-flyout-backdrop" @click.self="closeAskWorkspace">
-        <div class="qa-flyout-panel" :style="qaFlyoutStyle" role="dialog" aria-modal="true" aria-label="问答工作区悬浮窗">
-          <div class="qa-flyout-header">
-            <div class="qa-flyout-drag-handle" @pointerdown.prevent="startAskWorkspaceDrag">
-              <div class="qa-flyout-kicker">问答工作区</div>
-              <h3>悬浮答疑窗口</h3>
-              <p>可随时收起，不影响当前课程浏览。</p>
-            </div>
-            <button class="qa-flyout-close" @click="closeAskWorkspace" aria-label="关闭问答悬浮窗">×</button>
-          </div>
-
-          <StudentAskPanel
-            :question="question"
-            :ask-loading="askLoading"
-            :ai-reply="aiReply"
-            :stream-typing-active="streamTypingActive"
-            :qa-history="qaHistory"
-            :latest-answer-meta="latestAnswerMeta"
-            :summary-mode="summaryMode"
-            :merged-summary="mergedSummary"
-            @update:question="question = $event"
-            @update:summaryMode="summaryMode = $event"
-            @open-upload="openUpload"
-            @generate-summary="generateMergedSummary"
-            @use-summary="injectSummaryToQuestion"
-            @clear-draft="clearQaDraft"
-            @send-question="sendMultiModalQuestion"
-          />
-          <span class="qa-flyout-resize-handle" title="拖动调整大小" @pointerdown.prevent="startAskWorkspaceResize"></span>
-        </div>
-      </div>
-    </transition>
-
     <footer class="footer">© 2025 智能学习课堂系统 · 学生端</footer>
 
     <StudentBreakpointDialog
@@ -354,6 +602,7 @@
 </template>
 
 <script setup>
+/* eslint-disable no-unused-vars */
 import { ref, reactive, onMounted, onBeforeUnmount, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { studentV1Api } from './services/v1'
@@ -450,6 +699,20 @@ const activeSection = ref('classroom')
 const personalCenterInitialTab = ref('notes')
 const isMenuCollapsed = ref(false)
 const showAskWorkspace = ref(false)
+const qaFabDragging = ref(false)
+const qaFabLayout = reactive({
+  left: 0,
+  top: 0
+})
+const qaFabInteraction = reactive({
+  mode: '',
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  startLeft: 0,
+  startTop: 0,
+  moved: false
+})
 const askWorkspaceLayout = reactive({
   left: 0,
   top: 0,
@@ -530,8 +793,31 @@ const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
 const outlineFilter = ref('all')
+const activeWorkbenchTab = ref('tree')
+const activeRightPanel = ref('')
+const qaContextBinding = ref(true)
+const askPanelAction = ref(null)
+const isCompactViewport = ref(false)
+const isQaPanelCollapsed = ref(false)
+const classroomLayout = reactive({
+  leftPercent: 60,
+  dragging: false,
+  pointerId: null,
+  startX: 0,
+  startLeftPercent: 60
+})
+const lastContextHintNodeId = ref('')
 const summaryMode = ref('quick')
 const mergedSummary = ref('')
+const lessonFeedbackRating = ref(0)
+const lessonFeedbackComment = ref('')
+const nodeNotes = ref({})
+const graphSyncLoading = ref(false)
+const graphScanLoading = ref(false)
+const graphRepairLoading = ref(false)
+const graphSyncPayload = ref(null)
+const graphScanReport = ref(null)
+const graphMessage = ref('')
 
 const showBreakpointDialog = ref(false)
 const breakpointPage = ref(3)
@@ -558,10 +844,171 @@ const learningStats = ref({
   masteryRate: 100
 })
 
+const practiceChoiceQuestions = [
+  {
+    id: 'choice1',
+    question: '“遗传算法”这一术语最早出现在谁的博士论文中？',
+    answer: 'B',
+    answerLabel: 'B. J. D. Bagley',
+    options: [
+      { value: 'A', label: 'A. John Holland' },
+      { value: 'B', label: 'B. J. D. Bagley' },
+      { value: 'C', label: 'C. R.B. Hollstien' },
+      { value: 'D', label: 'D. K.A. De Jong' }
+    ]
+  },
+  {
+    id: 'choice2',
+    question: '在遗传算法中，用来衡量个体优劣的指标是：',
+    answer: 'B',
+    answerLabel: 'B. 适应度',
+    options: [
+      { value: 'A', label: 'A. 染色体长度' },
+      { value: 'B', label: 'B. 适应度' },
+      { value: 'C', label: 'C. 基因频率' },
+      { value: 'D', label: 'D. 种群规模' }
+    ]
+  },
+  {
+    id: 'choice3',
+    question: '下列哪一项不属于遗传算法的基本操作？',
+    answer: 'D',
+    answerLabel: 'D. 聚类',
+    options: [
+      { value: 'A', label: 'A. 选择-复制' },
+      { value: 'B', label: 'B. 交叉' },
+      { value: 'C', label: 'C. 突变' },
+      { value: 'D', label: 'D. 聚类' }
+    ]
+  },
+  {
+    id: 'choice4',
+    question: '染色体“10110”通过单点变异（第三位取反）后变成：',
+    answer: 'A',
+    answerLabel: 'A. 10010',
+    options: [
+      { value: 'A', label: 'A. 10010' },
+      { value: 'B', label: 'B. 10110' },
+      { value: 'C', label: 'C. 11110' },
+      { value: 'D', label: 'D. 10100' }
+    ]
+  },
+  {
+    id: 'choice5',
+    question: '适应度函数在遗传算法中的作用是：',
+    answer: 'B',
+    answerLabel: 'B. 指导搜索方向',
+    options: [
+      { value: 'A', label: 'A. 编码个体' },
+      { value: 'B', label: 'B. 指导搜索方向' },
+      { value: 'C', label: 'C. 控制种群大小' },
+      { value: 'D', label: 'D. 随机生成个体' }
+    ]
+  }
+]
+
+const practiceAnswers = reactive({
+  choice1: '',
+  choice2: '',
+  choice3: '',
+  choice4: '',
+  choice5: '',
+  fill1a: '',
+  fill1b: '',
+  fill2: '',
+  fill3: '',
+  fill4: '',
+  short1: '',
+  short2: '',
+  app1: '',
+  app2: '',
+  app3: '',
+  app4: '',
+  app5: ''
+})
+const exerciseSubmitted = ref(false)
+const exerciseScore = ref(0)
+
 const pageTimelineDuration = computed(() => {
   const lastNode = playbackNodes.value[playbackNodes.value.length - 1]
   return Number(lastNode?.end_sec || 0)
 })
+
+const normalizeExerciseText = (value) => String(value || '').trim().replace(/\s+/g, '').toLowerCase()
+
+const isFillAnswerCorrect = (key, acceptedValues) => {
+  const answer = normalizeExerciseText(practiceAnswers[key])
+  if (!answer) return false
+  return acceptedValues.some((item) => {
+    const accepted = normalizeExerciseText(item)
+    return answer === accepted || answer.includes(accepted) || accepted.includes(answer)
+  })
+}
+
+const scoreEssayAnswer = (value, keywords, maxScore) => {
+  const text = normalizeExerciseText(value)
+  if (!text) return 0
+  const matchedCount = keywords.filter((keyword) => text.includes(normalizeExerciseText(keyword))).length
+  if (matchedCount >= 3) return maxScore
+  if (matchedCount >= 2) return Math.ceil(maxScore * 0.6)
+  if (matchedCount >= 1) return Math.ceil(maxScore * 0.3)
+  return 0
+}
+
+const scoreProbabilityAnswer = (value, acceptedValues, maxScore) => {
+  const answer = normalizeExerciseText(value)
+  if (!answer) return 0
+  return acceptedValues.some((item) => answer === normalizeExerciseText(item)) ? maxScore : 0
+}
+
+const scoreCrossOverAnswer = (value, maxScore) => {
+  const answer = normalizeExerciseText(value)
+  if (!answer) return 0
+  const hasChildOne = answer.includes('0111')
+  const hasChildTwo = answer.includes('0001')
+  if (hasChildOne && hasChildTwo) return maxScore
+  if (hasChildOne || hasChildTwo) return Math.ceil(maxScore * 0.5)
+  return 0
+}
+
+const resetPracticeExercise = () => {
+  Object.keys(practiceAnswers).forEach((key) => {
+    practiceAnswers[key] = ''
+  })
+  exerciseSubmitted.value = false
+  exerciseScore.value = 0
+}
+
+const submitPracticeExercise = () => {
+  const choiceScore = practiceChoiceQuestions.reduce((total, item) => {
+    return total + (practiceAnswers[item.id] === item.answer ? 2 : 0)
+  }, 0)
+
+  const fillScore = [
+    isFillAnswerCorrect('fill1a', ['染色体', '染色体串']) ? 2 : 0,
+    isFillAnswerCorrect('fill1b', ['基因']) ? 2 : 0,
+    isFillAnswerCorrect('fill2', ['适应度']) ? 2 : 0,
+    isFillAnswerCorrect('fill3', ['部分', '片段', '一部分']) ? 2 : 0,
+    isFillAnswerCorrect('fill4', ['个体']) ? 2 : 0
+  ].reduce((total, value) => total + value, 0)
+
+  const shortScore = [
+    scoreEssayAnswer(practiceAnswers.short1, ['选择', '适应度', '复制', '下一代'], 5),
+    scoreEssayAnswer(practiceAnswers.short2, ['父代', '交叉点', '交换', '子代'], 5)
+  ].reduce((total, value) => total + value, 0)
+
+  const appScore = [
+    scoreProbabilityAnswer(practiceAnswers.app1, ['0.2', '0.20', '20%', '1/5'], 2),
+    scoreProbabilityAnswer(practiceAnswers.app2, ['0.3', '0.30', '30%', '3/10'], 2),
+    scoreProbabilityAnswer(practiceAnswers.app3, ['0.1', '0.10', '10%', '1/10'], 2),
+    scoreProbabilityAnswer(practiceAnswers.app4, ['0.4', '0.40', '40%', '2/5'], 2),
+    scoreCrossOverAnswer(practiceAnswers.app5, 2)
+  ].reduce((total, value) => total + value, 0)
+
+  exerciseScore.value = choiceScore + fillScore + shortScore + appScore
+  exerciseSubmitted.value = true
+  ElMessage.success(`练习已提交，当前得分 ${exerciseScore.value} / 40`)
+}
 
 const currentNodeMeta = computed(() => {
   return playbackNodes.value.find(node => node.node_id === currentNodeId.value) || null
@@ -601,6 +1048,75 @@ const filteredOutlineNodes = computed(() => {
   return playbackNodes.value.filter(node => node.type === outlineFilter.value)
 })
 
+const prerequisiteNodes = computed(() => {
+  return filteredOutlineNodes.value.filter((node, idx) => {
+    if (Number(node.start_sec || 0) === 0) return true
+    return (node.type === 'opening' || node.type === 'transition') && idx < 3
+  })
+})
+
+const masteredNodes = computed(() => {
+  return filteredOutlineNodes.value.filter((node) => Number(node.end_sec || 0) <= currentTimelineSec.value)
+})
+
+const unmasteredNodes = computed(() => {
+  const prerequisiteIdSet = new Set(prerequisiteNodes.value.map(node => node.node_id))
+  return filteredOutlineNodes.value.filter((node) => {
+    if (prerequisiteIdSet.has(node.node_id)) return false
+    return Number(node.end_sec || 0) > currentTimelineSec.value
+  })
+})
+
+const knowledgeWorkbenchTree = computed(() => {
+  if (knowledgeList.value.length > 0) {
+    return knowledgeList.value
+  }
+  return filteredOutlineNodes.value.map((node) => ({
+    id: node.node_id,
+    name: node.title || node.node_id,
+    children: []
+  }))
+})
+
+const currentNodeNote = computed({
+  get: () => {
+    const nodeId = currentNodeId.value || 'default'
+    return nodeNotes.value[nodeId] || ''
+  },
+  set: (value) => {
+    const nodeId = currentNodeId.value || 'default'
+    nodeNotes.value = {
+      ...nodeNotes.value,
+      [nodeId]: value
+    }
+  }
+})
+
+const isRightDrawerOpen = computed(() => activeRightPanel.value !== '')
+const graphSummaryVisible = computed(() => Boolean(graphSyncPayload.value || graphScanReport.value))
+const graphEdgeCount = computed(() => Number(graphSyncPayload.value?.edgeCount || 0))
+const graphOrphanCount = computed(() => Number(graphScanReport.value?.unionOrphanNodeIds?.length || 0))
+const graphBucketCount = computed(() => Number(graphScanReport.value?.buckets?.length || 0))
+const qaFabStyle = computed(() => ({
+  left: `${qaFabLayout.left}px`,
+  top: `${qaFabLayout.top}px`,
+  right: 'auto',
+  bottom: 'auto'
+}))
+const classroomLeftPaneStyle = computed(() => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
+  return {
+    flexBasis: `${classroomLayout.leftPercent}%`
+  }
+})
+
+const classroomQaPaneStyle = computed(() => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
+  return {
+    flexBasis: `${100 - classroomLayout.leftPercent}%`
+  }
+})
+
 const normalizeTimeSec = (value, fallback = 0) => {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return fallback
@@ -626,6 +1142,167 @@ const focusCurrentNode = () => {
   const exists = filteredOutlineNodes.value.some(node => node.node_id === currentNodeId.value)
   if (!exists) {
     outlineFilter.value = 'all'
+  }
+}
+
+const handleWorkbenchTreeNodeClick = async (data) => {
+  const nodeId = String(data?.id || '')
+  const targetNode = filteredOutlineNodes.value.find(node => node.node_id === nodeId)
+  if (targetNode?.node_id) {
+    await selectPlaybackNode(targetNode.node_id)
+    if (lastContextHintNodeId.value !== targetNode.node_id) {
+      pushKnowledgeContextHint(targetNode.title || targetNode.node_id)
+      lastContextHintNodeId.value = targetNode.node_id
+    }
+    return
+  }
+  handleNodeClick(data)
+}
+
+const reinforceNode = async (node) => {
+  activeWorkbenchTab.value = 'interaction'
+  await startWeakPointLearn({ id: node.node_id, name: node.title || node.node_id })
+}
+
+const findPracticeForNode = async (node) => {
+  activeWorkbenchTab.value = 'interaction'
+  currentWeakPoint.value = node.title || node.node_id
+  currentTest.value = {
+    question: `围绕“${currentWeakPoint.value}”生成一道随堂测验：以下哪项描述最准确？`,
+    options: ['概念定义', '应用场景', '常见误区', '以上都需要结合理解']
+  }
+  testResult.value = null
+}
+
+const createAskPanelAction = (mode, text) => {
+  askPanelAction.value = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    mode,
+    text: String(text || '')
+  }
+}
+
+const openAskPanelIfNeeded = () => {
+  if (isQaPanelCollapsed.value) {
+    isQaPanelCollapsed.value = false
+  }
+}
+
+const pushKnowledgeContextHint = (nodeTitle) => {
+  const cleanTitle = String(nodeTitle || '').trim()
+  if (!cleanTitle) return
+  createAskPanelAction('system', `当前学生正在学习【${cleanTitle}】，请基于该知识点内容进行解答。`)
+}
+
+const askAboutUnmasteredNode = async (node) => {
+  const nodeId = String(node?.node_id || '')
+  const nodeTitle = String(node?.title || nodeId || '当前知识点')
+  if (nodeId) {
+    await selectPlaybackNode(nodeId)
+    if (lastContextHintNodeId.value !== nodeId) {
+      pushKnowledgeContextHint(nodeTitle)
+      lastContextHintNodeId.value = nodeId
+    }
+  }
+  activeWorkbenchTab.value = 'knowledge'
+  openAskPanelIfNeeded()
+  const presetQuestion = `请给我详细讲解一下【${nodeTitle}】`
+  question.value = presetQuestion
+  createAskPanelAction('draft', presetQuestion)
+  ElMessage.success('已将问题填入右侧 AI 助手输入框')
+}
+
+const optimizeCurrentNoteWithAI = () => {
+  const noteText = String(currentNodeNote.value || '').trim()
+  if (!noteText) {
+    ElMessage.warning('请先填写课堂笔记，再执行 AI 优化')
+    return
+  }
+  openAskPanelIfNeeded()
+  const nodeTitle = currentNodeMeta.value?.title || currentNodeId.value || '当前知识点'
+  const optimizePrompt = [
+    '请优化润色以下课堂笔记：',
+    `知识点：${nodeTitle}`,
+    '要求：保持术语准确、结构清晰，并补充遗漏的关键点。',
+    '原笔记：',
+    noteText
+  ].join('\n')
+  createAskPanelAction('send', optimizePrompt)
+}
+
+const toggleQaPanel = () => {
+  isQaPanelCollapsed.value = !isQaPanelCollapsed.value
+}
+
+const submitLessonFeedback = () => {
+  const rating = Number(lessonFeedbackRating.value || 0)
+  if (!rating) {
+    ElMessage.warning('请先给出满意度评分')
+    return
+  }
+  const nodeTitle = currentNodeMeta.value?.title || currentNodeId.value
+  ElMessage.success(`已提交反馈：${nodeTitle}，评分 ${rating} 星`)
+  lessonFeedbackComment.value = ''
+}
+
+const toggleRightPanel = (panel) => {
+  if (panel === 'graph' && !courseId.value) return
+  activeRightPanel.value = activeRightPanel.value === panel ? '' : panel
+}
+
+const closeRightPanel = () => {
+  activeRightPanel.value = ''
+}
+
+const handleGraphSync = async () => {
+  if (!courseId.value || graphSyncLoading.value) return
+  graphSyncLoading.value = true
+  graphMessage.value = ''
+  try {
+    const resp = await studentV1Api.coursewares.syncKnowledgeGraph(courseId.value)
+    graphSyncPayload.value = resp?.data || {}
+    graphMessage.value = `同步完成：共 ${graphEdgeCount.value} 条关系边。`
+  } catch (err) {
+    graphMessage.value = `同步失败：${err.message || err}`
+  } finally {
+    graphSyncLoading.value = false
+  }
+}
+
+const handleGraphScan = async () => {
+  if (!courseId.value || graphScanLoading.value) return
+  graphScanLoading.value = true
+  graphMessage.value = ''
+  try {
+    const resp = await studentV1Api.coursewares.getKnowledgeGraphReferenceHealth(courseId.value)
+    graphScanReport.value = resp?.data || null
+    if (graphScanReport.value?.hasOrphans) {
+      graphMessage.value = `发现 ${graphOrphanCount.value} 个孤儿引用，建议修复。`
+    } else {
+      graphMessage.value = '扫描完成：未发现孤儿引用。'
+    }
+  } catch (err) {
+    graphMessage.value = `扫描失败：${err.message || err}`
+  } finally {
+    graphScanLoading.value = false
+  }
+}
+
+const handleGraphRepair = async () => {
+  if (!courseId.value || graphRepairLoading.value || !graphScanReport.value?.hasOrphans) return
+  graphRepairLoading.value = true
+  graphMessage.value = ''
+  try {
+    await studentV1Api.coursewares.repairKnowledgeGraphReferences(courseId.value, {
+      confirm: true,
+      nodeIds: graphScanReport.value.unionOrphanNodeIds || []
+    })
+    graphMessage.value = '修复完成，正在自动重新扫描...'
+    await handleGraphScan()
+  } catch (err) {
+    graphMessage.value = `修复失败：${err.message || err}`
+  } finally {
+    graphRepairLoading.value = false
   }
 }
 
@@ -664,6 +1341,125 @@ const toggleAskWorkspace = () => {
   showAskWorkspace.value = !showAskWorkspace.value
 }
 
+const QA_FAB_LAYOUT_KEY = 'fuww_student_qa_fab_layout'
+const QA_FAB_MARGIN = 14
+const QA_FAB_SIZE = 64
+
+const getDefaultQaFabLayout = () => {
+  const viewport = getViewportBounds()
+  return {
+    left: Math.max(QA_FAB_MARGIN, viewport.width - QA_FAB_SIZE - QA_FAB_MARGIN),
+    top: Math.max(QA_FAB_MARGIN, Math.round(viewport.height / 2 - QA_FAB_SIZE / 2))
+  }
+}
+
+const clampQaFabLayout = (layout) => {
+  const viewport = getViewportBounds()
+  const maxLeft = Math.max(QA_FAB_MARGIN, viewport.width - QA_FAB_SIZE - QA_FAB_MARGIN)
+  const maxTop = Math.max(QA_FAB_MARGIN, viewport.height - QA_FAB_SIZE - QA_FAB_MARGIN)
+  return {
+    left: clamp(Math.round(layout.left || 0), QA_FAB_MARGIN, maxLeft),
+    top: clamp(Math.round(layout.top || 0), QA_FAB_MARGIN, maxTop)
+  }
+}
+
+const ensureQaFabLayout = () => {
+  const clamped = clampQaFabLayout(qaFabLayout)
+  qaFabLayout.left = clamped.left
+  qaFabLayout.top = clamped.top
+}
+
+const loadQaFabLayout = () => {
+  if (typeof window === 'undefined') return
+  let parsed = null
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(QA_FAB_LAYOUT_KEY) || 'null')
+  } catch (error) {
+    parsed = null
+  }
+  const merged = parsed && typeof parsed === 'object'
+    ? {
+        left: Number(parsed.left),
+        top: Number(parsed.top)
+      }
+    : getDefaultQaFabLayout()
+  const clamped = clampQaFabLayout(merged)
+  qaFabLayout.left = clamped.left
+  qaFabLayout.top = clamped.top
+}
+
+const persistQaFabLayout = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(QA_FAB_LAYOUT_KEY, JSON.stringify({
+    left: qaFabLayout.left,
+    top: qaFabLayout.top
+  }))
+}
+
+const stopQaFabInteraction = () => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointermove', handleQaFabPointerMove)
+  window.removeEventListener('pointerup', handleQaFabPointerUp)
+  window.removeEventListener('pointercancel', handleQaFabPointerUp)
+  window.removeEventListener('blur', handleQaFabPointerUp)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  qaFabInteraction.mode = ''
+  qaFabInteraction.pointerId = null
+  qaFabDragging.value = false
+}
+
+const handleQaFabPointerMove = (event) => {
+  if (!qaFabInteraction.mode || typeof window === 'undefined') return
+  const deltaX = event.clientX - qaFabInteraction.startX
+  const deltaY = event.clientY - qaFabInteraction.startY
+  if (!qaFabInteraction.moved && Math.abs(deltaX) + Math.abs(deltaY) < 4) {
+    return
+  }
+  qaFabInteraction.moved = true
+  qaFabDragging.value = true
+  const nextLayout = clampQaFabLayout({
+    left: qaFabInteraction.startLeft + deltaX,
+    top: qaFabInteraction.startTop + deltaY
+  })
+  qaFabLayout.left = nextLayout.left
+  qaFabLayout.top = nextLayout.top
+}
+
+const handleQaFabPointerUp = () => {
+  const wasDragging = qaFabInteraction.moved
+  stopQaFabInteraction()
+  ensureQaFabLayout()
+  persistQaFabLayout()
+  qaFabInteraction.moved = wasDragging
+}
+
+const startQaFabDrag = (event) => {
+  if (event.button !== 0) return
+  ensureQaFabLayout()
+  qaFabInteraction.mode = 'drag'
+  qaFabInteraction.pointerId = event.pointerId
+  qaFabInteraction.startX = event.clientX
+  qaFabInteraction.startY = event.clientY
+  qaFabInteraction.startLeft = qaFabLayout.left
+  qaFabInteraction.startTop = qaFabLayout.top
+  qaFabInteraction.moved = false
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'grab'
+  window.addEventListener('pointermove', handleQaFabPointerMove)
+  window.addEventListener('pointerup', handleQaFabPointerUp)
+  window.addEventListener('pointercancel', handleQaFabPointerUp)
+  window.addEventListener('blur', handleQaFabPointerUp)
+}
+
+const handleQaFabClick = () => {
+  if (qaFabInteraction.moved) {
+    qaFabInteraction.moved = false
+    return
+  }
+  toggleAskWorkspace()
+}
+
 const ASK_WORKSPACE_LAYOUT_KEY = 'fuww_student_ask_workspace_layout'
 const ASK_WORKSPACE_MARGIN = 12
 const ASK_WORKSPACE_TOP = 68
@@ -682,10 +1478,88 @@ const getViewportBounds = () => {
   }
 }
 
+const CLASSROOM_LAYOUT_KEY = 'fuww_student_classroom_split_layout_v1'
+const CLASSROOM_MIN_LEFT = 46
+const CLASSROOM_MAX_LEFT = 72
+const CLASSROOM_COMPACT_BREAKPOINT = 1180
+
+const clampClassroomLeftPercent = (value) => clamp(Math.round(Number(value) || 60), CLASSROOM_MIN_LEFT, CLASSROOM_MAX_LEFT)
+
+const persistClassroomLayout = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(CLASSROOM_LAYOUT_KEY, JSON.stringify({
+    leftPercent: classroomLayout.leftPercent
+  }))
+}
+
+const loadClassroomLayout = () => {
+  if (typeof window === 'undefined') return
+  let parsed = null
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(CLASSROOM_LAYOUT_KEY) || 'null')
+  } catch (error) {
+    parsed = null
+  }
+  const leftPercent = clampClassroomLeftPercent(parsed?.leftPercent)
+  classroomLayout.leftPercent = leftPercent
+}
+
+const updateViewportMode = () => {
+  if (typeof window === 'undefined') return
+  const compact = window.innerWidth <= CLASSROOM_COMPACT_BREAKPOINT
+  isCompactViewport.value = compact
+  if (compact) {
+    isQaPanelCollapsed.value = true
+  } else {
+    isQaPanelCollapsed.value = false
+  }
+}
+
+const stopClassroomResize = () => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointermove', handleClassroomResizeMove)
+  window.removeEventListener('pointerup', handleClassroomResizeUp)
+  window.removeEventListener('pointercancel', handleClassroomResizeUp)
+  window.removeEventListener('blur', handleClassroomResizeUp)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  classroomLayout.dragging = false
+  classroomLayout.pointerId = null
+}
+
+const handleClassroomResizeMove = (event) => {
+  if (!classroomLayout.dragging || isCompactViewport.value || typeof window === 'undefined') return
+  const deltaX = event.clientX - classroomLayout.startX
+  const viewport = getViewportBounds()
+  const deltaPercent = (deltaX / Math.max(1, viewport.width)) * 100
+  classroomLayout.leftPercent = clampClassroomLeftPercent(classroomLayout.startLeftPercent + deltaPercent)
+}
+
+const handleClassroomResizeUp = () => {
+  if (!classroomLayout.dragging) return
+  stopClassroomResize()
+  persistClassroomLayout()
+}
+
+const startClassroomResize = (event) => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return
+  if (event.button !== 0) return
+  classroomLayout.dragging = true
+  classroomLayout.pointerId = event.pointerId
+  classroomLayout.startX = event.clientX
+  classroomLayout.startLeftPercent = classroomLayout.leftPercent
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+  window.addEventListener('pointermove', handleClassroomResizeMove)
+  window.addEventListener('pointerup', handleClassroomResizeUp)
+  window.addEventListener('pointercancel', handleClassroomResizeUp)
+  window.addEventListener('blur', handleClassroomResizeUp)
+}
+
 const getDefaultAskWorkspaceLayout = () => {
   const viewport = getViewportBounds()
-  const width = clamp(360, ASK_WORKSPACE_MIN_WIDTH, Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2))
-  const height = clamp(620, ASK_WORKSPACE_MIN_HEIGHT, Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN))
+  const width = clamp(980, ASK_WORKSPACE_MIN_WIDTH, Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2))
+  const height = clamp(700, ASK_WORKSPACE_MIN_HEIGHT, Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN))
   return {
     left: Math.max(ASK_WORKSPACE_MARGIN, viewport.width - width - ASK_WORKSPACE_MARGIN),
     top: ASK_WORKSPACE_TOP,
@@ -746,6 +1620,18 @@ const loadAskWorkspaceLayout = () => {
   askWorkspaceLayout.top = clamped.top
   askWorkspaceLayout.width = clamped.width
   askWorkspaceLayout.height = clamped.height
+}
+
+const loadNodeNotes = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const saved = JSON.parse(window.localStorage.getItem('fuww_student_node_notes') || '{}')
+    if (saved && typeof saved === 'object') {
+      nodeNotes.value = saved
+    }
+  } catch (error) {
+    nodeNotes.value = {}
+  }
 }
 
 const qaFlyoutStyle = computed(() => ({
@@ -1043,6 +1929,10 @@ const loadStudentScript = async () => {
   try {
     const data = await studentV1Api.coursewares.getPlaybackScript(courseId.value, currentPage.value)
     const payload = data?.data || {}
+    const payloadTotalPage = Number(payload.total_page || payload.totalPage || payload.page_total || 0)
+    if (payloadTotalPage > 0) {
+      totalPage.value = payloadTotalPage
+    }
     const nodes = data?.data?.nodes || []
     playbackNodes.value = nodes
     pageSummary.value = payload.page_summary || ''
@@ -1304,13 +2194,19 @@ const sendMultiModalQuestion = async () => {
     return
   }
 
+  const currentQuestion = String(question.value || '').trim()
+  const contextNodeTitle = currentNodeMeta.value?.title || currentNodeId.value || ''
+  const contextPrefix = qaContextBinding.value && contextNodeTitle
+    ? `当前学生正在学习【${contextNodeTitle}】。请优先基于该知识点内容回答。\n`
+    : ''
+  const requestQuestion = `${contextPrefix}${currentQuestion}`
   askLoading.value = true
   isPlay.value = false
   playbackState.value = 'tutoring'
   stopSpeechNarration()
   stopStreamTypewriter()
+  question.value = ''
   try {
-    const currentQuestion = question.value
     aiReply.value = ''
     latestAnswerMeta.value = {
       sourcePage: 0,
@@ -1325,7 +2221,7 @@ const sendMultiModalQuestion = async () => {
       courseId: courseId.value,
       page: currentPage.value,
       nodeId: currentNodeId.value,
-      question: currentQuestion
+      question: requestQuestion
     }, {
       token: (payload) => {
         pushTypewriterText(payload.text || '')
@@ -1394,7 +2290,7 @@ const sendMultiModalQuestion = async () => {
         studentId: studentId.value,
         pageNum: currentPage.value,
         nodeId: currentNodeId.value,
-        question: question.value
+        question: requestQuestion
       })
       const payload = fallbackResp?.data || {}
       aiReply.value = payload.answer || ''
@@ -1406,7 +2302,7 @@ const sendMultiModalQuestion = async () => {
         sessionId: sessionId.value
       }
       qaHistory.value.unshift({
-        question: question.value,
+        question: currentQuestion,
         answer: aiReply.value,
         sourcePage: latestAnswerMeta.value.sourcePage,
         sourceNodeId: latestAnswerMeta.value.sourceNodeId
@@ -1414,7 +2310,6 @@ const sendMultiModalQuestion = async () => {
       if (qaHistory.value.length > 5) {
         qaHistory.value = qaHistory.value.slice(0, 5)
       }
-      question.value = ''
       playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
       if (!latestAnswerMeta.value.needReteach) {
         isPlay.value = true
@@ -1597,6 +2492,7 @@ const handleLogout = () => {
   question.value = ''
   aiReply.value = ''
   qaHistory.value = []
+  resetPracticeExercise()
   isPlay.value = false
   stopPlaybackTimer()
   stopSpeechNarration()
@@ -1607,9 +2503,19 @@ const handleLogout = () => {
   }
 }
 
+const handleViewportResize = () => {
+  ensureQaFabLayout()
+  ensureAskWorkspaceLayout()
+  updateViewportMode()
+}
+
 onMounted(() => {
   if (typeof window !== 'undefined') {
+    loadQaFabLayout()
     loadAskWorkspaceLayout()
+    loadClassroomLayout()
+    loadNodeNotes()
+    updateViewportMode()
     window.addEventListener('keydown', handlePlaybackShortcut)
     window.addEventListener('keyup', handlePlaybackShortcutKeyup)
     window.addEventListener('blur', stopContinuousArrowSeek)
@@ -1617,6 +2523,7 @@ onMounted(() => {
       openShortcutHelp(true)
     }
     window.localStorage.setItem('fuww_student_origin', window.location.origin)
+    window.addEventListener('resize', handleViewportResize)
     const params = new URLSearchParams(window.location.search)
     const role = String(params.get('role') || '').trim().toLowerCase()
     const username = String(params.get('username') || '').trim().toLowerCase()
@@ -1645,6 +2552,7 @@ onUnmounted(() => {
     window.removeEventListener('keydown', handlePlaybackShortcut)
     window.removeEventListener('keyup', handlePlaybackShortcutKeyup)
     window.removeEventListener('blur', stopContinuousArrowSeek)
+    window.removeEventListener('resize', handleViewportResize)
   }
   stopContinuousArrowSeek()
   if (playbackHudTimer) {
@@ -1663,10 +2571,12 @@ onUnmounted(() => {
   stopSpeechNarration()
   stopStreamTypewriter()
   stopAskWorkspaceInteraction()
+  stopClassroomResize()
 })
 
 onBeforeUnmount(() => {
   stopAskWorkspaceInteraction()
+  stopClassroomResize()
 })
 
 watch(selectedTeachingCourseId, () => {
@@ -1711,6 +2621,23 @@ watch(currentNodeId, () => {
     speakCurrentNode()
   }
 })
+
+watch(courseId, (nextCourseId) => {
+  if (!nextCourseId && activeRightPanel.value === 'graph') {
+    activeRightPanel.value = 'courseware'
+  }
+  lastContextHintNodeId.value = ''
+  if (!nextCourseId) {
+    graphSyncPayload.value = null
+    graphScanReport.value = null
+    graphMessage.value = ''
+  }
+})
+
+watch(nodeNotes, (nextValue) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem('fuww_student_node_notes', JSON.stringify(nextValue || {}))
+}, { deep: true })
 
 const initializeCourseContext = async () => {
   try {
@@ -2386,9 +3313,6 @@ const checkAnswer = async (option) => {
 
 .qa-fab {
   position: fixed;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
   z-index: 45;
   width: 64px;
   height: 64px;
@@ -2401,22 +3325,24 @@ const checkAnswer = async (option) => {
     0 2px 0 rgba(255, 255, 255, 0.65) inset;
   color: #2f605a;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, left 0.12s ease, top 0.12s ease;
   animation: qa-fab-float 2.8s ease-in-out infinite;
 }
 
 .qa-fab:hover {
-  transform: translateY(calc(-50% - 2px)) scale(1.02);
+  transform: scale(1.02);
   box-shadow:
     0 16px 28px rgba(61, 92, 85, 0.26),
     0 2px 0 rgba(255, 255, 255, 0.7) inset;
 }
 
 .qa-fab:active {
-  transform: translateY(calc(-50% + 1px)) scale(0.98);
+  transform: scale(0.98);
 }
 
 .qa-fab.active {
@@ -2424,6 +3350,12 @@ const checkAnswer = async (option) => {
   box-shadow:
     0 18px 32px rgba(38, 92, 81, 0.32),
     0 0 0 5px rgba(83, 128, 116, 0.2);
+}
+
+.qa-fab.dragging {
+  animation: none;
+  transition: none;
+  cursor: grabbing;
 }
 
 .qa-fab-core {
@@ -2522,10 +3454,885 @@ const checkAnswer = async (option) => {
   max-width: 560px;
 }
 
-.page-layout.classroom-grid {
+
+.page-layout.classroom-workbench {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: calc(100vh - 300px);
+}
+
+.classroom-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  border: 1px solid #d7e4dd;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+  padding: 10px 12px;
+}
+
+.classroom-title-group h3 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: #1f473d;
+}
+
+.classroom-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6a8278;
+  font-weight: 700;
+}
+
+.classroom-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.classroom-split-layout {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.classroom-left-pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.workbench-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.left-unified-tabs-pane {
+  flex: 1;
+}
+
+.left-main-tabs :deep(.el-tabs__item) {
+  font-weight: 700;
+}
+
+.left-main-tabs :deep(.el-tabs__item.is-active) {
+  color: #2f605a;
+}
+
+.left-main-tabs :deep(.el-tabs__active-bar) {
+  background-color: #2f605a;
+}
+
+.classroom-resizer {
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e6f0eb 0%, #d7e5de 100%);
+  border: 1px solid #c8dbd1;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.classroom-resizer span {
+  width: 2px;
+  height: 48px;
+  border-radius: 999px;
+  background: #6a8d7f;
+}
+
+.classroom-resizer:hover {
+  background: linear-gradient(180deg, #d7e8e0 0%, #c7dcd2 100%);
+}
+
+.classroom-qa-pane {
+  min-width: 340px;
+  min-height: 0;
+  border: 1px solid #d6e4dc;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%);
+  box-shadow: 0 14px 28px rgba(45, 72, 66, 0.09);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.classroom-qa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d9e7df;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #f8fcfa 0%, #eef6f2 100%);
+}
+
+.qa-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5f786f;
+  font-weight: 700;
+}
+
+.classroom-qa-head h4 {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: #1f473d;
+}
+
+.classroom-qa-pane :deep(.chat-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.classroom-split-layout.compact {
+  flex-direction: column;
+}
+
+.classroom-split-layout.compact .classroom-left-pane,
+.classroom-split-layout.compact .classroom-qa-pane {
+  width: 100%;
+  flex-basis: auto !important;
+}
+
+.classroom-split-layout.compact .classroom-qa-pane {
+  min-height: 520px;
+}
+
+.classroom-split-layout.compact .classroom-resizer {
+  display: none;
+}
+
+.knowledge-tree-pane {
+  min-width: 0;
+  border: 1px solid #d8e5de;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tab-workspace-pane {
+  min-width: 0;
+  border: 1px solid #d8e5de;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fcfa 100%);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.tree-pane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tree-pane-header span {
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid #d1e2da;
+  padding: 3px 8px;
+  color: #42665d;
+  background: #eef5f1;
+}
+
+.tree-pane-header h3 {
+  margin-top: 3px;
+  font-size: 17px;
+  color: #23463f;
+}
+
+.merged-tree-pane {
+  max-height: 260px;
+}
+
+.merged-tabs-pane {
+  min-height: 0;
+}
+
+.tree-progress-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #edf5f1;
+  color: #48665e;
+  font-size: 12px;
+}
+
+.knowledge-tree-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #dce9e2;
+  border-radius: 12px;
+  padding: 8px;
+  background: #fff;
+}
+
+.workbench-tabs {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workbench-tabs :deep(.el-tabs__header) {
+  flex: 0 0 auto;
+}
+
+.workbench-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+}
+
+.workbench-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+.tab-scroll-area {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.dashboard-grid {
+  margin-top: 12px;
+  min-height: calc(100% - 12px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.status-group-card {
+  border-radius: 14px;
+  border: 1px solid #d7e5dd;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.status-group-card.mastered {
+  background: linear-gradient(180deg, #ecf9f1 0%, #ffffff 100%);
+}
+
+.status-group-card.unmastered {
+  background: linear-gradient(180deg, #fff9ec 0%, #fff2ea 100%);
+}
+
+.status-group-card.prerequisite {
+  background: linear-gradient(180deg, #f4f6f8 0%, #ffffff 100%);
+  grid-column: 1 / -1;
+}
+
+.group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.group-head h4 {
+  margin: 0;
+  font-size: 14px;
+  color: #23463f;
+}
+
+.group-head span {
+  font-size: 12px;
+  color: #5f7b71;
+}
+
+.node-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+}
+
+.knowledge-node-card {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(204, 222, 214, 0.92);
+  padding: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.knowledge-node-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(43, 77, 65, 0.12);
+}
+
+.knowledge-node-card h5 {
+  margin: 0;
+  font-size: 13px;
+  color: #2a4f47;
+}
+
+.knowledge-node-card p {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #567067;
+}
+
+.node-actions {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.card-empty {
+  font-size: 12px;
+  color: #70857c;
+}
+
+.interaction-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.interaction-card {
+  border: 1px solid #d8e6de;
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px;
+}
+
+.interaction-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c5148;
+  margin-bottom: 8px;
+}
+
+.exercise-card {
+  gap: 10px;
+}
+
+.exercise-paper {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #36544c;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.exercise-section {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f9fcfa 0%, #f3f8f5 100%);
+  border: 1px solid #dbe8e1;
+}
+
+.exercise-section h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #274e46;
+}
+
+.exercise-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.exercise-question-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exercise-question-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d9e6de;
+}
+
+.exercise-question-title {
+  margin: 0 0 8px;
+  font-weight: 600;
+  color: #2a4f47;
+}
+
+.exercise-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.exercise-radio-group :deep(.el-radio) {
+  margin-right: 0;
+}
+
+.exercise-fill-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.probability-row {
+  margin: 8px 0 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.exercise-answer-line {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.answer-correct {
+  color: #15803d;
+}
+
+.answer-wrong {
+  color: #b91c1c;
+}
+
+.exercise-reference {
+  color: #315d54;
+}
+
+.exercise-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.exercise-score {
+  font-weight: 700;
+  color: #23463f;
+}
+
+.exercise-list li + li {
+  margin-top: 10px;
+}
+
+.exercise-list p {
+  margin: 0 0 8px;
+}
+
+.exercise-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.exercise-options span {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid #d9e6de;
+}
+
+.exercise-code-block {
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #d9e6de;
+  font-family: Consolas, Monaco, 'Courier New', monospace;
+}
+
+.quiz-question {
+  font-size: 13px;
+  color: #3e5c54;
+}
+
+.quiz-options {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quiz-result {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.quiz-result.correct {
+  color: #15803d;
+}
+
+.quiz-result.wrong {
+  color: #b91c1c;
+}
+
+.feedback-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feedback-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #547067;
+}
+
+.notes-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-actions-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.notes-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.notes-head h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #274b43;
+}
+
+.notes-head span {
+  font-size: 12px;
+  color: #648177;
+}
+
+.workbench-right-sidebar {
+  position: relative;
+  grid-column: 3;
+  height: 100%;
+  z-index: 5;
+}
+
+.right-rail {
+  width: 56px;
+  height: 100%;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f7fcf9 0%, #eef6f2 100%);
+  border: 1px solid rgba(120, 156, 140, 0.28);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 8px;
+}
+
+.rail-btn {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #5f7467;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 4px;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.rail-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rail-btn span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.rail-btn:hover:not(:disabled) {
+  background: rgba(92, 166, 143, 0.12);
+  color: #2f5e52;
+  transform: translateY(-1px);
+}
+
+.rail-btn.active {
+  background: linear-gradient(180deg, #79c3ab 0%, #5ca68f 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(92, 166, 143, 0.24);
+}
+
+.rail-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.overlay-drawer {
+  position: absolute;
+  top: 8px;
+  right: 66px;
+  width: min(560px, 62vw);
+  height: fit-content;
+  max-height: calc(100% - 16px);
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(120, 156, 140, 0.2);
+  box-shadow: 0 24px 44px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.section-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid rgba(120, 156, 140, 0.22);
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.close-btn {
+  border: none;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: #e8f2ed;
+  color: #2f5e52;
+  cursor: pointer;
+}
+
+.panel-body {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 8px 8px 4px;
+}
+
+.panel-body :deep(.course-card) {
+  height: auto;
+  min-height: 0;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.panel-body :deep(.course-content) {
+  min-height: 240px;
+}
+
+.panel-body :deep(.course-img) {
+  max-height: min(70vh, calc(100vh - 420px));
+}
+
+.drawer-page-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 4px 0 10px;
+}
+
+.nav-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #d2e3db;
+  background: #fff;
+  color: #3b6358;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.nav-icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.nav-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.page-indicator {
+  font-size: 12px;
+  color: #49675f;
+  font-weight: 700;
+  min-width: 66px;
+  text-align: center;
+}
+
+.graph-body {
+  padding: 8px 8px 4px;
+  overflow: auto;
+}
+
+.graph-panel-shell {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(92, 166, 143, 0.28);
+  background: linear-gradient(180deg, #f8fcfa 0%, #f1f8f4 100%);
+  box-shadow: 0 12px 24px rgba(46, 89, 74, 0.12);
+}
+
+.graph-panel-head h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #1f473d;
+}
+
+.graph-panel-head p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #5f7a70;
+}
+
+.action-row {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.action-btn {
+  border: 1px solid #b9d7ca;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #ffffff;
+  color: #2f605a;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-btn.primary {
+  background: linear-gradient(180deg, #7dc3ad 0%, #5ca68f 100%);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.action-btn.warn {
+  background: linear-gradient(180deg, #fff8ef 0%, #fff0dc 100%);
+  border-color: #f5d5a5;
+  color: #925900;
+}
+
+.summary-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.metric-card {
+  border: 1px solid rgba(92, 166, 143, 0.2);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+  min-width: 0;
+}
+
+.metric-card span {
+  font-size: 11px;
+  color: #6a847a;
+}
+
+.metric-card strong {
+  margin-top: 4px;
+  display: block;
+  font-size: 14px;
+  color: #21483e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric-card.danger {
+  border-color: rgba(228, 92, 92, 0.28);
+  background: linear-gradient(180deg, #fffaf9 0%, #fff1f0 100%);
+}
+
+.orphan-chip-list {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 96px;
+  overflow: auto;
+}
+
+.orphan-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(228, 92, 92, 0.3);
+  background: #fff5f4;
+  color: #b14a4a;
+  font-size: 11px;
+}
+
+.result-box {
+  margin-top: 10px;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #365b52;
+  border: 1px solid #d2e5dc;
+  background: #ffffff;
+}
+
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: all 0.24s ease;
+}
+
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  opacity: 0;
+  transform: translateX(8px);
 }
 
 .outline-stage {
@@ -2913,12 +4720,22 @@ const checkAnswer = async (option) => {
     linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 251, 248, 0.84) 100%);
 }
 
+.qa-flyout-panel :deep(.chat-shell) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
 .qa-flyout-panel :deep(.conversation-board) {
   flex: 1;
   min-height: 0;
 }
 
 .qa-flyout-panel :deep(.conversation-thread) {
+  max-height: none;
+}
+
+.qa-flyout-panel :deep(.message-thread) {
   max-height: none;
 }
 
@@ -2941,10 +4758,10 @@ const checkAnswer = async (option) => {
 @keyframes qa-fab-float {
   0%,
   100% {
-    transform: translateY(-50%);
+    transform: translateY(0);
   }
   50% {
-    transform: translateY(calc(-50% - 3px));
+    transform: translateY(-3px);
   }
 }
 
@@ -2986,17 +4803,18 @@ const checkAnswer = async (option) => {
     gap: 10px;
   }
 
-  .page-layout.two-col {
-    flex-direction: column;
+  .classroom-header-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .classroom-qa-pane {
+    min-width: 300px;
   }
 
   .right-stage {
     min-width: 0;
     max-width: 100%;
-  }
-
-  .page-layout.classroom-grid {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .outline-stage {
@@ -3023,6 +4841,34 @@ const checkAnswer = async (option) => {
     flex-direction: column;
   }
 
+  .classroom-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .classroom-title-group h3 {
+    font-size: 15px;
+  }
+
+  .classroom-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .classroom-split-layout {
+    gap: 10px;
+  }
+
+  .classroom-qa-pane {
+    min-width: 0;
+    min-height: 460px;
+    padding: 8px;
+  }
+
+  .classroom-qa-head {
+    flex-wrap: wrap;
+  }
+
   .left-sidebar-menu {
     flex: 0 0 auto;
     width: 100%;
@@ -3039,6 +4885,22 @@ const checkAnswer = async (option) => {
 
   .menu-item {
     flex: 1 1 calc(50% - 4px);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-scroll-area {
+    max-height: none;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .qa-fab {
