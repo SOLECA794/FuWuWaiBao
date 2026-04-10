@@ -828,10 +828,10 @@ onUnmounted(() => {
   border-radius: 14px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 4% 6%, rgba(164, 207, 250, 0.26), transparent 34%),
-    radial-gradient(circle at 94% 90%, rgba(219, 235, 252, 0.55), transparent 36%),
-    linear-gradient(165deg, #f7fbff 0%, #eef4fd 100%);
-  border: 1px solid #d8e6fb;
+    radial-gradient(circle at 4% 6%, rgba(166, 221, 201, 0.26), transparent 34%),
+    radial-gradient(circle at 94% 90%, rgba(218, 241, 231, 0.55), transparent 36%),
+    linear-gradient(165deg, #f7fcf9 0%, #eef8f3 100%);
+  border: 1px solid #d8e9e1;
 }
 
 .session-sidebar {
@@ -839,17 +839,17 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border-right: 1px solid #d7e4f6;
+  border-right: 1px solid #d7e7de;
   background:
-    linear-gradient(180deg, rgba(13, 48, 96, 0.96) 0%, rgba(15, 59, 110, 0.92) 100%),
+    linear-gradient(180deg, rgba(31, 83, 69, 0.96) 0%, rgba(35, 103, 82, 0.92) 100%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
 }
 
 .new-session-btn {
   width: 100%;
-  border: 1px solid rgba(130, 175, 236, 0.5);
+  border: 1px solid rgba(157, 208, 188, 0.5);
   background: rgba(255, 255, 255, 0.1);
-  color: #e8f2ff;
+  color: #eaf7f1;
   border-radius: 12px;
   padding: 10px 12px;
   font-size: 14px;
@@ -861,7 +861,7 @@ onUnmounted(() => {
 .new-session-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(180, 213, 255, 0.8);
+  border-color: rgba(192, 228, 212, 0.8);
 }
 
 .new-session-btn:disabled {
@@ -880,9 +880,9 @@ onUnmounted(() => {
 
 .session-item {
   border-radius: 12px;
-  border: 1px solid rgba(143, 186, 244, 0.35);
+  border: 1px solid rgba(157, 207, 186, 0.35);
   padding: 10px;
-  color: #d7e8ff;
+  color: #d9f1e7;
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
@@ -890,15 +890,15 @@ onUnmounted(() => {
 
 .session-item:hover {
   transform: translateY(-1px);
-  border-color: rgba(163, 202, 252, 0.76);
+  border-color: rgba(173, 223, 201, 0.76);
   background: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 18px rgba(4, 18, 39, 0.22);
+  box-shadow: 0 8px 18px rgba(16, 43, 36, 0.22);
 }
 
 .session-item.active {
-  border-color: #7cc4ff;
-  background: linear-gradient(180deg, rgba(56, 130, 246, 0.34) 0%, rgba(70, 164, 255, 0.2) 100%);
-  box-shadow: inset 0 0 0 1px rgba(188, 226, 255, 0.5), 0 10px 20px rgba(4, 22, 45, 0.24);
+  border-color: #76c6a7;
+  background: linear-gradient(180deg, rgba(66, 144, 118, 0.34) 0%, rgba(84, 176, 147, 0.2) 100%);
+  box-shadow: inset 0 0 0 1px rgba(196, 234, 218, 0.5), 0 10px 20px rgba(12, 46, 34, 0.24);
 }
 
 .session-item-head {
@@ -911,7 +911,7 @@ onUnmounted(() => {
 .session-title {
   font-size: 14px;
   line-height: 1.4;
-  color: #f2f7ff;
+  color: #f0fbf6;
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -922,9 +922,9 @@ onUnmounted(() => {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  border: 1px solid rgba(180, 210, 248, 0.4);
+  border: 1px solid rgba(183, 220, 204, 0.4);
   background: transparent;
-  color: #dceafe;
+  color: #daf1e7;
   cursor: pointer;
   line-height: 1;
   flex-shrink: 0;
@@ -937,7 +937,7 @@ onUnmounted(() => {
 .session-preview {
   margin-top: 6px;
   font-size: 12px;
-  color: rgba(222, 235, 255, 0.86);
+  color: rgba(220, 241, 233, 0.86);
   min-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -947,7 +947,7 @@ onUnmounted(() => {
 .session-meta {
   margin-top: 8px;
   font-size: 11px;
-  color: rgba(190, 217, 248, 0.86);
+  color: rgba(190, 228, 213, 0.86);
   display: flex;
   justify-content: space-between;
   gap: 8px;
@@ -967,20 +967,20 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #deebf9;
+  border-bottom: 1px solid #deece5;
   padding-bottom: 10px;
 }
 
 .chat-header-left h3 {
   margin: 0;
   font-size: 20px;
-  color: #14375f;
+  color: #1b4d3f;
   line-height: 1.2;
 }
 
 .chat-header-left p {
   margin: 4px 0 0;
-  color: #5e7694;
+  color: #5f7f72;
   font-size: 13px;
 }
 
@@ -990,9 +990,9 @@ onUnmounted(() => {
 }
 
 .ghost-btn {
-  border: 1px solid #bfd5f4;
-  background: #f8fbff;
-  color: #1f4f88;
+  border: 1px solid #c4dfd3;
+  background: #f7fcf9;
+  color: #2a6254;
   border-radius: 999px;
   padding: 7px 12px;
   cursor: pointer;
@@ -1001,7 +1001,7 @@ onUnmounted(() => {
 }
 
 .ghost-btn:hover:not(:disabled) {
-  background: #edf5ff;
+  background: #edf7f2;
 }
 
 .ghost-btn:disabled {
@@ -1018,13 +1018,13 @@ onUnmounted(() => {
 
 .thread-empty {
   min-height: 140px;
-  border: 1px dashed #bfd6f6;
+  border: 1px dashed #c7dfd4;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.72);
-  color: #56759a;
+  color: #537668;
   font-size: 13px;
 }
 
@@ -1046,21 +1046,21 @@ onUnmounted(() => {
 
 .message-row.user .message-bubble {
   order: 1;
-  background: linear-gradient(180deg, #2d8cf0 0%, #1f77d6 100%);
-  border: 1px solid rgba(23, 87, 160, 0.25);
+  background: linear-gradient(180deg, #2f7f66 0%, #2a6f5a 100%);
+  border: 1px solid rgba(36, 94, 76, 0.25);
   color: #ffffff;
 }
 
 .message-row.assistant .message-bubble {
-  background: #f1f3f6;
-  border: 1px solid #d5dce8;
-  color: #1b2d42;
+  background: #eff6f2;
+  border: 1px solid #d2e2da;
+  color: #1f3f35;
 }
 
 .message-row.assistant .message-bubble.system {
-  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-  border: 1px dashed #9bb8e6;
-  color: #25466f;
+  background: linear-gradient(180deg, #f7fcfa 0%, #edf7f2 100%);
+  border: 1px dashed #9fc9b7;
+  color: #2b5c4e;
 }
 
 .message-avatar {
@@ -1076,8 +1076,8 @@ onUnmounted(() => {
 }
 
 .assistant-avatar {
-  background: #dfe9f8;
-  color: #1f4c84;
+  background: #dfeee7;
+  color: #295c4d;
 }
 
 .user-avatar {
@@ -1093,8 +1093,8 @@ onUnmounted(() => {
 }
 
 .message-bubble.streaming {
-  border-color: #8cb8ee;
-  box-shadow: 0 10px 24px rgba(45, 140, 240, 0.2);
+  border-color: #91c8af;
+  box-shadow: 0 10px 24px rgba(47, 127, 102, 0.2);
 }
 
 .message-meta-row {
@@ -1125,9 +1125,9 @@ onUnmounted(() => {
 }
 
 .inline-copy-btn {
-  border: 1px solid #bdd3f3;
+  border: 1px solid #c2dbd0;
   background: #fff;
-  color: #21578f;
+  color: #2e6758;
   border-radius: 999px;
   font-size: 11px;
   line-height: 1;
@@ -1136,7 +1136,7 @@ onUnmounted(() => {
 }
 
 .inline-copy-btn:hover {
-  background: #eef5ff;
+  background: #eef8f3;
 }
 
 .user-text {
@@ -1150,21 +1150,21 @@ onUnmounted(() => {
 }
 
 .assistant-body.system {
-  color: #28507f;
+  color: #2f6454;
 }
 
 .thinking-inline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #35577c;
+  color: #3e6a5b;
 }
 
 .thinking-inline i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #2d8cf0;
+  background: #2f7f66;
   animation: dot-jump 1s ease-in-out infinite;
 }
 
@@ -1182,14 +1182,14 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   font-size: 12px;
-  color: #426892;
+  color: #4b7366;
 }
 
 .typing-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #2d8cf0;
+  background: #2f7f66;
   animation: pulse 1.1s ease-in-out infinite;
 }
 
@@ -1200,17 +1200,17 @@ onUnmounted(() => {
 }
 
 .preset-chip {
-  border: 1px solid #c9dcf8;
+  border: 1px solid #cbe0d6;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
-  color: #245388;
+  color: #2e6657;
   font-size: 12px;
   padding: 5px 10px;
   cursor: pointer;
 }
 
 .preset-chip:hover:not(:disabled) {
-  background: #eff6ff;
+  background: #eef8f3;
 }
 
 .preset-chip:disabled {
@@ -1219,7 +1219,7 @@ onUnmounted(() => {
 }
 
 .composer {
-  border: 1px solid #d7e5f8;
+  border: 1px solid #d7e6df;
   border-radius: 12px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.92);
@@ -1227,7 +1227,7 @@ onUnmounted(() => {
 
 .composer-input :deep(.el-textarea__inner) {
   border-radius: 10px;
-  border-color: #c4d9f6;
+  border-color: #c8ddd3;
   line-height: 1.65;
 }
 
@@ -1241,7 +1241,7 @@ onUnmounted(() => {
 
 .compose-tip {
   font-size: 12px;
-  color: #5a7597;
+  color: #607e72;
 }
 
 .send-btn {
@@ -1251,7 +1251,7 @@ onUnmounted(() => {
 }
 
 .markdown-content {
-  color: #1b2d42;
+  color: #1f3f35;
 }
 
 .markdown-content :deep(p) {
@@ -1262,8 +1262,8 @@ onUnmounted(() => {
   margin: 0.55em 0;
   padding: 0;
   border-radius: 10px;
-  border: 1px solid #c6d6ef;
-  background: #0f1b2d;
+  border: 1px solid #c5dacc;
+  background: #12271f;
   overflow: hidden;
 }
 
@@ -1277,20 +1277,20 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 0 10px;
-  background: linear-gradient(180deg, #1c2e4a 0%, #17263f 100%);
-  border-bottom: 1px solid rgba(150, 180, 220, 0.2);
+  background: linear-gradient(180deg, #1f3e33 0%, #1a332b 100%);
+  border-bottom: 1px solid rgba(156, 199, 181, 0.2);
 }
 
 .markdown-content :deep(.code-lang) {
   font-size: 11px;
-  color: #b8cff0;
+  color: #c2e2d4;
   text-transform: uppercase;
 }
 
 .markdown-content :deep(.code-copy-btn) {
-  border: 1px solid rgba(151, 183, 227, 0.38);
+  border: 1px solid rgba(161, 199, 182, 0.38);
   background: rgba(255, 255, 255, 0.06);
-  color: #dceaff;
+  color: #d9f0e5;
   border-radius: 999px;
   padding: 3px 8px;
   font-size: 11px;
@@ -1305,27 +1305,27 @@ onUnmounted(() => {
   display: block;
   padding: 10px 12px;
   overflow: auto;
-  color: #d4e7ff;
+  color: #d3ebdf;
 }
 
 .markdown-content :deep(.tok-key) {
-  color: #95d5ff;
+  color: #8bd8b9;
 }
 
 .markdown-content :deep(.tok-string) {
-  color: #f9c27b;
+  color: #f6cf9a;
 }
 
 .markdown-content :deep(.tok-comment) {
-  color: #86a4c5;
+  color: #8eb1a2;
 }
 
 .markdown-content :deep(.tok-num) {
-  color: #b0f0b8;
+  color: #b5f0ce;
 }
 
 .markdown-content :deep(.tok-bool) {
-  color: #fca5a5;
+  color: #f8bdbd;
 }
 
 @keyframes bubble-rise {
@@ -1381,7 +1381,7 @@ onUnmounted(() => {
 
   .session-sidebar {
     border-right: none;
-    border-bottom: 1px solid #d7e4f6;
+    border-bottom: 1px solid #d7e7de;
     max-height: 240px;
   }
 

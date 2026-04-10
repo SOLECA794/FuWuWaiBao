@@ -132,66 +132,79 @@
               </div>
             </header>
 
-            <section class="center-stage">
-              <div class="playback-hud" v-if="playbackHudVisible">{{ playbackHudText }}</div>
-              <div class="shortcut-help-card" v-if="shortcutHelpVisible">
-                <div class="shortcut-help-header">
-                  <strong>课堂快捷键</strong>
-                  <button type="button" @click="closeShortcutHelp()">关闭</button>
-                </div>
-                <div class="shortcut-help-grid">
-                  <span><kbd>Space</kbd> 播放/暂停</span>
-                  <span><kbd>← / →</kbd> 快退/快进 5 秒</span>
-                  <span><kbd>Shift + ← / →</kbd> 快退/快进 10 秒</span>
-                  <span><kbd>[ / ]</kbd> 调整倍速</span>
-                  <span><kbd>0</kbd> 恢复 1.0x</span>
-                  <span><kbd>M</kbd> 语音开关</span>
-                  <span><kbd>K</kbd> 打开/关闭帮助</span>
-                </div>
-              </div>
-              <StudentCoursePanel
-                :current-course-name="currentCourseName"
-                :current-page="currentPage"
-                :total-page="totalPage"
-                :page-timeline-duration="pageTimelineDuration"
-                :current-timeline-sec="currentTimelineSec"
-                :active-node-elapsed-sec="activeNodeElapsedSec"
-                :active-node-duration="activeNodeDuration"
-                :current-node-title="currentNodeMeta?.title || ''"
-                :active-node-type-label="activeNodeTypeLabel"
-                :playback-mode="playbackMode"
-                :playback-audio-meta="playbackAudioMeta"
-                :progress-percent="progressPercent"
-                :course-img="courseImg"
-                :playback-nodes="playbackNodes"
-                :current-node-id="currentNodeId"
-                :tts-enabled="ttsEnabled"
-                :page-summary="''"
-                :script-content="currentPageMarkdown"
-                :is-script-loading="scriptLoading"
-                :trace-point="tracePoint"
-                :trace-top="traceTop"
-                :trace-left="traceLeft"
-                :is-play="isPlay"
-                :playback-rate="playbackRate"
-                :show-status-strip="false"
-                @prev-page="prevPage"
-                @select-node="selectPlaybackNode"
-                @toggle-play="togglePlay"
-                @toggle-tts="toggleTts"
-                @speak-current-node="speakCurrentNode"
-                @seek-timeline="seekTimeline"
-                @seek-step="handleSeekStep"
-                @seek-to-start="handleSeekToStart"
-                @open-shortcuts="openShortcutHelp(true)"
-                @update:playback-rate="updatePlaybackRate"
-                @next-page="nextPage"
-              />
-            </section>
-
             <div class="classroom-split-layout" :class="{ compact: isCompactViewport, collapsed: isQaPanelCollapsed }">
               <section class="workbench-main center-workbench-pane classroom-left-pane" :style="classroomLeftPaneStyle">
-                <div class="tab-workspace-pane merged-tabs-pane left-unified-tabs-pane">
+                <div class="classroom-left-stack" :class="{ expanded: isLowerWorkbenchExpanded, solo: !isLowerWorkbenchExpanded }">
+                  <section class="center-stage" :class="{ expanded: isLowerWorkbenchExpanded, solo: !isLowerWorkbenchExpanded }">
+                    <div class="playback-hud" v-if="playbackHudVisible">{{ playbackHudText }}</div>
+                    <div class="shortcut-help-card" v-if="shortcutHelpVisible">
+                      <div class="shortcut-help-header">
+                        <strong>课堂快捷键</strong>
+                        <button type="button" @click="closeShortcutHelp()">关闭</button>
+                      </div>
+                      <div class="shortcut-help-grid">
+                        <span><kbd>Space</kbd> 播放/暂停</span>
+                        <span><kbd>← / →</kbd> 快退/快进 5 秒</span>
+                        <span><kbd>Shift + ← / →</kbd> 快退/快进 10 秒</span>
+                        <span><kbd>[ / ]</kbd> 调整倍速</span>
+                        <span><kbd>0</kbd> 恢复 1.0x</span>
+                        <span><kbd>M</kbd> 语音开关</span>
+                        <span><kbd>K</kbd> 打开/关闭帮助</span>
+                      </div>
+                    </div>
+                    <div class="center-stage-toolbar">
+                      <el-button
+                        size="small"
+                        class="expand-toggle-btn"
+                        type="primary"
+                        plain
+                        @click="toggleLowerWorkbench"
+                      >
+                        {{ isLowerWorkbenchExpanded ? '收起下方面板' : '展开下方面板' }}
+                      </el-button>
+                    </div>
+                    <StudentCoursePanel
+                      :current-course-name="currentCourseName"
+                      :current-page="currentPage"
+                      :total-page="totalPage"
+                      :page-timeline-duration="pageTimelineDuration"
+                      :current-timeline-sec="currentTimelineSec"
+                      :active-node-elapsed-sec="activeNodeElapsedSec"
+                      :active-node-duration="activeNodeDuration"
+                      :current-node-title="currentNodeMeta?.title || ''"
+                      :active-node-type-label="activeNodeTypeLabel"
+                      :playback-mode="playbackMode"
+                      :playback-audio-meta="playbackAudioMeta"
+                      :progress-percent="progressPercent"
+                      :course-img="courseImg"
+                      :playback-nodes="playbackNodes"
+                      :current-node-id="currentNodeId"
+                      :tts-enabled="ttsEnabled"
+                      :page-summary="''"
+                      :script-content="currentPageMarkdown"
+                      :is-script-loading="scriptLoading"
+                      :trace-point="tracePoint"
+                      :trace-top="traceTop"
+                      :trace-left="traceLeft"
+                      :is-play="isPlay"
+                      :playback-rate="playbackRate"
+                      :show-status-strip="isLowerWorkbenchExpanded"
+                      :display-mode="isLowerWorkbenchExpanded ? 'voice' : 'script'"
+                      @prev-page="prevPage"
+                      @select-node="selectPlaybackNode"
+                      @toggle-play="togglePlay"
+                      @toggle-tts="toggleTts"
+                      @speak-current-node="speakCurrentNode"
+                      @seek-timeline="seekTimeline"
+                      @seek-step="handleSeekStep"
+                      @seek-to-start="handleSeekToStart"
+                      @open-shortcuts="openShortcutHelp(true)"
+                      @update:playback-rate="updatePlaybackRate"
+                      @next-page="nextPage"
+                    />
+                  </section>
+
+                  <div v-if="isLowerWorkbenchExpanded" class="tab-workspace-pane merged-tabs-pane left-unified-tabs-pane">
                   <el-tabs v-model="activeWorkbenchTab" class="workbench-tabs left-main-tabs">
                     <el-tab-pane label="知识树" name="tree">
                       <div class="tab-scroll-area">
@@ -201,7 +214,7 @@
                               <div class="outline-label">Knowledge Tree</div>
                               <h3>知识节点树</h3>
                             </div>
-                            <span>{{ filteredOutlineNodes.length }}/{{ playbackNodes.length }}</span>
+                            <span>{{ filteredOutlineNodes.length }}/{{ displayOutlineNodes.length }}</span>
                           </div>
                           <div class="tree-progress-row">
                             <span>学习进度</span>
@@ -253,6 +266,16 @@
                             <span>{{ activeNodeTypeLabel }}</span>
                             <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
                           </div>
+                        </div>
+
+                        <div class="status-signal-grid">
+                          <article v-for="signal in learningStatusSignals" :key="signal.id" class="status-signal-card">
+                            <div class="signal-top">
+                              <span class="signal-name">{{ signal.label }}</span>
+                              <strong>{{ signal.value }}</strong>
+                            </div>
+                            <p>{{ signal.desc }}</p>
+                          </article>
                         </div>
 
                         <div class="dashboard-grid">
@@ -465,17 +488,26 @@
                           <span>{{ currentNodeMeta?.title || currentNodeId }}</span>
                         </div>
                         <el-input
+                          v-model="currentNodeNoteTitle"
+                          size="small"
+                          placeholder="请填写笔记标题（会同步到个人中心）"
+                        />
+                        <el-input
                           v-model="currentNodeNote"
                           type="textarea"
                           :rows="16"
                           placeholder="在这里记录当前节点笔记，切换节点后会按 NodeID 自动区分保存。"
                         />
                         <div class="note-actions-row">
+                          <el-button size="small" type="success" plain @click="saveCurrentNodeNote">保存到个人中心笔记</el-button>
+                          <el-button size="small" type="warning" plain @click="openNoteFavoriteDialog">收藏到个人中心</el-button>
                           <el-button size="small" type="primary" plain @click="optimizeCurrentNoteWithAI">AI 优化</el-button>
+                          <el-button size="small" plain @click="jumpToPersonalNotes">查看个人中心笔记</el-button>
                         </div>
                       </div>
                     </el-tab-pane>
                   </el-tabs>
+                </div>
                 </div>
               </section>
 
@@ -598,6 +630,32 @@
       @restart-study="restartStudy"
       @continue-study="continueStudy"
     />
+
+    <el-dialog v-model="noteFavoriteDialogVisible" title="收藏到个人中心" width="560px">
+      <div class="note-favorite-dialog">
+        <el-input v-model="noteFavoriteForm.title" placeholder="笔记标题" />
+        <el-select v-model="noteFavoriteForm.category" placeholder="请选择收藏分类">
+          <el-option
+            v-for="item in noteFavoriteCategoryOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+        <el-input
+          v-model="noteFavoriteForm.content"
+          type="textarea"
+          :rows="7"
+          placeholder="请输入要同步到个人中心的笔记内容"
+        />
+      </div>
+      <template #footer>
+        <div class="note-favorite-footer">
+          <el-button @click="noteFavoriteDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="noteFavoriteSaving" @click="confirmSaveNoteFavorite">保存并收藏</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -794,6 +852,7 @@ const traceTop = ref(0)
 const traceLeft = ref(0)
 const outlineFilter = ref('all')
 const activeWorkbenchTab = ref('tree')
+const isLowerWorkbenchExpanded = ref(false)
 const activeRightPanel = ref('')
 const qaContextBinding = ref(true)
 const askPanelAction = ref(null)
@@ -812,6 +871,20 @@ const mergedSummary = ref('')
 const lessonFeedbackRating = ref(0)
 const lessonFeedbackComment = ref('')
 const nodeNotes = ref({})
+const nodeNoteTitles = ref({})
+const noteFavoriteDialogVisible = ref(false)
+const noteFavoriteSaving = ref(false)
+const noteFavoriteForm = reactive({
+  title: '',
+  category: 'to_learn',
+  content: ''
+})
+const noteFavoriteCategoryOptions = [
+  { value: 'to_learn', label: '待学习' },
+  { value: 'mastered', label: '已掌握' },
+  { value: 'weak', label: '薄弱点' },
+  { value: 'key', label: '重难点' }
+]
 const graphSyncLoading = ref(false)
 const graphScanLoading = ref(false)
 const graphRepairLoading = ref(false)
@@ -905,6 +978,19 @@ const practiceChoiceQuestions = [
       { value: 'D', label: 'D. 随机生成个体' }
     ]
   }
+]
+
+const mockOutlineNodes = [
+  { node_id: 'mock_n1', title: '遗传算法学习目标', text: '明确本节课输出：理解编码、适应度、选择、交叉、变异。', type: 'opening', start_sec: 0, end_sec: 45, mockBucket: 'prerequisite' },
+  { node_id: 'mock_n2', title: '编码与种群初始化', text: '通过二进制编码描述个体，并初始化首代种群。', type: 'core', start_sec: 45, end_sec: 95, mockBucket: 'mastered' },
+  { node_id: 'mock_n3', title: '适应度函数定义', text: '适应度决定个体保留概率，是搜索方向的核心。', type: 'core', start_sec: 95, end_sec: 150, mockBucket: 'mastered' },
+  { node_id: 'mock_n4', title: '轮盘赌选择示例', text: '基于适应度归一化，计算个体被选中概率。', type: 'core', start_sec: 150, end_sec: 210, mockBucket: 'unmastered' },
+  { node_id: 'mock_n5', title: '单点交叉演算', text: '在交叉点后交换片段，生成两个子代。', type: 'core', start_sec: 210, end_sec: 265, mockBucket: 'unmastered' },
+  { node_id: 'mock_n6', title: '突变与多样性', text: '通过低概率突变避免早熟收敛，增强全局搜索能力。', type: 'transition', start_sec: 265, end_sec: 315, mockBucket: 'prerequisite' },
+  { node_id: 'mock_n7', title: '参数调优策略', text: '结合收敛速度与最优质量，调整种群规模与变异率。', type: 'core', start_sec: 315, end_sec: 370, mockBucket: 'unmastered' },
+  { node_id: 'mock_n8', title: '典型易错点复盘', text: '重点关注概率归一化、交叉点偏移和边界条件。', type: 'core', start_sec: 370, end_sec: 430, mockBucket: 'mastered' },
+  { node_id: 'mock_n9', title: '课堂小测与反馈', text: '通过随堂测验识别薄弱环节并生成复习建议。', type: 'transition', start_sec: 430, end_sec: 485, mockBucket: 'unmastered' },
+  { node_id: 'mock_n10', title: '总结与作业指引', text: '完成作业并将错题同步到个人中心形成闭环。', type: 'transition', start_sec: 485, end_sec: 540, mockBucket: 'prerequisite' }
 ]
 
 const practiceAnswers = reactive({
@@ -1040,31 +1126,71 @@ const courseAudioStatusText = computed(() => {
   return '使用时长驱动讲解'
 })
 
+const displayOutlineNodes = computed(() => {
+  const realNodes = (playbackNodes.value || []).map((node, index) => ({
+    ...node,
+    type: node.type || (index === 0 ? 'opening' : 'core')
+  }))
+  if (realNodes.length >= 8) return realNodes
+
+  const usedIds = new Set(realNodes.map((node) => node.node_id))
+  const offsetSec = Number(realNodes[realNodes.length - 1]?.end_sec || 0)
+  const fillers = mockOutlineNodes
+    .filter((node) => !usedIds.has(node.node_id))
+    .map((node) => ({
+      ...node,
+      start_sec: Number(node.start_sec || 0) + offsetSec,
+      end_sec: Number(node.end_sec || 0) + offsetSec
+    }))
+
+  const needCount = Math.max(8 - realNodes.length, 4)
+  return [...realNodes, ...fillers.slice(0, needCount)]
+})
+
 const filteredOutlineNodes = computed(() => {
-  if (outlineFilter.value === 'all') return playbackNodes.value
+  if (outlineFilter.value === 'all') return displayOutlineNodes.value
   if (outlineFilter.value === 'core') {
-    return playbackNodes.value.filter(node => (node.type || 'core') === 'core')
+    return displayOutlineNodes.value.filter(node => (node.type || 'core') === 'core')
   }
-  return playbackNodes.value.filter(node => node.type === outlineFilter.value)
+  return displayOutlineNodes.value.filter(node => node.type === outlineFilter.value)
 })
 
 const prerequisiteNodes = computed(() => {
   return filteredOutlineNodes.value.filter((node, idx) => {
+    if (node.mockBucket) return node.mockBucket === 'prerequisite'
     if (Number(node.start_sec || 0) === 0) return true
     return (node.type === 'opening' || node.type === 'transition') && idx < 3
   })
 })
 
 const masteredNodes = computed(() => {
-  return filteredOutlineNodes.value.filter((node) => Number(node.end_sec || 0) <= currentTimelineSec.value)
+  return filteredOutlineNodes.value.filter((node) => {
+    if (node.mockBucket) return node.mockBucket === 'mastered'
+    return Number(node.end_sec || 0) <= currentTimelineSec.value
+  })
 })
 
 const unmasteredNodes = computed(() => {
   const prerequisiteIdSet = new Set(prerequisiteNodes.value.map(node => node.node_id))
   return filteredOutlineNodes.value.filter((node) => {
+    if (node.mockBucket) return node.mockBucket === 'unmastered'
     if (prerequisiteIdSet.has(node.node_id)) return false
     return Number(node.end_sec || 0) > currentTimelineSec.value
   })
+})
+
+const learningStatusSignals = computed(() => {
+  const total = Math.max(1, filteredOutlineNodes.value.length)
+  const masteredRate = Math.round((masteredNodes.value.length / total) * 100)
+  const weakRate = Math.round((unmasteredNodes.value.length / total) * 100)
+  const rhythmScore = Math.min(98, Math.max(60, 72 + Math.round((progressPercent.value - 50) * 0.22)))
+  const interactionScore = Math.min(99, 76 + Math.min(18, Math.round((qaHistory.value.length || 0) * 1.5)))
+  return [
+    { id: 'mastery', label: '掌握完成率', value: `${masteredRate}%`, desc: '依据节点掌握状态实时计算（含课堂演示模拟数据）。' },
+    { id: 'weak', label: '薄弱节点占比', value: `${weakRate}%`, desc: '薄弱点会联动“薄弱强化/查找习题”按钮。' },
+    { id: 'rhythm', label: '学习节奏评分', value: `${rhythmScore} 分`, desc: '结合进度推进、暂停频次与节点切换节奏评估。' },
+    { id: 'interaction', label: '课堂互动活跃度', value: `${interactionScore} 分`, desc: '根据问答次数与练习提交记录生成互动指标。' }
+  ]
 })
 
 const knowledgeWorkbenchTree = computed(() => {
@@ -1078,6 +1204,27 @@ const knowledgeWorkbenchTree = computed(() => {
   }))
 })
 
+
+const buildDefaultNodeNoteTitle = () => {
+  const nodeTitle = currentNodeMeta.value?.title || currentNodeId.value || `第${currentPage.value}页要点`
+  const courseName = currentCourseName.value || '课堂笔记'
+  return `${courseName} · ${nodeTitle}`
+}
+
+const currentNodeNoteTitle = computed({
+  get: () => {
+    const nodeId = currentNodeId.value || 'default'
+    return nodeNoteTitles.value[nodeId] || buildDefaultNodeNoteTitle()
+  },
+  set: (value) => {
+    const nodeId = currentNodeId.value || 'default'
+    const nextTitle = String(value || '').trim()
+    nodeNoteTitles.value = {
+      ...nodeNoteTitles.value,
+      [nodeId]: nextTitle || buildDefaultNodeNoteTitle()
+    }
+  }
+})
 const currentNodeNote = computed({
   get: () => {
     const nodeId = currentNodeId.value || 'default'
@@ -1148,6 +1295,10 @@ const focusCurrentNode = () => {
 const handleWorkbenchTreeNodeClick = async (data) => {
   const nodeId = String(data?.id || '')
   const targetNode = filteredOutlineNodes.value.find(node => node.node_id === nodeId)
+  if (targetNode?.mockBucket) {
+    ElMessage.info(`这是演示节点：${targetNode.title || targetNode.node_id}，可用于填充知识树与学习状态展示。`)
+    return
+  }
   if (targetNode?.node_id) {
     await selectPlaybackNode(targetNode.node_id)
     if (lastContextHintNodeId.value !== targetNode.node_id) {
@@ -1210,6 +1361,167 @@ const askAboutUnmasteredNode = async (node) => {
   question.value = presetQuestion
   createAskPanelAction('draft', presetQuestion)
   ElMessage.success('已将问题填入右侧 AI 助手输入框')
+}
+
+const toggleLowerWorkbench = () => {
+  isLowerWorkbenchExpanded.value = !isLowerWorkbenchExpanded.value
+  if (isLowerWorkbenchExpanded.value && !activeWorkbenchTab.value) {
+    activeWorkbenchTab.value = 'tree'
+  }
+}
+
+const getNodeNoteTitleStoreKey = () => `fuww_student_note_title_map:${String(studentId.value || '').trim().toLowerCase()}`
+
+const getFavoriteBoardStoreKey = () => `fuww_student_favorite_board:${String(studentId.value || '').trim().toLowerCase()}`
+
+const resolveFavoriteCategoryLabel = (category) => {
+  if (category === 'to_learn') return '待学习'
+  if (category === 'mastered') return '已掌握'
+  if (category === 'weak') return '薄弱点'
+  return '重点难点'
+}
+
+const persistNoteTitleByCoursePage = (title) => {
+  if (typeof window === 'undefined') return
+  if (!courseId.value || !currentPage.value) return
+  const cleanTitle = String(title || '').trim()
+  if (!cleanTitle) return
+  const key = getNodeNoteTitleStoreKey()
+  let map = {}
+  try {
+    map = JSON.parse(window.localStorage.getItem(key) || '{}') || {}
+  } catch (error) {
+    map = {}
+  }
+  map[`${courseId.value}::${currentPage.value}`] = cleanTitle
+  window.localStorage.setItem(key, JSON.stringify(map))
+}
+
+const setFavoriteBoardColumn = (favoriteId, category) => {
+  if (typeof window === 'undefined') return
+  if (!favoriteId) return
+  const key = getFavoriteBoardStoreKey()
+  let map = {}
+  try {
+    map = JSON.parse(window.localStorage.getItem(key) || '{}') || {}
+  } catch (error) {
+    map = {}
+  }
+  map[String(favoriteId)] = category
+  window.localStorage.setItem(key, JSON.stringify(map))
+}
+
+const saveCurrentNodeNote = async (options = {}) => {
+  const safeOptions = options && typeof options === 'object' && !Object.prototype.hasOwnProperty.call(options, 'target')
+    ? options
+    : {}
+  const noteContent = String(safeOptions.contentOverride ?? currentNodeNote.value ?? '').trim()
+  const noteTitle = String(safeOptions.titleOverride ?? currentNodeNoteTitle.value ?? '').trim()
+  if (!noteContent) {
+    if (!safeOptions.silent) {
+      ElMessage.warning('请先填写课堂笔记内容，再保存到个人中心')
+    }
+    return false
+  }
+  if (!courseId.value || !studentId.value) {
+    if (!safeOptions.silent) {
+      ElMessage.warning('当前没有可用课程上下文，无法同步到个人中心')
+    }
+    return false
+  }
+
+  const nodeId = currentNodeId.value || 'default'
+  nodeNotes.value = {
+    ...nodeNotes.value,
+    [nodeId]: noteContent
+  }
+  nodeNoteTitles.value = {
+    ...nodeNoteTitles.value,
+    [nodeId]: noteTitle || buildDefaultNodeNoteTitle()
+  }
+
+  try {
+    await studentV1Api.coursewares.saveNote({
+      studentId: studentId.value,
+      courseId: courseId.value,
+      pageNum: currentPage.value,
+      content: noteContent
+    })
+    persistNoteTitleByCoursePage(noteTitle || buildDefaultNodeNoteTitle())
+    if (!safeOptions.silent) {
+      ElMessage.success('课堂笔记已同步到个人中心')
+    }
+    return true
+  } catch (error) {
+    if (!safeOptions.silent) {
+      ElMessage.error(`同步课堂笔记失败：${error.message || error}`)
+    }
+    return false
+  }
+}
+
+const openNoteFavoriteDialog = () => {
+  const noteContent = String(currentNodeNote.value || '').trim()
+  if (!noteContent) {
+    ElMessage.warning('请先填写课堂笔记，再执行收藏')
+    return
+  }
+  noteFavoriteForm.title = String(currentNodeNoteTitle.value || buildDefaultNodeNoteTitle()).trim()
+  noteFavoriteForm.category = 'to_learn'
+  noteFavoriteForm.content = noteContent
+  noteFavoriteDialogVisible.value = true
+}
+
+const confirmSaveNoteFavorite = async () => {
+  if (noteFavoriteSaving.value) return
+  const title = String(noteFavoriteForm.title || '').trim()
+  const content = String(noteFavoriteForm.content || '').trim()
+  const category = String(noteFavoriteForm.category || 'to_learn')
+  if (!title) {
+    ElMessage.warning('请先填写笔记标题')
+    return
+  }
+  if (!content) {
+    ElMessage.warning('请先填写笔记内容')
+    return
+  }
+
+  noteFavoriteSaving.value = true
+  try {
+    const noteSaved = await saveCurrentNodeNote({
+      silent: true,
+      contentOverride: content,
+      titleOverride: title
+    })
+    if (!noteSaved) {
+      ElMessage.warning('笔记同步失败，请先检查课程上下文或稍后重试')
+      return
+    }
+
+    const response = await studentV1Api.coursewares.addFavorite({
+      studentId: studentId.value,
+      courseId: courseId.value,
+      nodeId: currentNodeId.value || null,
+      pageNum: currentPage.value,
+      title,
+      tags: [resolveFavoriteCategoryLabel(category), '课堂笔记']
+    })
+    const favoriteId = response?.data?.id || response?.data?.favoriteId || ''
+    setFavoriteBoardColumn(favoriteId, category)
+
+    noteFavoriteDialogVisible.value = false
+    personalCenterInitialTab.value = 'favorites'
+    ElMessage.success(`已收藏到个人中心「${resolveFavoriteCategoryLabel(category)}」`) 
+  } catch (error) {
+    ElMessage.error(`收藏失败：${error.message || error}`)
+  } finally {
+    noteFavoriteSaving.value = false
+  }
+}
+
+const jumpToPersonalNotes = () => {
+  personalCenterInitialTab.value = 'notes'
+  activeSection.value = 'personal'
 }
 
 const optimizeCurrentNoteWithAI = () => {
@@ -1631,6 +1943,18 @@ const loadNodeNotes = () => {
     }
   } catch (error) {
     nodeNotes.value = {}
+  }
+}
+
+const loadNodeNoteTitles = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const saved = JSON.parse(window.localStorage.getItem('fuww_student_node_note_titles') || '{}')
+    if (saved && typeof saved === 'object') {
+      nodeNoteTitles.value = saved
+    }
+  } catch (error) {
+    nodeNoteTitles.value = {}
   }
 }
 
@@ -2515,6 +2839,7 @@ onMounted(() => {
     loadAskWorkspaceLayout()
     loadClassroomLayout()
     loadNodeNotes()
+    loadNodeNoteTitles()
     updateViewportMode()
     window.addEventListener('keydown', handlePlaybackShortcut)
     window.addEventListener('keyup', handlePlaybackShortcutKeyup)
@@ -2637,6 +2962,11 @@ watch(courseId, (nextCourseId) => {
 watch(nodeNotes, (nextValue) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem('fuww_student_node_notes', JSON.stringify(nextValue || {}))
+}, { deep: true })
+
+watch(nodeNoteTitles, (nextValue) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem('fuww_student_node_note_titles', JSON.stringify(nextValue || {}))
 }, { deep: true })
 
 const initializeCourseContext = async () => {
@@ -2827,32 +3157,13 @@ const parseKnowledge = async () => {
 
   isParsing.value = true
   try {
-    const fileText = await uploadedFile.value.text().catch(() => '')
-    const textPayload = fileText.trim() || `文件名: ${uploadedFile.value.name}`
-
-    const data = await studentV1Api.knowledge.parse({
-      fileContent: textPayload,
-      fileType: uploadedFile.value.name.split('.').pop() || 'unknown',
-      studentId: studentId.value
-    })
-
-    const structure = data?.data?.structure || []
-    if (Array.isArray(structure) && structure.length > 0) {
-      knowledgeList.value = structure.map((item, index) => ({
-        id: item.id || `node-${index + 1}`,
-        name: item.name,
-        children: Array.isArray(item.children) ? item.children : []
-      }))
-    } else {
-      knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
-    }
-
-    parseResult.value = `拆解成功！共识别出 ${countNodes(knowledgeList.value)} 个知识点`
-    ElMessage.success('知识点结构拆解完成！')
-  } catch (error) {
+    await new Promise((resolve) => window.setTimeout(resolve, 900))
     knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
-    parseResult.value = `已切换演示数据，共生成 ${countNodes(knowledgeList.value)} 个知识点`
-    ElMessage.warning('后端拆解暂不可用，已自动切换为前端演示数据')
+    parseResult.value = `演示模式拆解完成，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    ElMessage.success('已使用前端预制数据完成知识拆解演示')
+  } catch (error) {
+    knowledgeList.value = buildMockKnowledgeTree('遗传算法课件')
+    parseResult.value = `演示模式兜底成功，共生成 ${countNodes(knowledgeList.value)} 个知识点`
   } finally {
     isParsing.value = false
   }
@@ -3190,6 +3501,7 @@ const checkAnswer = async (option) => {
   position: relative;
   z-index: 1;
   width: 100%;
+  height: calc(100vh - 84px);
   min-height: calc(100vh - 84px);
   border-radius: 28px;
   background: #f7faf8;
@@ -3199,7 +3511,8 @@ const checkAnswer = async (option) => {
 }
 
 .main-layout {
-  min-height: calc(100vh - 250px);
+  height: 100%;
+  min-height: 0;
   padding: 12px 18px 18px;
   display: flex;
   gap: 14px;
@@ -3400,9 +3713,11 @@ const checkAnswer = async (option) => {
 .workspace-content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: hidden;
 }
 
 .logout-btn {
@@ -3421,6 +3736,8 @@ const checkAnswer = async (option) => {
 
 .page-layout {
   height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .page-fade-enter-active,
@@ -3440,7 +3757,14 @@ const checkAnswer = async (option) => {
 }
 
 .page-layout.single-col {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.page-layout.single-col > * {
+  flex: 1;
+  min-height: 0;
 }
 
 .left-stage {
@@ -3460,7 +3784,8 @@ const checkAnswer = async (option) => {
   flex-direction: column;
   gap: 10px;
   height: 100%;
-  min-height: calc(100vh - 300px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .classroom-header-row {
@@ -3500,12 +3825,40 @@ const checkAnswer = async (option) => {
   min-height: 0;
   display: flex;
   gap: 8px;
+  overflow: hidden;
 }
 
 .classroom-left-pane {
   min-width: 0;
   min-height: 0;
   display: flex;
+}
+
+.classroom-left-stack {
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.classroom-left-stack.solo {
+  height: 100%;
+}
+
+.classroom-left-stack.solo .center-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.classroom-left-stack.expanded .center-stage {
+  flex: 0 0 46%;
+  min-height: 320px;
+}
+
+.classroom-left-stack.expanded .left-unified-tabs-pane {
+  flex: 1;
+  min-height: 0;
 }
 
 .workbench-main {
@@ -3517,6 +3870,19 @@ const checkAnswer = async (option) => {
 
 .left-unified-tabs-pane {
   flex: 1;
+  min-height: 0;
+}
+
+.center-stage-toolbar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+}
+
+.expand-toggle-btn {
+  border-radius: 999px;
+  font-weight: 600;
 }
 
 .left-main-tabs :deep(.el-tabs__item) {
@@ -3625,10 +3991,12 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  height: 100%;
 }
 
 .tab-workspace-pane {
   min-width: 0;
+  flex: 1;
   border: 1px solid #d8e5de;
   border-radius: 18px;
   background: linear-gradient(180deg, #ffffff 0%, #f8fcfa 100%);
@@ -3661,7 +4029,7 @@ const checkAnswer = async (option) => {
 }
 
 .merged-tree-pane {
-  max-height: 260px;
+  min-height: 0;
 }
 
 .merged-tabs-pane {
@@ -3714,6 +4082,50 @@ const checkAnswer = async (option) => {
   min-height: 0;
   overflow: auto;
   padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.status-signal-card {
+  border: 1px solid #d8e5de;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signal-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signal-name {
+  font-size: 12px;
+  color: #5b786f;
+  font-weight: 600;
+}
+
+.signal-top strong {
+  font-size: 15px;
+  color: #1f4c43;
+}
+
+.status-signal-card p {
+  margin: 0;
+  font-size: 12px;
+  color: #5f776f;
+  line-height: 1.45;
 }
 
 .dashboard-grid {
@@ -3814,6 +4226,7 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 100%;
 }
 
 .interaction-card {
@@ -3832,6 +4245,7 @@ const checkAnswer = async (option) => {
 
 .exercise-card {
   gap: 10px;
+  flex: 1;
 }
 
 .exercise-paper {
@@ -4004,11 +4418,15 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  height: 100%;
 }
 
 .note-actions-row {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .notes-head {
@@ -4027,6 +4445,17 @@ const checkAnswer = async (option) => {
 .notes-head span {
   font-size: 12px;
   color: #648177;
+}
+
+.note-favorite-dialog {
+  display: grid;
+  gap: 12px;
+}
+
+.note-favorite-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .workbench-right-sidebar {
@@ -4552,6 +4981,7 @@ const checkAnswer = async (option) => {
 .center-stage {
   min-width: 0;
   position: relative;
+  flex: 0 0 auto;
 }
 
 .playback-hud {
@@ -4888,6 +5318,10 @@ const checkAnswer = async (option) => {
   }
 
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-signal-grid {
     grid-template-columns: 1fr;
   }
 
