@@ -109,416 +109,356 @@
         <section class="workspace-content">
           <transition name="page-fade" mode="out-in">
           <div v-if="activeSection === 'classroom'" key="classroom" class="page-layout classroom-workbench">
-            <section class="workbench-main center-workbench-pane">
-              <div class="knowledge-tree-pane merged-tree-pane">
-                <div class="tree-pane-header">
-                  <div>
-                    <div class="outline-label">Knowledge Tree</div>
-                    <h3>知识节点树</h3>
-                  </div>
-                  <span>{{ filteredOutlineNodes.length }}/{{ playbackNodes.length }}</span>
-                </div>
-                <div class="tree-progress-row">
-                  <span>学习进度</span>
-                  <strong>{{ currentPage }}/{{ totalPage }}</strong>
-                </div>
-                <div class="outline-tools">
-                  <el-select v-model="outlineFilter" size="small" placeholder="筛选节点">
-                    <el-option label="全部节点" value="all" />
-                    <el-option label="关键讲解" value="core" />
-                    <el-option label="开场节点" value="opening" />
-                    <el-option label="过渡节点" value="transition" />
-                  </el-select>
-                  <el-button size="small" plain @click="focusCurrentNode">定位当前</el-button>
-                </div>
-                <div class="knowledge-tree-scroll" v-if="knowledgeWorkbenchTree.length">
-                  <el-tree
-                    :data="knowledgeWorkbenchTree"
-                    :props="treeProps"
-                    node-key="id"
-                    default-expand-all
-                    :expand-on-click-node="false"
-                    :highlight-current="true"
-                    :current-node-key="currentNodeId"
-                    @node-click="handleWorkbenchTreeNodeClick"
-                  />
-                </div>
-                <div class="outline-empty" v-else>当前页面暂无可用节点。</div>
+            <header class="classroom-header-row">
+              <div class="classroom-title-group">
+                <p class="classroom-kicker">课堂学习工作台</p>
+                <h3>左侧学习区 · 右侧 AI 课堂助手</h3>
               </div>
+              <div class="classroom-header-actions">
+                <el-switch
+                  v-model="qaContextBinding"
+                  size="small"
+                  inline-prompt
+                  active-text="上下文绑定"
+                  inactive-text="自由问答"
+                />
+                <el-button v-if="isCompactViewport" size="small" plain @click="toggleQaPanel">
+                  {{ isQaPanelCollapsed ? '展开 AI 助手' : '收起 AI 助手' }}
+                </el-button>
+              </div>
+            </header>
 
-              <div class="tab-workspace-pane merged-tabs-pane">
-                <el-tabs v-model="activeWorkbenchTab" class="workbench-tabs">
-                  <el-tab-pane label="知识状态" name="knowledge">
-                    <div class="tab-scroll-area">
-                      <div class="classroom-status-strip">
-                        <div class="status-row">
-                          <span class="status-pill">进度 {{ progressPercent }}%</span>
-                          <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
-                          <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
-                          <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
-                        </div>
-                        <div class="status-track" v-if="pageTimelineDuration > 0">
-                          <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
-                        </div>
-                        <div class="status-track" v-else>
-                          <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-                        </div>
-                        <div class="status-note" v-if="courseAudioStatusText || activeNodeDuration > 0">
-                          <span v-if="activeNodeDuration > 0">节点 {{ formatNodeTime(activeNodeElapsedSec) }} / {{ formatNodeTime(activeNodeDuration) }}</span>
-                          <span>{{ activeNodeTypeLabel }}</span>
-                          <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
-                        </div>
-                      </div>
-
-                      <div class="dashboard-grid">
-                        <section class="status-group-card mastered">
-                          <div class="group-head">
-                            <h4>Mastered</h4>
-                            <span>{{ masteredNodes.length }}</span>
-                          </div>
-                          <div class="node-card-list" v-if="masteredNodes.length">
-                            <article v-for="node in masteredNodes" :key="`m_${node.node_id}`" class="knowledge-node-card">
-                              <h5>{{ node.title || node.node_id }}</h5>
-                              <p>{{ trimText(node.text, 64) || '该节点已掌握。' }}</p>
-                            </article>
-                          </div>
-                          <div class="card-empty" v-else>暂无已掌握节点</div>
-                        </section>
-
-                        <section class="status-group-card unmastered">
-                          <div class="group-head">
-                            <h4>Unmastered</h4>
-                            <span>{{ unmasteredNodes.length }}</span>
-                          </div>
-                          <div class="node-card-list" v-if="unmasteredNodes.length">
-                            <article v-for="node in unmasteredNodes" :key="`u_${node.node_id}`" class="knowledge-node-card">
-                              <h5>{{ node.title || node.node_id }}</h5>
-                              <p>{{ trimText(node.text, 64) || '建议先补充示例再练习。' }}</p>
-                              <div class="node-actions">
-                                <el-button size="small" type="warning" plain @click="reinforceNode(node)">薄弱强化</el-button>
-                                <el-button size="small" type="danger" plain @click="findPracticeForNode(node)">查找习题</el-button>
-                              </div>
-                            </article>
-                          </div>
-                          <div class="card-empty" v-else>暂无未掌握节点</div>
-                        </section>
-
-                        <section class="status-group-card prerequisite">
-                          <div class="group-head">
-                            <h4>Prerequisite</h4>
-                            <span>{{ prerequisiteNodes.length }}</span>
-                          </div>
-                          <div class="node-card-list" v-if="prerequisiteNodes.length">
-                            <article v-for="node in prerequisiteNodes" :key="`p_${node.node_id}`" class="knowledge-node-card">
-                              <h5>{{ node.title || node.node_id }}</h5>
-                              <p>{{ trimText(node.text, 64) || '建议先预习该节点。' }}</p>
-                            </article>
-                          </div>
-                          <div class="card-empty" v-else>暂无前置节点</div>
-                        </section>
-                      </div>
-                    </div>
-                  </el-tab-pane>
-
-                  <el-tab-pane label="课堂交互" name="interaction">
-                    <div class="tab-scroll-area interaction-layout">
-                      <section class="interaction-card exercise-card">
-                        <div class="interaction-title">随堂练习</div>
-                        <div class="exercise-paper">
-                          <div class="exercise-section">
-                            <h4>一、选择题（每题2分，共10分）</h4>
-                            <div class="exercise-question-group">
-                              <div v-for="(item, index) in practiceChoiceQuestions" :key="item.id" class="exercise-question-card">
-                                <p class="exercise-question-title">{{ index + 1 }}. {{ item.question }}</p>
-                                <el-radio-group v-model="practiceAnswers[item.id]" class="exercise-radio-group">
-                                  <el-radio v-for="option in item.options" :key="option.value" :label="option.value">
-                                    {{ option.label }}
-                                  </el-radio>
-                                </el-radio-group>
-                                <div class="exercise-answer-line" v-if="exerciseSubmitted">
-                                  <span :class="practiceAnswers[item.id] === item.answer ? 'answer-correct' : 'answer-wrong'">
-                                    正确答案：{{ item.answerLabel }}
-                                  </span>
-                                </div>
-                              </div>
+            <div class="classroom-split-layout" :class="{ compact: isCompactViewport, collapsed: isQaPanelCollapsed }">
+              <section class="workbench-main center-workbench-pane classroom-left-pane" :style="classroomLeftPaneStyle">
+                <div class="tab-workspace-pane merged-tabs-pane left-unified-tabs-pane">
+                  <el-tabs v-model="activeWorkbenchTab" class="workbench-tabs left-main-tabs">
+                    <el-tab-pane label="知识树" name="tree">
+                      <div class="tab-scroll-area">
+                        <div class="knowledge-tree-pane merged-tree-pane">
+                          <div class="tree-pane-header">
+                            <div>
+                              <div class="outline-label">Knowledge Tree</div>
+                              <h3>知识节点树</h3>
                             </div>
+                            <span>{{ filteredOutlineNodes.length }}/{{ playbackNodes.length }}</span>
                           </div>
-
-                          <div class="exercise-section">
-                            <h4>二、填空题（每空2分，共10分）</h4>
-                            <div class="exercise-question-group">
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">1. 遗传算法中，个体通常用__________表示，其中的每个字符称为__________。</p>
-                                <div class="exercise-fill-row">
-                                  <el-input v-model="practiceAnswers.fill1a" placeholder="第1空" />
-                                  <el-input v-model="practiceAnswers.fill1b" placeholder="第2空" />
-                                </div>
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span :class="isFillAnswerCorrect('fill1a', ['染色体', '染色体串']) && isFillAnswerCorrect('fill1b', ['基因']) ? 'answer-correct' : 'answer-wrong'">
-                                    参考答案：染色体 / 基因
-                                  </span>
-                                </div>
-                              </div>
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">2. 选择-复制操作中，个体被选中的概率与其__________成正比。</p>
-                                <el-input v-model="practiceAnswers.fill2" placeholder="请填写答案" />
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span :class="isFillAnswerCorrect('fill2', ['适应度']) ? 'answer-correct' : 'answer-wrong'">
-                                    参考答案：适应度
-                                  </span>
-                                </div>
-                              </div>
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">3. 交叉操作是交换两个染色体的__________。</p>
-                                <el-input v-model="practiceAnswers.fill3" placeholder="请填写答案" />
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span :class="isFillAnswerCorrect('fill3', ['部分', '片段', '一部分']) ? 'answer-correct' : 'answer-wrong'">
-                                    参考答案：部分 / 片段
-                                  </span>
-                                </div>
-                              </div>
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">4. 遗传算法中的“种群”是指__________的集合。</p>
-                                <el-input v-model="practiceAnswers.fill4" placeholder="请填写答案" />
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span :class="isFillAnswerCorrect('fill4', ['个体']) ? 'answer-correct' : 'answer-wrong'">
-                                    参考答案：个体
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+                          <div class="tree-progress-row">
+                            <span>学习进度</span>
+                            <strong>{{ currentPage }}/{{ totalPage }}</strong>
                           </div>
-
-                          <div class="exercise-section">
-                            <h4>三、简答题（每题5分，共10分）</h4>
-                            <div class="exercise-question-group">
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">1. 简述遗传算法中“选择-复制”操作的基本过程。</p>
-                                <el-input
-                                  v-model="practiceAnswers.short1"
-                                  type="textarea"
-                                  :rows="3"
-                                  placeholder="请在这里填写答案"
-                                />
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span class="exercise-reference">参考要点：按适应度选择个体，保留高适应度个体并复制到下一代。</span>
-                                </div>
-                              </div>
-                              <div class="exercise-question-card">
-                                <p class="exercise-question-title">2. 举例说明交叉操作是如何进行的（可用二进制串示例）。</p>
-                                <el-input
-                                  v-model="practiceAnswers.short2"
-                                  type="textarea"
-                                  :rows="3"
-                                  placeholder="请在这里填写答案"
-                                />
-                                <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                                  <span class="exercise-reference">参考要点：选择两个父代，在某一点后交换片段生成子代。</span>
-                                </div>
-                              </div>
-                            </div>
+                          <div class="outline-tools">
+                            <el-select v-model="outlineFilter" size="small" placeholder="筛选节点">
+                              <el-option label="全部节点" value="all" />
+                              <el-option label="关键讲解" value="core" />
+                              <el-option label="开场节点" value="opening" />
+                              <el-option label="过渡节点" value="transition" />
+                            </el-select>
+                            <el-button size="small" plain @click="focusCurrentNode">定位当前</el-button>
                           </div>
-
-                          <div class="exercise-section">
-                            <h4>四、应用题（10分）</h4>
-                            <p>假设有一个二进制编码的遗传算法，种群大小为 4，个体如下：</p>
-                            <div class="exercise-code-block">
-                              <div>s1 = 1010</div>
-                              <div>s2 = 0101</div>
-                              <div>s3 = 1100</div>
-                              <div>s4 = 0011</div>
-                            </div>
-                            <p>若采用轮盘赌选择，适应度分别为：s1=2, s2=3, s3=1, s4=4，请计算每个个体的选择概率。</p>
-                            <div class="exercise-fill-row probability-row">
-                              <el-input v-model="practiceAnswers.app1" placeholder="s1 选择概率" />
-                              <el-input v-model="practiceAnswers.app2" placeholder="s2 选择概率" />
-                              <el-input v-model="practiceAnswers.app3" placeholder="s3 选择概率" />
-                              <el-input v-model="practiceAnswers.app4" placeholder="s4 选择概率" />
-                            </div>
-                            <p>若选择 s2 和 s4 进行单点交叉（交叉点在第 2 位之后），写出子代染色体。</p>
-                            <el-input
-                              v-model="practiceAnswers.app5"
-                              type="textarea"
-                              :rows="2"
-                              placeholder="请写出子代染色体"
+                          <div class="knowledge-tree-scroll" v-if="knowledgeWorkbenchTree.length">
+                            <el-tree
+                              :data="knowledgeWorkbenchTree"
+                              :props="treeProps"
+                              node-key="id"
+                              default-expand-all
+                              :expand-on-click-node="false"
+                              :highlight-current="true"
+                              :current-node-key="currentNodeId"
+                              @node-click="handleWorkbenchTreeNodeClick"
                             />
-                            <div v-if="exerciseSubmitted" class="exercise-answer-line">
-                              <span class="exercise-reference">参考答案：轮盘赌概率分别为 0.2、0.3、0.1、0.4；交叉子代为 0111 和 0001。</span>
-                            </div>
                           </div>
+                          <div class="outline-empty" v-else>当前页面暂无可用节点。</div>
+                        </div>
+                      </div>
+                    </el-tab-pane>
 
-                          <div class="exercise-actions">
-                            <el-button type="primary" @click="submitPracticeExercise">提交练习</el-button>
-                            <el-button plain @click="resetPracticeExercise">重置答案</el-button>
-                            <span class="exercise-score" v-if="exerciseSubmitted">得分：{{ exerciseScore }} / 40</span>
+                    <el-tab-pane label="学习状态" name="knowledge">
+                      <div class="tab-scroll-area">
+                        <div class="classroom-status-strip">
+                          <div class="status-row">
+                            <span class="status-pill">进度 {{ progressPercent }}%</span>
+                            <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
+                            <span class="status-pill" v-if="currentNodeMeta?.title">节点 {{ currentNodeMeta.title }}</span>
+                            <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatNodeTime(currentTimelineSec) }} / {{ formatNodeTime(pageTimelineDuration) }}</span>
+                          </div>
+                          <div class="status-track" v-if="pageTimelineDuration > 0">
+                            <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
+                          </div>
+                          <div class="status-track" v-else>
+                            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+                          </div>
+                          <div class="status-note" v-if="courseAudioStatusText || activeNodeDuration > 0">
+                            <span v-if="activeNodeDuration > 0">节点 {{ formatNodeTime(activeNodeElapsedSec) }} / {{ formatNodeTime(activeNodeDuration) }}</span>
+                            <span>{{ activeNodeTypeLabel }}</span>
+                            <span v-if="courseAudioStatusText">{{ courseAudioStatusText }}</span>
                           </div>
                         </div>
-                      </section>
 
-                      <section class="interaction-card feedback-card">
-                        <div class="interaction-title">满意度反馈</div>
-                        <div class="feedback-row">
-                          <span>本节点讲解满意度</span>
-                          <el-rate v-model="lessonFeedbackRating" />
+                        <div class="dashboard-grid">
+                          <section class="status-group-card mastered">
+                            <div class="group-head">
+                              <h4>Mastered</h4>
+                              <span>{{ masteredNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="masteredNodes.length">
+                              <article v-for="node in masteredNodes" :key="`m_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '该节点已掌握。' }}</p>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无已掌握节点</div>
+                          </section>
+
+                          <section class="status-group-card unmastered">
+                            <div class="group-head">
+                              <h4>Unmastered</h4>
+                              <span>{{ unmasteredNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="unmasteredNodes.length">
+                              <article v-for="node in unmasteredNodes" :key="`u_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '建议先补充示例再练习。' }}</p>
+                                <div class="node-actions">
+                                  <el-button size="small" type="primary" plain @click="askAboutUnmasteredNode(node)">问 AI</el-button>
+                                  <el-button size="small" type="warning" plain @click="reinforceNode(node)">薄弱强化</el-button>
+                                  <el-button size="small" type="danger" plain @click="findPracticeForNode(node)">查找习题</el-button>
+                                </div>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无未掌握节点</div>
+                          </section>
+
+                          <section class="status-group-card prerequisite">
+                            <div class="group-head">
+                              <h4>Prerequisite</h4>
+                              <span>{{ prerequisiteNodes.length }}</span>
+                            </div>
+                            <div class="node-card-list" v-if="prerequisiteNodes.length">
+                              <article v-for="node in prerequisiteNodes" :key="`p_${node.node_id}`" class="knowledge-node-card">
+                                <h5>{{ node.title || node.node_id }}</h5>
+                                <p>{{ trimText(node.text, 64) || '建议先预习该节点。' }}</p>
+                              </article>
+                            </div>
+                            <div class="card-empty" v-else>暂无前置节点</div>
+                          </section>
+                        </div>
+                      </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="课堂交互" name="interaction">
+                      <div class="tab-scroll-area interaction-layout">
+                        <section class="interaction-card exercise-card">
+                          <div class="interaction-title">随堂练习</div>
+                          <div class="exercise-paper">
+                            <div class="exercise-section">
+                              <h4>一、选择题（每题2分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div v-for="(item, index) in practiceChoiceQuestions" :key="item.id" class="exercise-question-card">
+                                  <p class="exercise-question-title">{{ index + 1 }}. {{ item.question }}</p>
+                                  <el-radio-group v-model="practiceAnswers[item.id]" class="exercise-radio-group">
+                                    <el-radio v-for="option in item.options" :key="option.value" :label="option.value">
+                                      {{ option.label }}
+                                    </el-radio>
+                                  </el-radio-group>
+                                  <div class="exercise-answer-line" v-if="exerciseSubmitted">
+                                    <span :class="practiceAnswers[item.id] === item.answer ? 'answer-correct' : 'answer-wrong'">
+                                      正确答案：{{ item.answerLabel }}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>二、填空题（每空2分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">1. 遗传算法中，个体通常用__________表示，其中的每个字符称为__________。</p>
+                                  <div class="exercise-fill-row">
+                                    <el-input v-model="practiceAnswers.fill1a" placeholder="第1空" />
+                                    <el-input v-model="practiceAnswers.fill1b" placeholder="第2空" />
+                                  </div>
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill1a', ['染色体', '染色体串']) && isFillAnswerCorrect('fill1b', ['基因']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：染色体 / 基因
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">2. 选择-复制操作中，个体被选中的概率与其__________成正比。</p>
+                                  <el-input v-model="practiceAnswers.fill2" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill2', ['适应度']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：适应度
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">3. 交叉操作是交换两个染色体的__________。</p>
+                                  <el-input v-model="practiceAnswers.fill3" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill3', ['部分', '片段', '一部分']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：部分 / 片段
+                                    </span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">4. 遗传算法中的“种群”是指__________的集合。</p>
+                                  <el-input v-model="practiceAnswers.fill4" placeholder="请填写答案" />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span :class="isFillAnswerCorrect('fill4', ['个体']) ? 'answer-correct' : 'answer-wrong'">
+                                      参考答案：个体
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>三、简答题（每题5分，共10分）</h4>
+                              <div class="exercise-question-group">
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">1. 简述遗传算法中“选择-复制”操作的基本过程。</p>
+                                  <el-input
+                                    v-model="practiceAnswers.short1"
+                                    type="textarea"
+                                    :rows="3"
+                                    placeholder="请在这里填写答案"
+                                  />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span class="exercise-reference">参考要点：按适应度选择个体，保留高适应度个体并复制到下一代。</span>
+                                  </div>
+                                </div>
+                                <div class="exercise-question-card">
+                                  <p class="exercise-question-title">2. 举例说明交叉操作是如何进行的（可用二进制串示例）。</p>
+                                  <el-input
+                                    v-model="practiceAnswers.short2"
+                                    type="textarea"
+                                    :rows="3"
+                                    placeholder="请在这里填写答案"
+                                  />
+                                  <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                    <span class="exercise-reference">参考要点：选择两个父代，在某一点后交换片段生成子代。</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="exercise-section">
+                              <h4>四、应用题（10分）</h4>
+                              <p>假设有一个二进制编码的遗传算法，种群大小为 4，个体如下：</p>
+                              <div class="exercise-code-block">
+                                <div>s1 = 1010</div>
+                                <div>s2 = 0101</div>
+                                <div>s3 = 1100</div>
+                                <div>s4 = 0011</div>
+                              </div>
+                              <p>若采用轮盘赌选择，适应度分别为：s1=2, s2=3, s3=1, s4=4，请计算每个个体的选择概率。</p>
+                              <div class="exercise-fill-row probability-row">
+                                <el-input v-model="practiceAnswers.app1" placeholder="s1 选择概率" />
+                                <el-input v-model="practiceAnswers.app2" placeholder="s2 选择概率" />
+                                <el-input v-model="practiceAnswers.app3" placeholder="s3 选择概率" />
+                                <el-input v-model="practiceAnswers.app4" placeholder="s4 选择概率" />
+                              </div>
+                              <p>若选择 s2 和 s4 进行单点交叉（交叉点在第 2 位之后），写出子代染色体。</p>
+                              <el-input
+                                v-model="practiceAnswers.app5"
+                                type="textarea"
+                                :rows="2"
+                                placeholder="请写出子代染色体"
+                              />
+                              <div v-if="exerciseSubmitted" class="exercise-answer-line">
+                                <span class="exercise-reference">参考答案：轮盘赌概率分别为 0.2、0.3、0.1、0.4；交叉子代为 0111 和 0001。</span>
+                              </div>
+                            </div>
+
+                            <div class="exercise-actions">
+                              <el-button type="primary" @click="submitPracticeExercise">提交练习</el-button>
+                              <el-button plain @click="resetPracticeExercise">重置答案</el-button>
+                              <span class="exercise-score" v-if="exerciseSubmitted">得分：{{ exerciseScore }} / 40</span>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section class="interaction-card feedback-card">
+                          <div class="interaction-title">满意度反馈</div>
+                          <div class="feedback-row">
+                            <span>本节点讲解满意度</span>
+                            <el-rate v-model="lessonFeedbackRating" />
+                          </div>
+                          <el-input
+                            v-model="lessonFeedbackComment"
+                            type="textarea"
+                            :rows="3"
+                            placeholder="可选：填写你的反馈建议"
+                          />
+                          <el-button type="success" plain @click="submitLessonFeedback">提交反馈</el-button>
+                        </section>
+                      </div>
+                    </el-tab-pane>
+
+                    <el-tab-pane label="课堂笔记" name="notes">
+                      <div class="tab-scroll-area notes-layout">
+                        <div class="notes-head">
+                          <h4>节点笔记</h4>
+                          <span>{{ currentNodeMeta?.title || currentNodeId }}</span>
                         </div>
                         <el-input
-                          v-model="lessonFeedbackComment"
+                          v-model="currentNodeNote"
                           type="textarea"
-                          :rows="3"
-                          placeholder="可选：填写你的反馈建议"
+                          :rows="16"
+                          placeholder="在这里记录当前节点笔记，切换节点后会按 NodeID 自动区分保存。"
                         />
-                        <el-button type="success" plain @click="submitLessonFeedback">提交反馈</el-button>
-                      </section>
-                    </div>
-                  </el-tab-pane>
-
-                  <el-tab-pane label="课堂笔记" name="notes">
-                    <div class="tab-scroll-area notes-layout">
-                      <div class="notes-head">
-                        <h4>节点笔记</h4>
-                        <span>{{ currentNodeMeta?.title || currentNodeId }}</span>
+                        <div class="note-actions-row">
+                          <el-button size="small" type="primary" plain @click="optimizeCurrentNoteWithAI">AI 优化</el-button>
+                        </div>
                       </div>
-                      <el-input
-                        v-model="currentNodeNote"
-                        type="textarea"
-                        :rows="16"
-                        placeholder="在这里记录当前节点笔记，切换节点后会按 NodeID 自动区分保存。"
-                      />
-                    </div>
-                  </el-tab-pane>
-                </el-tabs>
+                    </el-tab-pane>
+                  </el-tabs>
+                </div>
+              </section>
+
+              <div
+                v-if="!isCompactViewport && !isQaPanelCollapsed"
+                class="classroom-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                title="拖拽调整左右栏宽度"
+                @pointerdown.prevent="startClassroomResize"
+              >
+                <span></span>
               </div>
 
-            </section>
-
-            <div class="workbench-right-sidebar">
-              <nav class="right-rail" aria-label="右侧功能导航">
-                <button
-                  class="rail-btn"
-                  :class="{ active: activeRightPanel === 'courseware' }"
-                  @click="toggleRightPanel('courseware')"
-                  title="课件"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="4" y="4" width="16" height="16" rx="2"></rect>
-                    <line x1="8" y1="9" x2="16" y2="9"></line>
-                    <line x1="8" y1="13" x2="16" y2="13"></line>
-                    <line x1="8" y1="17" x2="13" y2="17"></line>
-                  </svg>
-                  <span>课件</span>
-                </button>
-
-                <button
-                  class="rail-btn"
-                  :class="{ active: activeRightPanel === 'graph' }"
-                  :disabled="!courseId"
-                  @click="toggleRightPanel('graph')"
-                  :title="courseId ? '知识图谱维护' : '请先选择课件'"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="5" cy="6" r="2"></circle>
-                    <circle cx="19" cy="6" r="2"></circle>
-                    <circle cx="12" cy="18" r="2"></circle>
-                    <path d="M7 7.4l3.8 7.1"></path>
-                    <path d="M17 7.4l-3.8 7.1"></path>
-                  </svg>
-                  <span>图谱</span>
-                </button>
-              </nav>
-
-              <transition name="drawer-slide">
-                <section v-if="isRightDrawerOpen" class="overlay-drawer">
-                  <header class="section-header">
-                    <h3>{{ activeRightPanel === 'courseware' ? '课件回顾' : '知识图谱维护' }}</h3>
-                    <button class="close-btn" @click="closeRightPanel" title="收起面板">关闭</button>
-                  </header>
-
-                  <div v-if="activeRightPanel === 'courseware'" class="panel-body">
-                    <StudentCoursePanel
-                      :current-course-name="currentCourseName"
-                      :current-page="currentPage"
-                      :total-page="totalPage"
-                      :page-timeline-duration="pageTimelineDuration"
-                      :current-timeline-sec="currentTimelineSec"
-                      :active-node-elapsed-sec="activeNodeElapsedSec"
-                      :active-node-duration="activeNodeDuration"
-                      :current-node-title="currentNodeMeta?.title || ''"
-                      :active-node-type-label="activeNodeTypeLabel"
-                      :playback-mode="playbackMode"
-                      :playback-audio-meta="playbackAudioMeta"
-                      :progress-percent="progressPercent"
-                      :course-img="courseImg"
-                      :playback-nodes="[]"
-                      :current-node-id="currentNodeId"
-                      :tts-enabled="ttsEnabled"
-                      :page-summary="''"
-                      :script-content="currentPageMarkdown"
-                      :is-script-loading="scriptLoading"
-                      :trace-point="tracePoint"
-                      :trace-top="traceTop"
-                      :trace-left="traceLeft"
-                      :is-play="isPlay"
-                      :show-status-strip="true"
-                      @prev-page="prevPage"
-                      @select-node="selectPlaybackNode"
-                      @toggle-play="togglePlay"
-                      @toggle-tts="toggleTts"
-                      @speak-current-node="speakCurrentNode"
-                      @next-page="nextPage"
-                    />
+              <aside v-if="!isQaPanelCollapsed" class="classroom-qa-pane" :style="classroomQaPaneStyle">
+                <div class="classroom-qa-head">
+                  <div>
+                    <p class="qa-kicker">AI课堂助手</p>
+                    <h4>课程联动问答面板</h4>
                   </div>
-
-                  <div v-else class="panel-body graph-body">
-                    <div class="graph-panel-shell">
-                      <div class="graph-panel-head">
-                        <div>
-                          <h4>知识图谱维护</h4>
-                          <p>同步关系边、扫描引用健康、一键修复孤儿节点引用。</p>
-                        </div>
-                      </div>
-
-                      <div class="action-row">
-                        <button class="action-btn primary" :disabled="graphSyncLoading" @click="handleGraphSync">
-                          {{ graphSyncLoading ? '同步中...' : '同步图谱' }}
-                        </button>
-                        <button class="action-btn" :disabled="graphScanLoading" @click="handleGraphScan">
-                          {{ graphScanLoading ? '扫描中...' : '扫描健康' }}
-                        </button>
-                        <button class="action-btn warn" :disabled="graphRepairLoading || !graphScanReport?.hasOrphans" @click="handleGraphRepair">
-                          {{ graphRepairLoading ? '修复中...' : '修复引用' }}
-                        </button>
-                      </div>
-
-                      <div v-if="graphSummaryVisible" class="summary-grid">
-                        <div class="metric-card">
-                          <span>当前课件</span>
-                          <strong :title="currentCourseName">{{ currentCourseName || '未命名课件' }}</strong>
-                        </div>
-                        <div class="metric-card">
-                          <span>图谱关系边</span>
-                          <strong>{{ graphEdgeCount }}</strong>
-                        </div>
-                        <div class="metric-card" :class="{ danger: graphOrphanCount > 0 }">
-                          <span>孤儿节点引用</span>
-                          <strong>{{ graphOrphanCount }}</strong>
-                        </div>
-                        <div class="metric-card">
-                          <span>涉及来源表</span>
-                          <strong>{{ graphBucketCount }}</strong>
-                        </div>
-                      </div>
-
-                      <div class="orphan-chip-list" v-if="graphScanReport?.unionOrphanNodeIds?.length">
-                        <span v-for="id in graphScanReport.unionOrphanNodeIds" :key="id" class="orphan-chip">{{ id }}</span>
-                      </div>
-
-                      <div class="result-box" v-if="graphMessage">
-                        {{ graphMessage }}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              </transition>
+                  <el-tag size="small" :type="qaContextBinding ? 'success' : 'info'">
+                    {{ qaContextBinding ? '已绑定当前知识点' : '未绑定上下文' }}
+                  </el-tag>
+                </div>
+                <StudentAskPanel
+                  :question="question"
+                  :ask-loading="askLoading"
+                  :ai-reply="aiReply"
+                  :stream-typing-active="streamTypingActive"
+                  :qa-history="qaHistory"
+                  :latest-answer-meta="latestAnswerMeta"
+                  :summary-mode="summaryMode"
+                  :merged-summary="mergedSummary"
+                  :can-ask="Boolean(courseId)"
+                  :external-action="askPanelAction"
+                  @update:question="question = $event"
+                  @update:summaryMode="summaryMode = $event"
+                  @open-upload="openUpload"
+                  @generate-summary="generateMergedSummary"
+                  @use-summary="injectSummaryToQuestion"
+                  @clear-draft="clearQaDraft"
+                  @send-question="sendMultiModalQuestion"
+                />
+              </aside>
             </div>
           </div>
 
@@ -574,53 +514,6 @@
       </main>
     </div>
 
-    <button
-      class="qa-fab"
-      :class="{ active: showAskWorkspace, dragging: qaFabDragging }"
-      :style="qaFabStyle"
-      @pointerdown.prevent="startQaFabDrag"
-      @click="handleQaFabClick"
-      title="问答浮窗"
-      aria-label="打开问答悬浮窗口"
-    >
-      <span class="qa-fab-core">问</span>
-      <span class="qa-fab-tip">问答</span>
-    </button>
-
-    <transition name="qa-flyout-fade">
-      <div v-if="showAskWorkspace" class="qa-flyout-backdrop" @click.self="closeAskWorkspace">
-        <div class="qa-flyout-panel" :style="qaFlyoutStyle" role="dialog" aria-modal="true" aria-label="问答工作区悬浮窗">
-          <div class="qa-flyout-header">
-            <div class="qa-flyout-drag-handle" @pointerdown.prevent="startAskWorkspaceDrag">
-              <div class="qa-flyout-kicker">问答工作区</div>
-              <h3>悬浮答疑窗口</h3>
-              <p>可随时收起，不影响当前课程浏览。</p>
-            </div>
-            <button class="qa-flyout-close" @click="closeAskWorkspace" aria-label="关闭问答悬浮窗">×</button>
-          </div>
-
-          <StudentAskPanel
-            :question="question"
-            :ask-loading="askLoading"
-            :ai-reply="aiReply"
-            :stream-typing-active="streamTypingActive"
-            :qa-history="qaHistory"
-            :latest-answer-meta="latestAnswerMeta"
-            :summary-mode="summaryMode"
-            :merged-summary="mergedSummary"
-            @update:question="question = $event"
-            @update:summaryMode="summaryMode = $event"
-            @open-upload="openUpload"
-            @generate-summary="generateMergedSummary"
-            @use-summary="injectSummaryToQuestion"
-            @clear-draft="clearQaDraft"
-            @send-question="sendMultiModalQuestion"
-          />
-          <span class="qa-flyout-resize-handle" title="拖动调整大小" @pointerdown.prevent="startAskWorkspaceResize"></span>
-        </div>
-      </div>
-    </transition>
-
     <footer class="footer">© 2025 智能学习课堂系统 · 学生端</footer>
 
     <StudentBreakpointDialog
@@ -633,6 +526,7 @@
 </template>
 
 <script setup>
+/* eslint-disable no-unused-vars */
 import { ref, reactive, onMounted, onBeforeUnmount, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { studentV1Api } from './services/v1'
@@ -810,8 +704,20 @@ const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
 const outlineFilter = ref('all')
-const activeWorkbenchTab = ref('knowledge')
+const activeWorkbenchTab = ref('tree')
 const activeRightPanel = ref('')
+const qaContextBinding = ref(true)
+const askPanelAction = ref(null)
+const isCompactViewport = ref(false)
+const isQaPanelCollapsed = ref(false)
+const classroomLayout = reactive({
+  leftPercent: 60,
+  dragging: false,
+  pointerId: null,
+  startX: 0,
+  startLeftPercent: 60
+})
+const lastContextHintNodeId = ref('')
 const summaryMode = ref('quick')
 const mergedSummary = ref('')
 const lessonFeedbackRating = ref(0)
@@ -1108,6 +1014,19 @@ const qaFabStyle = computed(() => ({
   right: 'auto',
   bottom: 'auto'
 }))
+const classroomLeftPaneStyle = computed(() => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
+  return {
+    flexBasis: `${classroomLayout.leftPercent}%`
+  }
+})
+
+const classroomQaPaneStyle = computed(() => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
+  return {
+    flexBasis: `${100 - classroomLayout.leftPercent}%`
+  }
+})
 
 const normalizeTimeSec = (value, fallback = 0) => {
   const numeric = Number(value)
@@ -1142,6 +1061,10 @@ const handleWorkbenchTreeNodeClick = async (data) => {
   const targetNode = filteredOutlineNodes.value.find(node => node.node_id === nodeId)
   if (targetNode?.node_id) {
     await selectPlaybackNode(targetNode.node_id)
+    if (lastContextHintNodeId.value !== targetNode.node_id) {
+      pushKnowledgeContextHint(targetNode.title || targetNode.node_id)
+      lastContextHintNodeId.value = targetNode.node_id
+    }
     return
   }
   handleNodeClick(data)
@@ -1160,6 +1083,66 @@ const findPracticeForNode = async (node) => {
     options: ['概念定义', '应用场景', '常见误区', '以上都需要结合理解']
   }
   testResult.value = null
+}
+
+const createAskPanelAction = (mode, text) => {
+  askPanelAction.value = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    mode,
+    text: String(text || '')
+  }
+}
+
+const openAskPanelIfNeeded = () => {
+  if (isQaPanelCollapsed.value) {
+    isQaPanelCollapsed.value = false
+  }
+}
+
+const pushKnowledgeContextHint = (nodeTitle) => {
+  const cleanTitle = String(nodeTitle || '').trim()
+  if (!cleanTitle) return
+  createAskPanelAction('system', `当前学生正在学习【${cleanTitle}】，请基于该知识点内容进行解答。`)
+}
+
+const askAboutUnmasteredNode = async (node) => {
+  const nodeId = String(node?.node_id || '')
+  const nodeTitle = String(node?.title || nodeId || '当前知识点')
+  if (nodeId) {
+    await selectPlaybackNode(nodeId)
+    if (lastContextHintNodeId.value !== nodeId) {
+      pushKnowledgeContextHint(nodeTitle)
+      lastContextHintNodeId.value = nodeId
+    }
+  }
+  activeWorkbenchTab.value = 'knowledge'
+  openAskPanelIfNeeded()
+  const presetQuestion = `请给我详细讲解一下【${nodeTitle}】`
+  question.value = presetQuestion
+  createAskPanelAction('draft', presetQuestion)
+  ElMessage.success('已将问题填入右侧 AI 助手输入框')
+}
+
+const optimizeCurrentNoteWithAI = () => {
+  const noteText = String(currentNodeNote.value || '').trim()
+  if (!noteText) {
+    ElMessage.warning('请先填写课堂笔记，再执行 AI 优化')
+    return
+  }
+  openAskPanelIfNeeded()
+  const nodeTitle = currentNodeMeta.value?.title || currentNodeId.value || '当前知识点'
+  const optimizePrompt = [
+    '请优化润色以下课堂笔记：',
+    `知识点：${nodeTitle}`,
+    '要求：保持术语准确、结构清晰，并补充遗漏的关键点。',
+    '原笔记：',
+    noteText
+  ].join('\n')
+  createAskPanelAction('send', optimizePrompt)
+}
+
+const toggleQaPanel = () => {
+  isQaPanelCollapsed.value = !isQaPanelCollapsed.value
 }
 
 const submitLessonFeedback = () => {
@@ -1406,10 +1389,88 @@ const getViewportBounds = () => {
   }
 }
 
+const CLASSROOM_LAYOUT_KEY = 'fuww_student_classroom_split_layout_v1'
+const CLASSROOM_MIN_LEFT = 46
+const CLASSROOM_MAX_LEFT = 72
+const CLASSROOM_COMPACT_BREAKPOINT = 1180
+
+const clampClassroomLeftPercent = (value) => clamp(Math.round(Number(value) || 60), CLASSROOM_MIN_LEFT, CLASSROOM_MAX_LEFT)
+
+const persistClassroomLayout = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(CLASSROOM_LAYOUT_KEY, JSON.stringify({
+    leftPercent: classroomLayout.leftPercent
+  }))
+}
+
+const loadClassroomLayout = () => {
+  if (typeof window === 'undefined') return
+  let parsed = null
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(CLASSROOM_LAYOUT_KEY) || 'null')
+  } catch (error) {
+    parsed = null
+  }
+  const leftPercent = clampClassroomLeftPercent(parsed?.leftPercent)
+  classroomLayout.leftPercent = leftPercent
+}
+
+const updateViewportMode = () => {
+  if (typeof window === 'undefined') return
+  const compact = window.innerWidth <= CLASSROOM_COMPACT_BREAKPOINT
+  isCompactViewport.value = compact
+  if (compact) {
+    isQaPanelCollapsed.value = true
+  } else {
+    isQaPanelCollapsed.value = false
+  }
+}
+
+const stopClassroomResize = () => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointermove', handleClassroomResizeMove)
+  window.removeEventListener('pointerup', handleClassroomResizeUp)
+  window.removeEventListener('pointercancel', handleClassroomResizeUp)
+  window.removeEventListener('blur', handleClassroomResizeUp)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  classroomLayout.dragging = false
+  classroomLayout.pointerId = null
+}
+
+const handleClassroomResizeMove = (event) => {
+  if (!classroomLayout.dragging || isCompactViewport.value || typeof window === 'undefined') return
+  const deltaX = event.clientX - classroomLayout.startX
+  const viewport = getViewportBounds()
+  const deltaPercent = (deltaX / Math.max(1, viewport.width)) * 100
+  classroomLayout.leftPercent = clampClassroomLeftPercent(classroomLayout.startLeftPercent + deltaPercent)
+}
+
+const handleClassroomResizeUp = () => {
+  if (!classroomLayout.dragging) return
+  stopClassroomResize()
+  persistClassroomLayout()
+}
+
+const startClassroomResize = (event) => {
+  if (isCompactViewport.value || isQaPanelCollapsed.value) return
+  if (event.button !== 0) return
+  classroomLayout.dragging = true
+  classroomLayout.pointerId = event.pointerId
+  classroomLayout.startX = event.clientX
+  classroomLayout.startLeftPercent = classroomLayout.leftPercent
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'col-resize'
+  window.addEventListener('pointermove', handleClassroomResizeMove)
+  window.addEventListener('pointerup', handleClassroomResizeUp)
+  window.addEventListener('pointercancel', handleClassroomResizeUp)
+  window.addEventListener('blur', handleClassroomResizeUp)
+}
+
 const getDefaultAskWorkspaceLayout = () => {
   const viewport = getViewportBounds()
-  const width = clamp(360, ASK_WORKSPACE_MIN_WIDTH, Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2))
-  const height = clamp(620, ASK_WORKSPACE_MIN_HEIGHT, Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN))
+  const width = clamp(980, ASK_WORKSPACE_MIN_WIDTH, Math.max(ASK_WORKSPACE_MIN_WIDTH, viewport.width - ASK_WORKSPACE_MARGIN * 2))
+  const height = clamp(700, ASK_WORKSPACE_MIN_HEIGHT, Math.max(ASK_WORKSPACE_MIN_HEIGHT, viewport.height - ASK_WORKSPACE_TOP - ASK_WORKSPACE_MARGIN))
   return {
     left: Math.max(ASK_WORKSPACE_MARGIN, viewport.width - width - ASK_WORKSPACE_MARGIN),
     top: ASK_WORKSPACE_TOP,
@@ -1866,13 +1927,19 @@ const sendMultiModalQuestion = async () => {
     return
   }
 
+  const currentQuestion = String(question.value || '').trim()
+  const contextNodeTitle = currentNodeMeta.value?.title || currentNodeId.value || ''
+  const contextPrefix = qaContextBinding.value && contextNodeTitle
+    ? `当前学生正在学习【${contextNodeTitle}】。请优先基于该知识点内容回答。\n`
+    : ''
+  const requestQuestion = `${contextPrefix}${currentQuestion}`
   askLoading.value = true
   isPlay.value = false
   playbackState.value = 'tutoring'
   stopSpeechNarration()
   stopStreamTypewriter()
+  question.value = ''
   try {
-    const currentQuestion = question.value
     aiReply.value = ''
     latestAnswerMeta.value = {
       sourcePage: 0,
@@ -1887,7 +1954,7 @@ const sendMultiModalQuestion = async () => {
       courseId: courseId.value,
       page: currentPage.value,
       nodeId: currentNodeId.value,
-      question: currentQuestion
+      question: requestQuestion
     }, {
       token: (payload) => {
         pushTypewriterText(payload.text || '')
@@ -1956,7 +2023,7 @@ const sendMultiModalQuestion = async () => {
         studentId: studentId.value,
         pageNum: currentPage.value,
         nodeId: currentNodeId.value,
-        question: question.value
+        question: requestQuestion
       })
       const payload = fallbackResp?.data || {}
       aiReply.value = payload.answer || ''
@@ -1968,7 +2035,7 @@ const sendMultiModalQuestion = async () => {
         sessionId: sessionId.value
       }
       qaHistory.value.unshift({
-        question: question.value,
+        question: currentQuestion,
         answer: aiReply.value,
         sourcePage: latestAnswerMeta.value.sourcePage,
         sourceNodeId: latestAnswerMeta.value.sourceNodeId
@@ -1976,7 +2043,6 @@ const sendMultiModalQuestion = async () => {
       if (qaHistory.value.length > 5) {
         qaHistory.value = qaHistory.value.slice(0, 5)
       }
-      question.value = ''
       playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
       if (!latestAnswerMeta.value.needReteach) {
         isPlay.value = true
@@ -2165,13 +2231,21 @@ const handleLogout = () => {
   }
 }
 
+const handleViewportResize = () => {
+  ensureQaFabLayout()
+  ensureAskWorkspaceLayout()
+  updateViewportMode()
+}
+
 onMounted(() => {
   if (typeof window !== 'undefined') {
     loadQaFabLayout()
     loadAskWorkspaceLayout()
+    loadClassroomLayout()
     loadNodeNotes()
+    updateViewportMode()
     window.localStorage.setItem('fuww_student_origin', window.location.origin)
-    window.addEventListener('resize', ensureQaFabLayout)
+    window.addEventListener('resize', handleViewportResize)
     const params = new URLSearchParams(window.location.search)
     const role = String(params.get('role') || '').trim().toLowerCase()
     const username = String(params.get('username') || '').trim().toLowerCase()
@@ -2197,7 +2271,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', ensureQaFabLayout)
+    window.removeEventListener('resize', handleViewportResize)
   }
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
@@ -2207,10 +2281,12 @@ onUnmounted(() => {
   stopSpeechNarration()
   stopStreamTypewriter()
   stopAskWorkspaceInteraction()
+  stopClassroomResize()
 })
 
 onBeforeUnmount(() => {
   stopAskWorkspaceInteraction()
+  stopClassroomResize()
 })
 
 watch(selectedTeachingCourseId, () => {
@@ -2260,6 +2336,7 @@ watch(courseId, (nextCourseId) => {
   if (!nextCourseId && activeRightPanel.value === 'graph') {
     activeRightPanel.value = 'courseware'
   }
+  lastContextHintNodeId.value = ''
   if (!nextCourseId) {
     graphSyncPayload.value = null
     graphScanReport.value = null
@@ -3089,21 +3166,164 @@ const checkAnswer = async (option) => {
 
 
 .page-layout.classroom-workbench {
-  display: grid;
-  grid-template-columns: minmax(240px, 25%) minmax(0, 1fr) 56px;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   height: 100%;
   min-height: calc(100vh - 300px);
 }
 
-.workbench-main {
-  grid-column: 1 / 3;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+.classroom-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  border: 1px solid #d7e4dd;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+  padding: 10px 12px;
+}
+
+.classroom-title-group h3 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: #1f473d;
+}
+
+.classroom-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6a8278;
+  font-weight: 700;
+}
+
+.classroom-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.classroom-split-layout {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 8px;
+}
+
+.classroom-left-pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+.workbench-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.left-unified-tabs-pane {
+  flex: 1;
+}
+
+.left-main-tabs :deep(.el-tabs__item) {
+  font-weight: 700;
+}
+
+.left-main-tabs :deep(.el-tabs__item.is-active) {
+  color: #2f605a;
+}
+
+.left-main-tabs :deep(.el-tabs__active-bar) {
+  background-color: #2f605a;
+}
+
+.classroom-resizer {
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #e6f0eb 0%, #d7e5de 100%);
+  border: 1px solid #c8dbd1;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+}
+
+.classroom-resizer span {
+  width: 2px;
+  height: 48px;
+  border-radius: 999px;
+  background: #6a8d7f;
+}
+
+.classroom-resizer:hover {
+  background: linear-gradient(180deg, #d7e8e0 0%, #c7dcd2 100%);
+}
+
+.classroom-qa-pane {
+  min-width: 340px;
+  min-height: 0;
+  border: 1px solid #d6e4dc;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%);
+  box-shadow: 0 14px 28px rgba(45, 72, 66, 0.09);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.classroom-qa-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d9e7df;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #f8fcfa 0%, #eef6f2 100%);
+}
+
+.qa-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5f786f;
+  font-weight: 700;
+}
+
+.classroom-qa-head h4 {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: #1f473d;
+}
+
+.classroom-qa-pane :deep(.chat-shell) {
+  flex: 1;
+  min-height: 0;
+}
+
+.classroom-split-layout.compact {
+  flex-direction: column;
+}
+
+.classroom-split-layout.compact .classroom-left-pane,
+.classroom-split-layout.compact .classroom-qa-pane {
+  width: 100%;
+  flex-basis: auto !important;
+}
+
+.classroom-split-layout.compact .classroom-qa-pane {
+  min-height: 520px;
+}
+
+.classroom-split-layout.compact .classroom-resizer {
+  display: none;
 }
 
 .knowledge-tree-pane {
@@ -3267,6 +3487,12 @@ const checkAnswer = async (option) => {
   background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(204, 222, 214, 0.92);
   padding: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.knowledge-node-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 18px rgba(43, 77, 65, 0.12);
 }
 
 .knowledge-node-card h5 {
@@ -3285,6 +3511,7 @@ const checkAnswer = async (option) => {
 .node-actions {
   margin-top: 8px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -3487,6 +3714,11 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.note-actions-row {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .notes-head {
@@ -4087,12 +4319,22 @@ const checkAnswer = async (option) => {
     linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(246, 251, 248, 0.84) 100%);
 }
 
+.qa-flyout-panel :deep(.chat-shell) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
 .qa-flyout-panel :deep(.conversation-board) {
   flex: 1;
   min-height: 0;
 }
 
 .qa-flyout-panel :deep(.conversation-thread) {
+  max-height: none;
+}
+
+.qa-flyout-panel :deep(.message-thread) {
   max-height: none;
 }
 
@@ -4160,6 +4402,15 @@ const checkAnswer = async (option) => {
     gap: 10px;
   }
 
+  .classroom-header-row {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .classroom-qa-pane {
+    min-width: 300px;
+  }
+
   .right-stage {
     min-width: 0;
     max-width: 100%;
@@ -4187,6 +4438,34 @@ const checkAnswer = async (option) => {
   .main-layout {
     padding: 10px;
     flex-direction: column;
+  }
+
+  .classroom-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .classroom-title-group h3 {
+    font-size: 15px;
+  }
+
+  .classroom-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .classroom-split-layout {
+    gap: 10px;
+  }
+
+  .classroom-qa-pane {
+    min-width: 0;
+    min-height: 460px;
+    padding: 8px;
+  }
+
+  .classroom-qa-head {
+    flex-wrap: wrap;
   }
 
   .left-sidebar-menu {
