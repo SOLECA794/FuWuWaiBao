@@ -138,7 +138,7 @@
               title="拖拽到收藏列：待学习/薄弱点/重点难点/已掌握"
             >
               <div class="card-top">
-                <div class="card-title">{{ note.title || `第${note.pageNum}页笔记` }}</div>
+                <div class="card-title">{{ resolveNoteTitle(note) }}</div>
                 <div class="card-actions" @click.stop>
                   <button class="icon-btn" @click="startNoteEdit(note)">编辑</button>
                   <button class="icon-btn danger" @click="deleteNote(note.id)">删除</button>
@@ -525,7 +525,7 @@
           <div class="drawer-head">
             <div>
               <div class="drawer-kicker">笔记详情</div>
-              <div class="drawer-title">{{ noteDrawer.note?.title || `第${noteDrawer.note?.pageNum || 1}页笔记` }}</div>
+              <div class="drawer-title">{{ resolveNoteTitle(noteDrawer.note) }}</div>
               <div class="drawer-meta">
                 <span class="chip">{{ getCourseName(noteDrawer.note?.courseId) }}</span>
                 <span class="muted">第 {{ noteDrawer.note?.pageNum || 1 }} 页</span>
@@ -587,6 +587,7 @@ export default {
       editingTaskId: '',
       taskForm: { title: '', detail: '', dueAt: '' },
       tabScrollTops: {},
+      noteTitleMap: {},
     }
   },
   computed: {
@@ -619,7 +620,7 @@ export default {
       const list = (this.notes || []).filter((n) => {
         if (!q) return true
         const courseName = this.getCourseName(n.courseId)
-        const hay = `${n.title || ''} ${n.note || ''} ${courseName}`.toLowerCase()
+        const hay = `${this.resolveNoteTitle(n)} ${n.note || ''} ${courseName}`.toLowerCase()
         return hay.includes(q)
       })
       const sorted = [...list].sort((a, b) => {
@@ -653,6 +654,7 @@ export default {
   },
   async created() {
     this.applyInitialTab(this.initialTab)
+    this.loadLocalNoteTitleMap()
     await this.loadData()
   },
   watch: {
@@ -699,6 +701,7 @@ export default {
     async loadData() { await this.loadCollections(); await this.loadPracticeData(); await this.loadNotificationData(); await this.loadTaskData() },
     async loadCollections() {
       try {
+        this.loadLocalNoteTitleMap()
         const [courseRes, notesRes, favRes, plansRes] = await Promise.all([studentCoursewareApi.list(), studentCoursewareApi.listNotes({ studentId: this.studentId, pageSize: 100 }), studentCoursewareApi.listFavorites({ studentId: this.studentId, pageSize: 100 }), studentCoursewareApi.listReviewPlans(this.studentId)])
         this.courses = courseRes.data || []
         this.notes = (notesRes.data && notesRes.data.items) || []
@@ -781,6 +784,25 @@ export default {
     async deleteTask(id) { if (!window.confirm('确认删除这条任务吗？')) return; try { await studentTaskApi.remove(id); await this.loadTaskData(); ElMessage.success('任务已删除') } catch (error) { ElMessage.error(`删除任务失败：${error.message}`) } },
     async openReminder(item) { if (item.kind === 'plan') return this.viewPlanItems(item.plan); await this.markNotificationRead(item.notification) },
     parseFavoriteTags(raw) { if (Array.isArray(raw)) return raw; if (!raw) return []; try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : [] } catch (error) { return [] } },
+    noteTitleMapKey() { return `fuww_student_note_title_map:${String(this.studentId || '').trim().toLowerCase()}` },
+    loadLocalNoteTitleMap() {
+      this.noteTitleMap = {}
+      if (typeof window === 'undefined') return
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(this.noteTitleMapKey()) || '{}')
+        if (parsed && typeof parsed === 'object') this.noteTitleMap = parsed
+      } catch (error) {
+        this.noteTitleMap = {}
+      }
+    },
+    resolveNoteTitle(note) {
+      if (!note) return '课堂笔记'
+      if (note.title) return note.title
+      const key = `${note.courseId || ''}::${note.pageNum || ''}`
+      const mapped = this.noteTitleMap?.[key]
+      if (mapped) return mapped
+      return `第${note.pageNum || 1}页笔记`
+    },
     getCourseName(id) { const target = this.courses.find(item => item.id === id); return (target && target.title) || id || '未关联课程' },
     getNoteContent(id) { const target = this.notes.find(item => item.id === id); return (target && target.note) || '未找到笔记' },
     getFavoriteTitle(id) { const target = this.favorites.find(item => item.id === id); return (target && target.title) || '未找到收藏' },

@@ -31,63 +31,76 @@
       </div>
     </div>
 
-    <div class="course-content">
-      <!-- 脚本和图片切换 -->
-      <div v-if="scriptContent || courseImg" class="content-switcher">
-        <el-radio-group v-model="viewMode" size="small" @change="handleViewModeChange">
-          <el-radio-button v-if="scriptContent" value="script">讲稿</el-radio-button>
-          <el-radio-button v-if="courseImg" value="image">课件</el-radio-button>
-        </el-radio-group>
-      </div>
-
-      <!-- 脚本视图 -->
-      <StudentScriptViewer
-        v-if="viewMode === 'script' && scriptContent"
-        :script-content="scriptContent"
-        :is-loading="isScriptLoading"
-        @error="handleScriptError"
-        @warning="handleScriptWarning"
-      />
-
-      <!-- 课件图片视图 -->
-      <div v-if="viewMode === 'image' || !scriptContent" class="course-image-view">
-        <img v-if="courseImg" :src="courseImg" alt="课件内容" class="course-img" />
-        <div v-else class="no-courseware">当前没有可预览课件，请联系教师先发布课件</div>
-        <div
-          v-if="tracePoint"
-          class="trace-highlight"
-          :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
-        ></div>
-      </div>
+    <div class="course-content" :class="displayMode === 'voice' ? 'voice-mode' : 'script-mode'">
+      <template v-if="displayMode === 'voice'">
+        <div class="voice-progress-shell">
+          <div class="voice-progress-head">
+            <strong>语音讲授进度</strong>
+            <span>{{ pageTimelineDuration > 0 ? `${formatTime(currentTimelineSec)} / ${formatTime(pageTimelineDuration)}` : `页进度 ${progressPercent}%` }}</span>
+          </div>
+          <div class="voice-progress-track">
+            <div class="voice-progress-fill" :style="{ width: `${lectureProgressPercent}%` }"></div>
+          </div>
+          <div class="voice-progress-meta">
+            <span>{{ isPlay ? '正在语音讲授' : '讲授已暂停' }}</span>
+            <span>{{ currentNodeTitle || '等待切换节点' }}</span>
+            <span>{{ activeNodeTypeLabel || '核心讲解' }}</span>
+          </div>
+          <div class="voice-milestone-list">
+            <article v-for="node in lectureMilestones" :key="node.id" class="voice-milestone" :class="node.state">
+              <div class="milestone-row">
+                <strong>{{ node.title }}</strong>
+                <span>{{ node.time }}</span>
+              </div>
+              <p>{{ node.desc }}</p>
+            </article>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <StudentScriptViewer
+          v-if="scriptContent"
+          :script-content="scriptContent"
+          :is-loading="isScriptLoading"
+          @error="handleScriptError"
+          @warning="handleScriptWarning"
+        />
+        <div v-else class="script-empty-state">
+          <strong>当前页暂无可展示讲稿</strong>
+          <p>请先播放本页或切换到含讲稿节点，系统将自动同步进度与文本。</p>
+        </div>
+      </template>
     </div>
 
     <div class="course-control">
-      <el-button @click="$emit('prev-page')" icon="el-icon-arrow-left" size="small">上一页</el-button>
-      <el-button @click="emit('seek-step', -5)" size="small" plain>快退 5 秒</el-button>
-      <el-button @click="$emit('toggle-play')" :icon="isPlay ? 'el-icon-pause' : 'el-icon-play'" size="small">
-        {{ isPlay ? '暂停' : '播放' }}
-      </el-button>
-      <el-select
-        :model-value="playbackRate"
-        size="small"
-        style="width: 110px"
-        @change="$emit('update:playback-rate', Number($event || 1))"
-      >
-        <el-option label="0.75x" :value="0.75" />
-        <el-option label="1.0x" :value="1" />
-        <el-option label="1.25x" :value="1.25" />
-        <el-option label="1.5x" :value="1.5" />
-      </el-select>
-      <el-button @click="$emit('toggle-tts')" :type="ttsEnabled ? 'primary' : 'default'" plain size="small">
-        {{ ttsEnabled ? '语音已开' : '语音已关' }}
-      </el-button>
-      <el-button @click="$emit('speak-current-node')" icon="el-icon-microphone" size="small" plain>
-        朗读当前节点
-      </el-button>
-      <el-button @click="emit('seek-step', 5)" size="small" plain>快进 5 秒</el-button>
-      <el-button @click="emit('seek-to-start')" size="small" plain>重播本页</el-button>
-      <el-button @click="emit('open-shortcuts')" size="small" plain>快捷键帮助</el-button>
-      <el-button @click="$emit('next-page')" icon="el-icon-arrow-right" size="small">下一页</el-button>
+      <div class="control-cluster">
+        <el-button class="control-btn" @click="$emit('prev-page')" size="small" plain>上一页</el-button>
+        <el-button class="control-btn" @click="emit('seek-step', -5)" size="small" plain>快退 5 秒</el-button>
+        <el-button class="control-btn control-main" @click="$emit('toggle-play')" size="small">
+          {{ isPlay ? '暂停讲解' : '开始讲解' }}
+        </el-button>
+        <el-button class="control-btn" @click="emit('seek-step', 5)" size="small" plain>快进 5 秒</el-button>
+        <el-button class="control-btn" @click="$emit('next-page')" size="small" plain>下一页</el-button>
+      </div>
+      <div class="control-cluster control-secondary">
+        <el-select
+          :model-value="playbackRate"
+          size="small"
+          class="rate-select"
+          @change="$emit('update:playback-rate', Number($event || 1))"
+        >
+          <el-option label="0.75x" :value="0.75" />
+          <el-option label="1.0x" :value="1" />
+          <el-option label="1.25x" :value="1.25" />
+          <el-option label="1.5x" :value="1.5" />
+        </el-select>
+        <el-button class="control-btn" @click="$emit('toggle-tts')" :type="ttsEnabled ? 'primary' : 'default'" plain size="small">
+          {{ ttsEnabled ? '语音开启' : '语音关闭' }}
+        </el-button>
+        <el-button class="control-btn" @click="$emit('speak-current-node')" size="small" plain>朗读节点</el-button>
+        <el-button class="control-btn" @click="emit('seek-to-start')" size="small" plain>重播本页</el-button>
+        <el-button class="control-btn" @click="emit('open-shortcuts')" size="small" plain>快捷键</el-button>
+      </div>
     </div>
     <div class="timeline-seek" v-if="pageTimelineDuration > 0">
       <span>{{ formatTime(currentTimelineSec) }}</span>
@@ -217,6 +230,10 @@ const props = defineProps({
   playbackRate: {
     type: Number,
     default: 1
+  },
+  displayMode: {
+    type: String,
+    default: 'script'
   }
 })
 
@@ -235,16 +252,6 @@ const emit = defineEmits([
   'open-shortcuts',
   'update:playback-rate'
 ])
-
-// 内容切换模式
-const viewMode = ref('script') // 'script' 或 'image'
-
-/**
- * 处理内容模式切换
- */
-function handleViewModeChange() {
-  // 模式已通过 v-model 更新
-}
 
 /**
  * 处理脚本渲染错误
@@ -265,6 +272,37 @@ function handleScriptWarning(warnings) {
 const timelinePercent = computed(() => {
   if (!props.pageTimelineDuration) return 0
   return Math.min(100, Math.max(0, Math.round((props.currentTimelineSec / props.pageTimelineDuration) * 100)))
+})
+
+const lectureProgressPercent = computed(() => {
+  if (props.pageTimelineDuration > 0) return timelinePercent.value
+  return Math.min(100, Math.max(0, Number(props.progressPercent || 0)))
+})
+
+const lectureMilestones = computed(() => {
+  const list = (props.playbackNodes || []).slice(0, 6)
+  if (!list.length) {
+    return [
+      { id: 'v1', title: '讲授引导', time: '00:00', desc: '系统等待讲稿节点同步，准备开始语音讲授。', state: 'pending' },
+      { id: 'v2', title: '关键概念', time: '00:30', desc: '将按“定义 -> 示例 -> 易错点”顺序讲解。', state: 'pending' },
+      { id: 'v3', title: '课堂收束', time: '01:00', desc: '总结节点并同步到左下学习状态栏。', state: 'pending' }
+    ]
+  }
+  return list.map((node, index) => {
+    const start = Number(node?.start_sec || 0)
+    const end = Number(node?.end_sec || start + 1)
+    const elapsed = Number(props.currentTimelineSec || 0)
+    let state = 'pending'
+    if (elapsed >= end) state = 'done'
+    else if (elapsed >= start && elapsed < end) state = 'active'
+    return {
+      id: node?.node_id || `milestone_${index}`,
+      title: node?.title || `讲解节点 ${index + 1}`,
+      time: formatTime(start),
+      desc: String(node?.text || '系统将自动同步该节点讲稿与语音进度。').slice(0, 48),
+      state
+    }
+  })
 })
 
 const audioStatusText = computed(() => {
@@ -422,61 +460,176 @@ const formatTime = (seconds) => {
   border: 1px solid rgba(226, 232, 240, 0.9);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
-.course-image-view {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+.course-content.voice-mode {
+  padding: 12px;
+  background: linear-gradient(180deg, #f9fdfb 0%, #f2f8f5 100%);
+}
+
+.voice-progress-shell {
+  height: 100%;
+  border: 1px solid rgba(178, 209, 196, 0.72);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
   padding: 12px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
 }
 
-.course-img {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  max-height: min(72vh, calc(100vh - 360px));
-  object-fit: contain;
+.voice-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #2f605a;
+}
+
+.voice-progress-head strong {
+  font-size: 14px;
+  color: #1f4a43;
+}
+
+.voice-progress-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #e2efe9;
+  overflow: hidden;
+}
+
+.voice-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2f605a 0%, #3f8b79 100%);
+  transition: width 0.28s ease;
+}
+
+.voice-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: #4b6c62;
+}
+
+.voice-milestone-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.voice-milestone {
+  border: 1px solid #d4e5dd;
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 8px 10px;
   background: #ffffff;
 }
 
-.no-courseware {
-  margin: auto;
-  color: #64748b;
-  font-size: 14px;
+.voice-milestone.active {
+  border-color: #62a18f;
+  background: #f0f8f4;
+}
+
+.voice-milestone.done {
+  border-color: #b6d9ca;
+  background: #f7fbf9;
+}
+
+.milestone-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.milestone-row strong {
+  font-size: 13px;
+  color: #294f47;
+}
+
+.milestone-row span {
+  font-size: 11px;
+  color: #6f897f;
+}
+
+.voice-milestone p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #5b756b;
+}
+
+.script-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
   text-align: center;
 }
 
-.trace-highlight {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 2px solid rgba(239, 68, 68, 0.95);
-  background: rgba(239, 68, 68, 0.2);
-  box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.12);
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+.script-empty-state strong {
+  font-size: 15px;
+  color: #23463f;
 }
+
+.script-empty-state p {
+  margin: 0;
+  max-width: 440px;
+  font-size: 13px;
+  color: #5f7b71;
+  line-height: 1.6;
+}
+
 .course-control {
   margin-top: 16px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
 }
+
+.control-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-secondary {
+  padding-top: 2px;
+}
+
+.control-btn {
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.control-main {
+  background: linear-gradient(135deg, #2f605a 0%, #3f8b79 100%);
+  border-color: #2f605a;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(47, 96, 90, 0.24);
+}
+
+.rate-select {
+  width: 120px;
+}
+
 .control-tip {
   margin-top: 10px;
-  text-align: center;
+  text-align: left;
   font-size: 12px;
-  color: #64748b;
+  color: #5a746b;
 }
 .timeline-seek {
   margin-top: 10px;
@@ -606,6 +759,19 @@ const formatTime = (seconds) => {
 }
 
 @media (max-width: 720px) {
+  .control-cluster {
+    width: 100%;
+  }
+
+  .control-btn {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  .rate-select {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
   .course-header,
   .progress-meta,
   .playback-head,

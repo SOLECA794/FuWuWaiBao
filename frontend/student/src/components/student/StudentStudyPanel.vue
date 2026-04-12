@@ -1,381 +1,265 @@
 <template>
-  <div class="analytics-workbench">
-    <header class="head-area">
-      <div>
-        <p class="eyebrow">我的学习画像</p>
-        <h3>AI 学情诊断・精准学习指引</h3>
-        <p class="head-tip">基于你的学习行为，AI 自动诊断学习状态，帮你精准提升</p>
+  <div class="study-analytics-page">
+    <header class="analysis-header">
+      <div class="analysis-header-main">
+        <p class="header-kicker">Learning Analytics</p>
+        <h3>AI学情诊断·精准学习指引</h3>
+        <div class="flow-strip">
+          <span class="flow-label">数据链路</span>
+          <span class="flow-node">课堂行为采集</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">AI算法计算</span>
+          <span class="flow-arrow">→</span>
+          <span class="flow-node">学习行动推荐</span>
+        </div>
       </div>
-      <div class="head-controls">
-        <el-select v-model="selectedCourse" size="small" placeholder="切换课程" style="width: 180px">
-          <el-option label="全课程数据" value="all" />
+
+      <div class="analysis-header-controls">
+        <el-select v-model="selectedCourse" size="small" style="width: 160px">
           <el-option label="本课程数据" value="current" />
+          <el-option label="全课程数据" value="all" />
+        </el-select>
+        <el-select v-model="selectedTimeRange" size="small" style="width: 140px">
+          <el-option label="本周" value="week" />
+          <el-option label="本月" value="month" />
+          <el-option label="本学期" value="term" />
         </el-select>
         <el-button size="small" @click="refreshData">刷新数据</el-button>
-        <el-button size="small" @click="exportReport">导出报告</el-button>
+        <el-button size="small" type="primary" plain @click="exportReport">导出报告</el-button>
       </div>
+
+      <p class="data-source-tip">
+        数据更新时间：{{ dataUpdatedAt }} | 数据来源：课堂学习、随堂练习、问答互动、学习行为
+      </p>
     </header>
 
-    <section class="overview-cards">
-      <article
-        v-for="card in overviewCards"
-        :key="card.id"
-        class="card"
-        :class="{ highlight: card.highlight }"
-        @click="activeTab = card.tabName"
-      >
-        <div class="card-head">
-          <span class="card-emoji">{{ card.emoji }}</span>
-          <span class="card-label">{{ card.label }}</span>
+    <section class="health-overview">
+      <article class="health-radar-panel">
+        <div class="panel-head">
+          <div>
+            <h4>学习健康度总览</h4>
+            <p>用五维指标展示整体状态，并和上周做趋势对比</p>
+          </div>
+          <span class="health-delta" :class="{ down: healthDelta < 0 }">
+            {{ healthDelta >= 0 ? '较上周↑' : '较上周↓' }}{{ Math.abs(healthDelta) }}分
+          </span>
         </div>
-        <div class="card-number">{{ card.number }}</div>
-        <div class="card-sub">{{ card.sub }}</div>
-        <div class="card-trend" :class="[card.trend > 0 ? 'up' : 'down']">
-          {{ card.trend > 0 ? '↑' : '↓' }}{{ Math.abs(card.trend) }}%
+
+        <div class="radar-body">
+          <div ref="healthRadarRef" class="chart radar-chart"></div>
+          <div class="score-core">
+            <strong>{{ healthScore }}</strong>
+            <small>综合学习健康度评分</small>
+          </div>
         </div>
       </article>
+
+      <aside class="issue-panel">
+        <button class="issue-card weak" @click="jumpToWeaknessArea">
+          <div class="issue-top">
+            <span>⚠️ 薄弱知识点</span>
+            <strong>{{ weakPointCards.length }}个待补强</strong>
+          </div>
+          <p>较上周{{ weakDeltaLabel }}</p>
+          <el-progress :percentage="metrics.masteryRate" :show-text="false" :stroke-width="8" color="#f59e0b" />
+          <small>已掌握 {{ metrics.masteryRate }}%</small>
+        </button>
+
+        <button class="issue-card mistake" @click="openMistakeDialog">
+          <div class="issue-top">
+            <span>📝 错题待重做</span>
+            <strong>{{ metrics.retakeCount }}道待复盘</strong>
+          </div>
+          <p>平均正确率 {{ metrics.correctRate }}%</p>
+          <small>点击查看错题详情弹窗</small>
+        </button>
+
+        <el-tooltip
+          effect="dark"
+          placement="left"
+          content="专注度 = 有效学习时长 / 总学习时长，当前为 6.5h / 7.6h"
+        >
+          <button class="issue-card focus">
+            <div class="issue-top">
+              <span>⏱️ 学习专注度</span>
+              <strong>{{ metrics.focusScore }}% 优秀</strong>
+            </div>
+            <p>本周有效学习时长 {{ metrics.effectiveHours }}h</p>
+            <small>悬停查看计算规则</small>
+          </button>
+        </el-tooltip>
+
+        <button class="issue-card qa" @click="openQaDialog">
+          <div class="issue-top">
+            <span>💬 互动问答</span>
+            <strong>{{ metrics.qaCount }}次提问</strong>
+          </div>
+          <p>问题解决率 {{ metrics.qaResolveRate }}%</p>
+          <small>高频提问：{{ topQuestionTopics }}</small>
+        </button>
+      </aside>
     </section>
 
-    <section class="diagnostic-area">
-      <el-tabs v-model="activeTab" animated>
-        <el-tab-pane label="📈 知识点掌握" name="mastery">
-          <div class="tab-content">
-            <div class="mastery-grid">
-              <div class="mastery-chart">
-                <h4>章节掌握度热力图</h4>
-                <div class="heatmap">
-                  <div v-for="ch in chapters" :key="ch.id" class="heatmap-row">
-                    <span class="ch-name">{{ ch.name }}</span>
-                    <div class="heat-items">
-                      <div
-                        v-for="point in ch.points"
-                        :key="point.id"
-                        class="heat-item"
-                        :style="{ backgroundColor: getMasteryColor(point.mastery) }"
-                        :title="`${point.name}: ${point.mastery}%`"
-                        @click="showPoiDetail(point)"
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="mastery-pie">
-                <h4>掌握度分布</h4>
-                <div class="pie-visual">
-                  <div class="pie-item mastered">
-                    <strong>{{ masteredCount }}</strong>
-                    <small>已掌握</small>
-                  </div>
-                  <div class="pie-item basic">
-                    <strong>{{ basicCount }}</strong>
-                    <small>基本掌握</small>
-                  </div>
-                  <div class="pie-item weak">
-                    <strong>{{ weakCount }}</strong>
-                    <small>未掌握</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="poi-list">
-              <h4>知识点详情</h4>
-              <table class="poi-table">
-                <thead>
-                  <tr>
-                    <th>知识点</th>
-                    <th>章节</th>
-                    <th>掌握度</th>
-                    <th>习题正确率</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="point in poiList.slice(0, 8)" :key="point.id">
-                    <td><strong>{{ point.name }}</strong></td>
-                    <td>{{ point.chapter }}</td>
-                    <td>
-                      <el-progress :percentage="point.mastery" :status="masteryStatus(point.mastery)" :show-text="false" />
-                    </td>
-                    <td>{{ point.qCorrectRate }}%</td>
-                    <td>
-                      <el-button size="small" text type="primary" @click="jumpToLearn(point)">学习</el-button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="ai-diagnosis">
-              <h4>AI 诊断·知识点掌握情况</h4>
-              <p>{{ aiDiagnosisText.mastery }}</p>
-              <el-button type="primary" @click="generateReviewPlan">生成复习计划</el-button>
-            </div>
-          </div>
-        </el-tab-pane>
+    <section ref="diagnosisSectionRef" class="diagnosis-section">
+      <div class="section-head">
+        <div>
+          <h4>核心问题诊断区</h4>
+          <p>主页面只保留“薄弱点诊断”和“学习趋势分析”两个核心标签</p>
+        </div>
+        <el-button plain type="primary" @click="openMoreData">更多数据</el-button>
+      </div>
 
-        <el-tab-pane label="⚠️ 薄弱点诊断" name="weakness">
-          <div class="tab-content">
-            <div class="weakness-top5">
-              <h4>薄弱知识点 TOP5</h4>
-              <div class="top5-cards">
-                <article v-for="(item, idx) in weaknessTop5" :key="item.id" class="weakness-card">
-                  <div class="rank-badge">{{ idx + 1 }}</div>
-                  <div class="card-body">
-                    <div>
-                      <strong>{{ item.name }}</strong>
-                      <p class="cause">原因：{{ item.cause }}</p>
-                    </div>
-                    <div class="score">{{ item.mastery }}%</div>
-                  </div>
-                  <div class="card-actions">
-                    <el-button size="small" text @click="askAbout(item)">AI讲解</el-button>
-                    <el-button size="small" text @click="practiceProblem(item)">练习</el-button>
-                  </div>
-                </article>
-              </div>
-            </div>
-            <div class="weakness-radar">
-              <h4>薄弱原因分析</h4>
-              <div class="radar-sim">
-                <div class="radar-item">
-                  <span>习题正确率低</span>
-                  <div class="radar-bar" style="width: 65%"></div>
-                </div>
-                <div class="radar-item">
-                  <span>学习时长不足</span>
-                  <div class="radar-bar" style="width: 48%"></div>
-                </div>
-                <div class="radar-item">
-                  <span>提问频繁</span>
-                  <div class="radar-bar" style="width: 72%"></div>
-                </div>
-                <div class="radar-item">
-                  <span>错题重做率低</span>
-                  <div class="radar-bar" style="width: 54%"></div>
-                </div>
-                <div class="radar-item">
-                  <span>需要重讲</span>
-                  <div class="radar-bar" style="width: 38%"></div>
-                </div>
-              </div>
-            </div>
-            <div class="weakness-plan">
-              <h4>AI 提升方案</h4>
-              <div class="plan-step" v-for="step in improvementPlan" :key="step.id">
-                <span class="step-no">{{ step.step }}</span>
+      <el-tabs v-model="diagnosisTab" class="diagnosis-tabs">
+        <el-tab-pane label="📌 薄弱点诊断" name="weakness">
+          <div class="weak-grid">
+            <article v-for="item in weakPointCards" :key="item.id" class="weak-card">
+              <div class="weak-head">
                 <div>
-                  <strong>{{ step.title }}</strong>
-                  <p>{{ step.desc }}</p>
+                  <h5>{{ item.name }}</h5>
+                  <p>{{ item.chapter }} · 优先级{{ item.priority }}</p>
                 </div>
+                <span class="weak-score">{{ item.mastery }}%</span>
               </div>
-              <el-button type="primary" @click="addToTodo">加入待办任务</el-button>
-            </div>
+              <p class="weak-reason">薄弱原因：{{ item.reason }}</p>
+              <p class="weak-advice">AI建议：{{ item.advice }}</p>
+              <div class="weak-actions">
+                <el-button size="small" type="primary" plain @click="askAiExplain(item)">AI讲解</el-button>
+                <el-button size="small" @click="goPractice(item)">去练习</el-button>
+              </div>
+            </article>
+          </div>
+
+          <div v-if="props.currentWeakPoint || props.currentExplain || props.currentTest" class="backend-feedback-panel">
+            <h5>后端联动反馈</h5>
+            <p v-if="props.currentWeakPoint">当前讲解知识点：{{ props.currentWeakPoint }}</p>
+            <p v-if="props.currentExplain">AI讲解：{{ props.currentExplain }}</p>
+            <p v-if="props.currentTest?.question">随堂检验题：{{ props.currentTest.question }}</p>
+            <p v-if="props.testResult?.msg">答题反馈：{{ props.testResult.msg }} {{ props.testResult.analysis || '' }}</p>
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="📝 错题分析" name="mistake">
-          <div class="tab-content">
-            <div class="practice-overview">
-              <div class="stat-item">
-                <span class="stat-num">{{ totalPractices }}</span>
-                <span class="stat-label">总练习数</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-num">{{ avgCorrectRate }}%</span>
-                <span class="stat-label">平均正确率</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-num">{{ mistakeCount }}</span>
-                <span class="stat-label">错题总数</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-num">{{ retakeRate }}%</span>
-                <span class="stat-label">错题重做率</span>
-              </div>
-            </div>
-            <div class="trend-chart">
-              <h4>正确率趋势</h4>
-              <div class="mini-chart">
-                <div v-for="bar in trendBars" :key="bar.key" class="trend-col">
-                  <div class="trend-bar" :style="{ height: bar.height }"></div>
-                  <small>{{ bar.label }}</small>
-                </div>
-              </div>
-            </div>
-            <div class="mistake-list">
-              <h4>错题详情（最近 5 题）</h4>
-              <article v-for="mistake in mistakeList.slice(0, 5)" :key="mistake.id" class="mistake-item">
-                <div class="mistake-head">
-                  <strong>{{ mistake.stem }}</strong>
-                  <span class="mistake-poi">{{ mistake.poi }}</span>
-                </div>
-                <p class="mistake-cause">错因：{{ mistake.cause }}</p>
-                <p class="mistake-answer">正确答案：{{ mistake.answer }}</p>
-                <div class="mistake-actions">
-                  <el-button size="small" text @click="redoMistake(mistake)">重做</el-button>
-                  <el-button size="small" text @click="addToReview(mistake)">加入复习</el-button>
-                </div>
-              </article>
-            </div>
+        <el-tab-pane label="📊 学习趋势分析" name="trend">
+          <div class="trend-grid">
+            <article class="trend-card">
+              <h5>近7天知识点掌握度趋势</h5>
+              <div ref="masteryTrendRef" class="chart trend-chart"></div>
+            </article>
+            <article class="trend-card">
+              <h5>近7天习题正确率趋势</h5>
+              <div ref="accuracyTrendRef" class="chart trend-chart"></div>
+            </article>
           </div>
-        </el-tab-pane>
-
-        <el-tab-pane label="⏱️ 学习行为" name="behavior">
-          <div class="tab-content">
-            <div class="behavior-grid">
-              <div class="behavior-chart">
-                <h4>学习时长分布</h4>
-                <div class="behavior-bars">
-                  <div v-for="t of 7" :key="`time-${t}`" class="bar-item">
-                    <div class="bar" :style="{ height: (30 + Math.random() * 40) + '%' }"></div>
-                    <span>周{{ t }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="activity-dist">
-                <h4>学习活动占比</h4>
-                <div class="activity-items">
-                  <div class="activity-item video">
-                    <span>视频学习</span>
-                    <div class="bar"><div class="fill" style="width: 42%"></div></div>
-                    <span>42%</span>
-                  </div>
-                  <div class="activity-item practice">
-                    <span>习题练习</span>
-                    <div class="bar"><div class="fill" style="width: 28%"></div></div>
-                    <span>28%</span>
-                  </div>
-                  <div class="activity-item qa">
-                    <span>问答互动</span>
-                    <div class="bar"><div class="fill" style="width: 18%"></div></div>
-                    <span>18%</span>
-                  </div>
-                  <div class="activity-item note">
-                    <span>记笔记</span>
-                    <div class="bar"><div class="fill" style="width: 12%"></div></div>
-                    <span>12%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="ai-behavior-tip">
-              <h4>AI 学习习惯建议</h4>
-              <p>{{ aiDiagnosisText.behavior }}</p>
-              <el-button type="primary" @click="optimizeLearning">优化学习计划</el-button>
-            </div>
-          </div>
-        </el-tab-pane>
-
-        <el-tab-pane label="💬 问答详情" name="qa">
-          <div class="tab-content">
-            <div class="qa-overview">
-              <div class="qa-stat">
-                <span class="qa-num">{{ totalQa }}</span>
-                <span class="qa-label">总提问数</span>
-              </div>
-              <div class="qa-stat">
-                <span class="qa-num">{{ qaResolveRate }}%</span>
-                <span class="qa-label">问题解决率</span>
-              </div>
-              <div class="qa-stat">
-                <span class="qa-num">2.3m</span>
-                <span class="qa-label">平均响应</span>
-              </div>
-            </div>
-            <div class="qa-cloud">
-              <h4>高频提问知识点</h4>
-              <div class="word-cloud">
-                <span class="word" style="font-size: 24px; font-weight: bold">正应力</span>
-                <span class="word" style="font-size: 18px">切应力</span>
-                <span class="word" style="font-size: 20px; font-weight: bold">应变</span>
-                <span class="word" style="font-size: 14px">弹性模量</span>
-                <span class="word" style="font-size: 19px">剪应力</span>
-              </div>
-            </div>
-            <div class="qa-history">
-              <h4>历史问答（最近 5 条）</h4>
-              <article v-for="qa in qaHistory.slice(0, 5)" :key="qa.id" class="qa-item">
-                <p><strong>Q:</strong> {{ qa.question }}</p>
-                <p><strong>A:</strong> {{ qa.answer }}</p>
-                <small>{{ qa.time }}</small>
-              </article>
-            </div>
-          </div>
-        </el-tab-pane>
-
-        <el-tab-pane label="📄 诊断报告" name="report">
-          <div class="tab-content">
-            <div class="report-section">
-              <h4>学期学情诊断报告</h4>
-              <div class="report-content">
-                <p><strong>学习状态总评：</strong> 学习态度认真，掌握度良好。近期专注度提升 5%，在重点知识点上投入了更多时间，习题正确率趋于稳定。建议继续加强薄弱知识点的学习。</p>
-                <p><strong>核心成果：</strong></p>
-                <ul>
-                  <li>综合掌握度：78%（较上周↑5%）</li>
-                  <li>薄弱知识点数：3 个（正在逐步改善）</li>
-                  <li>累计学习时长：32.5 小时</li>
-                  <li>习题正确率：72%（较上周↑3%）</li>
-                </ul>
-                <p><strong>优势总结：</strong> 对基础知识掌握扎实，学习态度积极，互动频繁。</p>
-                <p><strong>待改进方向：</strong> 建议加强 "应变" "弹性模量" 等重点难点的学习，增加相关配套练习的投入。</p>
-              </div>
-            </div>
-            <div class="report-actions">
-              <el-button type="primary" @click="exportPdfReport">导出 PDF 报告</el-button>
-              <el-button @click="shareReport">分享报告</el-button>
-              <el-button @click="syncReviewPlan">同步复习计划</el-button>
-            </div>
-          </div>
+          <article class="trend-summary">
+            <h5>AI趋势总结</h5>
+            <p>{{ trendSummary }}</p>
+          </article>
         </el-tab-pane>
       </el-tabs>
     </section>
 
-    <section class="action-guide">
-      <h4>🎯 AI 推荐学习行动</h4>
-      <div class="action-cards">
-        <article class="action-item action-1">
-          <div class="action-icon">1️⃣</div>
-          <div>
-            <strong>薄弱点专项学习：正应力与切应力</strong>
-            <p>掌握度 45%，建议优先学习</p>
-          </div>
-          <el-button type="primary" size="small" @click="actionLearn">立即学习</el-button>
-        </article>
-        <article class="action-item action-2">
-          <div class="action-icon">2️⃣</div>
-          <div>
-            <strong>错题重做：3 道关键习题</strong>
-            <p>提升正确率到 75% 以上</p>
-          </div>
-          <el-button type="primary" size="small" @click="actionPractice">立即做题</el-button>
-        </article>
-        <article class="action-item action-3">
-          <div class="action-icon">3️⃣</div>
-          <div>
-            <strong>生成本周复习计划</strong>
-            <p>智能推荐，个性化复习方案</p>
-          </div>
-          <el-button type="primary" size="small" @click="generateReviewPlan">立即生成</el-button>
-        </article>
+    <section class="fixed-action-bar">
+      <p>{{ actionSuggestion }}</p>
+      <div class="fixed-action-buttons">
+        <el-button type="primary" size="large" @click="openActionDialog('review')">一键生成复习计划</el-button>
+        <el-button size="large" @click="openActionDialog('redo')">错题重做路径</el-button>
+        <el-button size="large" @click="openActionDialog('special')">专项学习方案</el-button>
       </div>
     </section>
 
-    <div class="floating-quick-ops">
-      <el-button type="primary" circle @click="aiDiagnose" title="AI 诊断">诊</el-button>
-      <el-button circle @click="refreshData" title="刷新数据">刷</el-button>
-      <el-button circle @click="exportReport" title="导出报告">导</el-button>
-      <el-button circle @click="scrollToTop" title="回到顶部">顶</el-button>
-    </div>
+    <el-drawer v-model="moreDataDrawerVisible" title="更多学习明细数据" direction="rtl" size="44%">
+      <el-tabs v-model="moreDataTab" class="more-data-tabs">
+        <el-tab-pane label="错题分析" name="mistake">
+          <div class="drawer-grid">
+            <article class="drawer-metric-card">
+              <span>错题总量</span>
+              <strong>{{ metrics.retakeCount }}</strong>
+            </article>
+            <article class="drawer-metric-card">
+              <span>平均正确率</span>
+              <strong>{{ metrics.correctRate }}%</strong>
+            </article>
+            <article class="drawer-metric-card">
+              <span>已完成重做</span>
+              <strong>{{ Math.max(1, metrics.retakeCount - 2) }}</strong>
+            </article>
+          </div>
+          <div class="drawer-list">
+            <article v-for="item in wrongQuestionList" :key="item.id" class="drawer-list-item">
+              <h6>{{ item.stem }}</h6>
+              <p>错因：{{ item.reason }}</p>
+              <p>建议：{{ item.answer }}</p>
+            </article>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="学习行为" name="behavior">
+          <div class="behavior-list">
+            <article v-for="row in behaviorRows" :key="row.label" class="behavior-row">
+              <span>{{ row.label }}</span>
+              <el-progress :percentage="row.percent" :show-text="false" :stroke-width="10" />
+              <strong>{{ row.percent }}%</strong>
+            </article>
+          </div>
+          <p class="drawer-note">计算规则：各行为占比 = 对应行为时长 / 总学习时长，时间窗口采用 {{ timeRangeLabel }}。</p>
+        </el-tab-pane>
+
+        <el-tab-pane label="问答详情" name="qa">
+          <div class="drawer-list">
+            <article v-for="qa in qaHistory" :key="qa.id" class="drawer-list-item">
+              <h6>Q：{{ qa.question }}</h6>
+              <p>A：{{ qa.answer }}</p>
+              <small>{{ qa.time }}</small>
+            </article>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="诊断报告" name="report">
+          <article class="report-card">
+            <h5>学情诊断摘要</h5>
+            <p>本阶段综合学习健康度为 {{ healthScore }} 分，较上周{{ healthDelta >= 0 ? '提升' : '下降' }} {{ Math.abs(healthDelta) }} 分。重点问题集中在 {{ weakPointCards[0]?.name || '核心薄弱点' }} 与 {{ weakPointCards[1]?.name || '配套知识点' }}。</p>
+            <ul>
+              <li v-for="item in reportHighlights" :key="item">{{ item }}</li>
+            </ul>
+          </article>
+        </el-tab-pane>
+      </el-tabs>
+    </el-drawer>
+
+    <el-dialog v-model="mistakeDialogVisible" title="错题待重做详情" width="640px">
+      <div class="dialog-list">
+        <article v-for="item in wrongQuestionList" :key="`dialog-${item.id}`" class="dialog-item">
+          <h6>{{ item.stem }}</h6>
+          <p>知识点：{{ item.point }}</p>
+          <p>错因：{{ item.reason }}</p>
+        </article>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="qaDialogVisible" title="历史问答记录" width="640px">
+      <div class="dialog-list">
+        <article v-for="qa in qaHistory" :key="`qa-${qa.id}`" class="dialog-item">
+          <h6>Q：{{ qa.question }}</h6>
+          <p>A：{{ qa.answer }}</p>
+          <small>{{ qa.time }}</small>
+        </article>
+      </div>
+    </el-dialog>
+
+    <el-dialog v-model="actionDialogVisible" :title="actionDialogTitle" width="560px">
+      <div class="dialog-list">
+        <p v-for="(line, index) in actionDialogContent" :key="`${actionDialogTitle}-${index}`" class="dialog-item">
+          {{ line }}
+        </p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 /* eslint-disable no-undef */
-import { computed, onMounted, ref, unref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { studentCoursewareApi } from '../../services/v1/coursewareApi'
-
-const selectedCourse = ref('current')
-const activeTab = ref('mastery')
+import * as echarts from 'echarts'
 
 const props = defineProps({
   learningStats: {
@@ -394,1032 +278,1168 @@ const props = defineProps({
     type: String,
     default: ''
   },
-  currentExplain: String,
-  currentWeakPoint: String,
-  currentTest: Object,
-  testResult: Object
-})
-
-defineEmits(['start-weak-point', 'generate-test', 'check-answer'])
-
-// 预制数据：章节与知识点
-const chapters = ref([
-  {
-    id: 'ch1',
-    name: '第1章 应力分析',
-    points: [
-      { id: 'p1-1', name: '正应力', mastery: 82 },
-      { id: 'p1-2', name: '切应力', mastery: 45 },
-      { id: 'p1-3', name: '应力转换', mastery: 67 },
-      { id: 'p1-4', name: '主应力', mastery: 78 }
-    ]
+  currentExplain: {
+    type: String,
+    default: ''
   },
-  {
-    id: 'ch2',
-    name: '第2章 应变',
-    points: [
-      { id: 'p2-1', name: '线应变', mastery: 85 },
-      { id: 'p2-2', name: '角应变', mastery: 52 },
-      { id: 'p2-3', name: '应变张量', mastery: 71 },
-      { id: 'p2-4', name: '主应变', mastery: 88 }
-    ]
+  currentWeakPoint: {
+    type: String,
+    default: ''
   },
-  {
-    id: 'ch3',
-    name: '第3章 物理性质',
-    points: [
-      { id: 'p3-1', name: '弹性模量', mastery: 38 },
-      { id: 'p3-2', name: '泊松比', mastery: 62 },
-      { id: 'p3-3', name: '剪模量', mastery: 75 },
-      { id: 'p3-4', name: '体积模量', mastery: 80 }
-    ]
+  currentTest: {
+    type: Object,
+    default: () => null
+  },
+  testResult: {
+    type: Object,
+    default: () => null
   }
-])
-
-const poiList = computed(() => {
-  const all = []
-  chapters.value.forEach((ch) => {
-    ch.points.forEach((p) => {
-      all.push({
-        id: p.id,
-        name: p.name,
-        chapter: ch.name,
-        mastery: p.mastery,
-        qCorrectRate: Math.max(30, p.mastery - 10 + Math.random() * 20)
-      })
-    })
-  })
-  return all
 })
 
-// 统计数据
-const masteredCount = computed(() => poiList.value.filter(p => p.mastery >= 80).length)
-const basicCount = computed(() => poiList.value.filter(p => p.mastery >= 60 && p.mastery < 80).length)
-const weakCount = computed(() => poiList.value.filter(p => p.mastery < 60).length)
-const totalPoints = computed(() => poiList.value?.length || 0)
-const avgMastery = computed(() => {
-  const sum = poiList.value.reduce((acc, p) => acc + p.mastery, 0)
-  return Math.round(sum / Math.max(1, totalPoints.value))
+const emit = defineEmits(['start-weak-point', 'generate-test', 'check-answer'])
+
+const selectedCourse = ref('current')
+const selectedTimeRange = ref('week')
+const diagnosisTab = ref('weakness')
+const moreDataTab = ref('mistake')
+const dataUpdatedAt = ref(new Date().toLocaleString('zh-CN'))
+
+const moreDataDrawerVisible = ref(false)
+const mistakeDialogVisible = ref(false)
+const qaDialogVisible = ref(false)
+const actionDialogVisible = ref(false)
+const actionDialogTitle = ref('')
+const actionDialogContent = ref([])
+
+const diagnosisSectionRef = ref(null)
+const healthRadarRef = ref(null)
+const masteryTrendRef = ref(null)
+const accuracyTrendRef = ref(null)
+
+const clamp = (value, min, max) => {
+  const n = Number(value)
+  if (Number.isNaN(n)) return min
+  return Math.min(max, Math.max(min, n))
+}
+
+const chapterPool = ['第1章 应力分析', '第2章 应变理论', '第3章 材料性质', '第4章 组合应用']
+const reasonPool = ['习题正确率偏低', '概念区分不清晰', '课堂追问频率偏高', '错题重做间隔过长']
+const advicePool = ['先听AI概念讲解再做3题巩固', '优先完成错题重做并复盘解题步骤', '结合课堂笔记回顾关键公式']
+
+const metrics = computed(() => {
+  const source = props.learningStats || {}
+  const masteryRate = clamp(source.masteryRate || 69, 40, 96)
+  const focusScore = clamp(source.focusScore || 85, 45, 98)
+  const totalQuestions = Math.max(6, Number(source.totalQuestions || 24))
+  const weakPointCount = Math.max(1, Number(source.weakPointCount || props.weakPointTags.length || 3))
+  const correctRate = clamp(Math.round(masteryRate * 0.78 + 18), 52, 97)
+  const qaCount = Math.max(4, Math.round(totalQuestions * 0.4))
+  const qaResolveRate = clamp(Math.round(84 + (focusScore - 70) * 0.35), 70, 98)
+  const effectiveHours = Number((focusScore * 0.076).toFixed(1))
+  const weeklyHours = 7.6
+  const retakeCount = Math.max(2, Math.round(weakPointCount * 3))
+  return {
+    masteryRate,
+    focusScore,
+    totalQuestions,
+    weakPointCount,
+    correctRate,
+    qaCount,
+    qaResolveRate,
+    effectiveHours,
+    weeklyHours,
+    retakeCount
+  }
 })
 
-const practiceHistory = ref([])
-const wrongQuestions = ref([])
-const totalPracticeCount = ref(0)
-const totalWrongCount = ref(0)
-const totalRetriedCount = ref(0)
-
-const totalPractices = computed(() => Number(totalPracticeCount.value || practiceHistory.value.length || 0))
-const avgCorrectRate = computed(() => {
-  const rows = Array.isArray(practiceHistory.value) ? practiceHistory.value : []
-  if (!rows.length) return 0
-  const sum = rows.reduce((acc, item) => {
-    const attempt = item?.attempt || {}
-    const total = Number(attempt.totalCount || item.questionCount || item.questionCnt || 0)
-    const correct = Number(attempt.correctCount || 0)
-    if (total <= 0) return acc
-    return acc + (correct / total) * 100
-  }, 0)
-  return Math.round(sum / rows.length)
+const timeRangeLabel = computed(() => {
+  const map = {
+    week: '本周',
+    month: '本月',
+    term: '本学期'
+  }
+  return map[selectedTimeRange.value] || '本周'
 })
-const mistakeCount = computed(() => Number(totalWrongCount.value || wrongQuestions.value.length || 0))
-const retakeRate = computed(() => {
-  const total = Number(totalWrongCount.value || wrongQuestions.value.length || 0)
-  if (total <= 0) return 0
-  return Math.min(100, Math.round((Number(totalRetriedCount.value || 0) / total) * 100))
-})
-const totalQa = 12
-const qaResolveRate = 92
 
-const weaknessTop5 = ref([
-  { id: 1, name: '正应力与切应力', cause: '习题正确率低', mastery: 45 },
-  { id: 2, name: '弹性模量', cause: '多次重讲', mastery: 38 },
-  { id: 3, name: '角应变', cause: '提问频繁', mastery: 52 },
-  { id: 4, name: '应变张量', cause: '练习不足', mastery: 61 },
-  { id: 5, name: '主应力概念', cause: '理解偏差', mastery: 58 }
-])
+const weakPointCards = computed(() => {
+  const fromApi = (props.weakPointTags || [])
+    .filter(item => item && item.name)
+    .slice(0, 6)
+    .map((item, index) => ({
+      id: item.id || `weak-${index + 1}`,
+      name: item.name
+    }))
 
-const improvementPlan = ref([
-  { id: 1, step: '1', title: '基础讲解', desc: '回归教材，重点理解正应力、切应力的定义与物理意义' },
-  { id: 2, step: '2', title: '配套练习', desc: '生成 10 道基础应力计算题，逐步巩固' },
-  { id: 3, step: '3', title: '专项测试', desc: '一周后进行小测试，检验学习效果' }
-])
+  const fallbackNames = ['主应力概念', '应变张量', '弹性模量', '切应力方向判定']
+  const names = fromApi.length ? fromApi : fallbackNames.map((name, index) => ({ id: `mock-${index + 1}`, name }))
+  const masteryBaseline = clamp(metrics.value.masteryRate - 12, 35, 80)
 
-const mistakeList = computed(() => {
-  return (wrongQuestions.value || []).map((item, index) => ({
-    id: item.recordId || item.questionId || `wrong-${index + 1}`,
-    questionId: item.questionId || '',
-    stem: item.content || '未提供题干',
-    poi: item.questionType || item.nodeId || '知识点',
-    cause: item.aiComment || item.explanation || '可在重做后查看更详细分析',
-    answer: item.correctAnswer || item.referenceAnswer || '主观题请查看参考答案'
+  return names.map((item, index) => ({
+    id: item.id,
+    name: item.name,
+    chapter: chapterPool[index % chapterPool.length],
+    mastery: clamp(Math.round(masteryBaseline - index * 5 + (index % 2 === 0 ? 1 : -2)), 32, 82),
+    reason: reasonPool[index % reasonPool.length],
+    advice: advicePool[index % advicePool.length],
+    priority: index + 1
   }))
 })
 
-const trendBars = computed(() => {
-  const map = new Map()
-  const today = new Date()
-  for (let i = 6; i >= 0; i -= 1) {
-    const d = new Date(today)
-    d.setDate(today.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
-    map.set(key, { score: 0, count: 0 })
-  }
-  (practiceHistory.value || []).forEach((item) => {
-    const dt = item?.attempt?.submittedAt || item?.createdAt
-    if (!dt) return
-    const key = String(dt).slice(0, 10)
-    if (!map.has(key)) return
-    const bucket = map.get(key)
-    const total = Number(item?.attempt?.totalCount || item.questionCount || item.questionCnt || 0)
-    const correct = Number(item?.attempt?.correctCount || 0)
-    if (total > 0) {
-      bucket.score += (correct / total) * 100
-      bucket.count += 1
-    }
-  })
-  return Array.from(map.entries()).map(([key, bucket]) => {
-    const avg = bucket.count > 0 ? Math.round(bucket.score / bucket.count) : 0
-    return {
-      key,
-      label: key.slice(5).replace('-', '/'),
-      value: avg,
-      height: `${Math.max(8, avg)}%`
-    }
-  })
+const weakDeltaLabel = computed(() => {
+  const delta = Math.max(1, weakPointCards.value.length + 2 - weakPointCards.value.length)
+  return `减少${delta}个`
 })
 
-const qaHistory = ref([
-  { id: 1, question: '正应力和切应力的区别是什么？', answer: '正应力垂直于截面，切应力平行于截面。', time: '今天 14:30' },
-  { id: 2, question: '如何计算应变？', answer: '应变 = 变形量 / 原始长度。', time: '今天 12:15' },
-  { id: 3, question: '弹性模量是常数吗？', answer: '在弹性范围内，对于某种材料是常数。', time: '昨天 16:45' },
-  { id: 4, question: '主应力如何求？', answer: '通过应力摩尔圆或特征方程求解。', time: '昨天 10:20' },
-  { id: 5, question: '泊松比的范围？', answer: '一般在 0 到 0.5 之间。', time: '前天 15:00' }
-])
+const radarIndicators = [
+  { name: '知识点掌握度', max: 100, rule: '掌握节点数 / 总节点数', source: '课堂学习+笔记复盘' },
+  { name: '习题正确率', max: 100, rule: '正确题数 / 总作答题数', source: '随堂练习记录' },
+  { name: '学习专注度', max: 100, rule: '有效时长 / 学习总时长', source: '学习行为日志' },
+  { name: '互动参与度', max: 100, rule: '有效提问解决率', source: 'AI问答互动' },
+  { name: '学习持续性', max: 100, rule: '连续学习天数权重得分', source: '学习轨迹统计' }
+]
 
-const aiDiagnosisText = {
-  mastery: '综合掌握度为 78%，相比上周提升 5%，学习进度稳定向前。其中 "基础概念" 掌握最好（85%+），但 "非线性计算" 和 "复杂应力状态分析" 仍需加强。建议重点关注这两个领域，配合针对性练习。',
-  behavior: '最近一周学习时长 6.5 小时，平均每天 50 分钟，专注度 85%。你的学习习惯较好，主要集中在evening（晚上7-10点效率最高）。建议保持现有学习节奏，继续加强 "错题复盘" 和 "配套练习" 的投入比例。'
-}
-
-// eslint-disable-next-line vue/no-ref-as-operand
-const overviewCards = computed(() => {
-  const masterValue = unref(avgMastery)
-  const correctValue = unref(avgCorrectRate)
-  const weakValue = unref(weakCount)
-  const qaValue = unref(totalQa)
-  const rateValue = unref(qaResolveRate)
+const radarCurrentValues = computed(() => {
+  const consistency = clamp(Math.round((metrics.value.effectiveHours / metrics.value.weeklyHours) * 100), 45, 98)
   return [
-    {
-      id: 1,
-      emoji: '📊',
-      label: '综合掌握度',
-      number: `${masterValue}%`,
-      sub: '所有知识点平均掌握程度',
-      trend: 5,
-      tabName: 'mastery'
-    },
-    {
-      id: 2,
-      emoji: '⚠️',
-      label: '薄弱知识点',
-      number: `${weakValue}个`,
-      sub: '掌握度＜60% 的知识点',
-      trend: -2,
-      tabName: 'weakness'
-    },
-    {
-      id: 3,
-      emoji: '🎯',
-      label: '学习专注度',
-      number: '85%',
-      sub: '有效学习时长占比',
-      trend: 3,
-      tabName: 'behavior'
-    },
-    {
-      id: 4,
-      emoji: '✏️',
-      label: '习题正确率',
-      number: `${correctValue}%`,
-    sub: '所有练习平均正确率',
-    trend: 2,
-    tabName: 'mistake'
-  },
-  {
-    id: 5,
-    emoji: '💬',
-    label: '互动提问数',
-    number: `${qaValue}次`,
-    sub: `解决率 ${rateValue}%`,
-    trend: 1,
-    tabName: 'qa'
-  },
-  {
-    id: 6,
-    emoji: '📅',
-    label: '累计学习时长',
-    number: '32.5h',
-    sub: '本周新增 6.5 小时',
-    trend: 8,
-    tabName: 'behavior'
-  }
+    metrics.value.masteryRate,
+    metrics.value.correctRate,
+    metrics.value.focusScore,
+    clamp(metrics.value.qaResolveRate - 4, 50, 98),
+    consistency
   ]
 })
 
-const getMasteryColor = (mastery) => {
-  if (mastery >= 80) return '#52c41a'
-  if (mastery >= 60) return '#faad14'
-  return '#f5222d'
-}
+const radarLastWeekValues = computed(() => {
+  const offsets = [5, 4, 3, 4, 5]
+  return radarCurrentValues.value.map((value, index) => clamp(value - offsets[index], 28, 96))
+})
 
-const masteryStatus = (mastery) => {
-  if (mastery >= 80) return 'success'
-  if (mastery >= 60) return 'warning'
-  return 'exception'
-}
+const healthScore = computed(() => {
+  const sum = radarCurrentValues.value.reduce((acc, item) => acc + item, 0)
+  return Math.round(sum / radarCurrentValues.value.length)
+})
 
-const showPoiDetail = (point) => {
-  ElMessage.info(`${point.name}：掌握度 ${point.mastery}%，建议查看详情`)
-}
+const lastWeekHealthScore = computed(() => {
+  const sum = radarLastWeekValues.value.reduce((acc, item) => acc + item, 0)
+  return Math.round(sum / radarLastWeekValues.value.length)
+})
 
-const jumpToLearn = (point) => {
-  ElMessage.success(`已推荐你学习 "${point.name}"`)
-}
+const healthDelta = computed(() => healthScore.value - lastWeekHealthScore.value)
 
-const askAbout = (item) => {
-  ElMessage.success(`AI 讲解 "${item.name}"（演示模式）`)
-}
+const trendLabels = computed(() => {
+  if (selectedTimeRange.value === 'month') return ['第1周', '第2周', '第3周', '第4周', '第5周', '第6周', '第7周']
+  if (selectedTimeRange.value === 'term') return ['阶段1', '阶段2', '阶段3', '阶段4', '阶段5', '阶段6', '阶段7']
+  return ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+})
 
-const practiceProblem = (item) => {
-  ElMessage.success(`生成 "${item.name}" 专项练习题（演示模式）`)
-}
+const masteryTrendValues = computed(() => {
+  const base = clamp(metrics.value.masteryRate - 6, 36, 92)
+  const offsets = [-3, -2, -1, 1, 1, 3, 4]
+  return offsets.map((offset, index) => clamp(base + offset + Math.floor(index / 2), 30, 98))
+})
 
-const addToTodo = () => {
-  ElMessage.success('已添加到待办任务（演示模式）')
-}
+const accuracyTrendValues = computed(() => {
+  const offsets = [-2, -1, 0, 1, 0, 2, 3]
+  return masteryTrendValues.value.map((value, index) => clamp(value - 5 + offsets[index], 25, 97))
+})
 
-const redoMistake = async (mistake) => {
-  if (!mistake?.questionId || !props.studentId) {
-    ElMessage.warning('当前错题缺少必要信息，无法生成重做任务')
-    return
+const trendSummary = computed(() => {
+  const masteryStart = masteryTrendValues.value[0]
+  const masteryEnd = masteryTrendValues.value[masteryTrendValues.value.length - 1]
+  const accuracyStart = accuracyTrendValues.value[0]
+  const accuracyEnd = accuracyTrendValues.value[accuracyTrendValues.value.length - 1]
+  return `掌握度由 ${masteryStart}% 提升至 ${masteryEnd}%，习题正确率由 ${accuracyStart}% 提升至 ${accuracyEnd}%。近期在 ${weakPointCards.value[0]?.name || '核心薄弱点'} 已出现回升趋势，建议继续保持“讲解+练习+复盘”的学习节奏。`
+})
+
+const wrongQuestionList = computed(() => {
+  return weakPointCards.value.slice(0, 5).map((item, index) => ({
+    id: `wrong-${index + 1}`,
+    point: item.name,
+    stem: `【${item.name}】应用题第${index + 1}题`,
+    reason: item.reason,
+    answer: '先复述概念，再写完整求解步骤，并核对单位与方向。'
+  }))
+})
+
+const behaviorRows = computed(() => {
+  const focusBonus = Math.round((metrics.value.focusScore - 80) / 6)
+  const video = clamp(38 + focusBonus, 30, 48)
+  const practice = clamp(31 - Math.round(focusBonus / 2), 24, 36)
+  const qa = 18
+  const notes = 100 - video - practice - qa
+  return [
+    { label: '视频学习', percent: video },
+    { label: '习题练习', percent: practice },
+    { label: '问答互动', percent: qa },
+    { label: '整理笔记', percent: notes }
+  ]
+})
+
+const qaHistory = computed(() => {
+  const first = weakPointCards.value[0]?.name || '主应力概念'
+  const second = weakPointCards.value[1]?.name || '应变张量'
+  return [
+    { id: 1, question: `${first}和切应力的判定规则是什么？`, answer: '先确认截面法向，再判断分力方向。', time: '今天 14:30' },
+    { id: 2, question: `${second}题为什么总在第二步出错？`, answer: '通常是张量分量展开顺序不一致导致。', time: '今天 10:12' },
+    { id: 3, question: '弹性模量的适用前提是什么？', answer: '在线弹性范围内近似为常数。', time: '昨天 20:45' },
+    { id: 4, question: '错题重做时先看答案还是先复做？', answer: '建议先复做，再对照答案定位误区。', time: '昨天 18:20' }
+  ]
+})
+
+const reportHighlights = computed(() => [
+  `薄弱知识点数量：${weakPointCards.value.length} 个，重点为 ${weakPointCards.value[0]?.name || '核心节点'}`,
+  `习题正确率：${metrics.value.correctRate}% ，建议本周追加 ${Math.max(4, weakPointCards.value.length * 2)} 题专项练习`,
+  `问答解决率：${metrics.value.qaResolveRate}% ，建议对高频问题建立个人错因模板`
+])
+
+const topQuestionTopics = computed(() => {
+  return weakPointCards.value.slice(0, 2).map(item => item.name).join('、')
+})
+
+const actionSuggestion = computed(() => {
+  const first = weakPointCards.value[0]?.name || '主应力概念'
+  const second = weakPointCards.value[1]?.name || '应变张量'
+  return `基于你的学情，建议优先补强「${first}」「${second}」，并在今日完成错题重做闭环。`
+})
+
+let radarChartInstance = null
+let masteryTrendChartInstance = null
+let accuracyTrendChartInstance = null
+
+const renderRadarChart = () => {
+  if (!healthRadarRef.value) return
+  if (!radarChartInstance) {
+    radarChartInstance = echarts.init(healthRadarRef.value)
   }
-  try {
-    await studentCoursewareApi.retryWrongQuestion({
-      questionId: mistake.questionId,
-      studentId: props.studentId
-    })
-    totalRetriedCount.value += 1
-    ElMessage.success('已生成错题重做任务')
-  } catch (error) {
-    ElMessage.error(`生成重做任务失败：${error.message}`)
+
+  radarChartInstance.setOption({
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(15, 23, 42, 0.92)',
+      borderColor: '#2d8cf0',
+      textStyle: { color: '#f8fbff', fontSize: 12 },
+      formatter: params => {
+        const values = params.value || []
+        const rows = radarIndicators.map((indicator, index) => {
+          return `${indicator.name}: ${values[index]}分<br/>计算规则：${indicator.rule}<br/>数据来源：${indicator.source}`
+        })
+        return rows.join('<br/><br/>')
+      }
+    },
+    legend: {
+      top: 2,
+      right: 8,
+      icon: 'roundRect',
+      itemWidth: 14,
+      textStyle: { color: '#3b4c66', fontSize: 11 },
+      data: ['本周', '上周']
+    },
+    radar: {
+      radius: '67%',
+      center: ['50%', '56%'],
+      indicator: radarIndicators,
+      splitNumber: 4,
+      axisName: { color: '#53627a', fontSize: 12 },
+      splitLine: { lineStyle: { color: '#d3deee' } },
+      splitArea: { areaStyle: { color: ['#f8fbff', '#f2f7ff'] } }
+    },
+    series: [
+      {
+        type: 'radar',
+        symbol: 'circle',
+        symbolSize: 6,
+        data: [
+          {
+            value: radarCurrentValues.value,
+            name: '本周',
+            lineStyle: { color: '#2d8cf0', width: 2 },
+            itemStyle: { color: '#2d8cf0' },
+            areaStyle: { color: 'rgba(45, 140, 240, 0.32)' }
+          },
+          {
+            value: radarLastWeekValues.value,
+            name: '上周',
+            lineStyle: { color: '#94a3b8', width: 2, type: 'dashed' },
+            itemStyle: { color: '#94a3b8' },
+            areaStyle: { color: 'rgba(148, 163, 184, 0.08)' }
+          }
+        ]
+      }
+    ]
+  }, true)
+}
+
+const renderMasteryTrendChart = () => {
+  if (!masteryTrendRef.value) return
+  if (!masteryTrendChartInstance) {
+    masteryTrendChartInstance = echarts.init(masteryTrendRef.value)
+  }
+  masteryTrendChartInstance.setOption({
+    grid: { left: 36, right: 18, top: 24, bottom: 28 },
+    tooltip: {
+      trigger: 'axis',
+      formatter: params => {
+        const target = params[0]
+        return `${target.axisValue}<br/>掌握度：${target.data}%<br/>计算规则：已掌握节点数 / 总节点数`
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: trendLabels.value,
+      axisLine: { lineStyle: { color: '#c8d8ef' } },
+      axisLabel: { color: '#52617b' }
+    },
+    yAxis: {
+      type: 'value',
+      min: 20,
+      max: 100,
+      axisLabel: { color: '#52617b', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#e3edfa' } }
+    },
+    series: [
+      {
+        type: 'line',
+        smooth: true,
+        data: masteryTrendValues.value,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { color: '#2d8cf0', width: 3 },
+        itemStyle: { color: '#2d8cf0' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(45, 140, 240, 0.35)' },
+            { offset: 1, color: 'rgba(45, 140, 240, 0.03)' }
+          ])
+        }
+      }
+    ]
+  }, true)
+}
+
+const renderAccuracyTrendChart = () => {
+  if (!accuracyTrendRef.value) return
+  if (!accuracyTrendChartInstance) {
+    accuracyTrendChartInstance = echarts.init(accuracyTrendRef.value)
+  }
+  accuracyTrendChartInstance.setOption({
+    grid: { left: 36, right: 18, top: 24, bottom: 28 },
+    tooltip: {
+      trigger: 'axis',
+      formatter: params => {
+        const target = params[0]
+        return `${target.axisValue}<br/>正确率：${target.data}%<br/>计算规则：正确题数 / 作答总题数`
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: trendLabels.value,
+      axisLine: { lineStyle: { color: '#c8d8ef' } },
+      axisLabel: { color: '#52617b' }
+    },
+    yAxis: {
+      type: 'value',
+      min: 20,
+      max: 100,
+      axisLabel: { color: '#52617b', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#e3edfa' } }
+    },
+    series: [
+      {
+        type: 'bar',
+        barWidth: 24,
+        data: accuracyTrendValues.value,
+        itemStyle: {
+          borderRadius: [8, 8, 0, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#40a9ff' },
+            { offset: 1, color: '#2d8cf0' }
+          ])
+        }
+      }
+    ]
+  }, true)
+}
+
+const renderAllCharts = async () => {
+  await nextTick()
+  renderRadarChart()
+  if (diagnosisTab.value === 'trend') {
+    renderMasteryTrendChart()
+    renderAccuracyTrendChart()
   }
 }
 
-const addToReview = () => {
-  ElMessage.success('已加入复习计划（演示模式）')
+const resizeCharts = () => {
+  radarChartInstance?.resize()
+  masteryTrendChartInstance?.resize()
+  accuracyTrendChartInstance?.resize()
 }
 
-const generateReviewPlan = () => {
-  ElMessage.success('本周复习计划已生成并同步到个人中心（演示模式）')
+const disposeCharts = () => {
+  radarChartInstance?.dispose()
+  masteryTrendChartInstance?.dispose()
+  accuracyTrendChartInstance?.dispose()
+  radarChartInstance = null
+  masteryTrendChartInstance = null
+  accuracyTrendChartInstance = null
 }
 
-const optimizeLearning = () => {
-  ElMessage.success('学习计划已优化（演示模式）')
-}
-
-const aiDiagnose = () => {
-  ElMessage.success('AI 诊断已启动，请提出你的学习疑问（演示模式）')
-}
-
-const refreshData = () => {
-  ElMessage.success('数据已刷新')
+const refreshData = async () => {
+  dataUpdatedAt.value = new Date().toLocaleString('zh-CN')
+  await renderAllCharts()
+  ElMessage.success('学习分析数据已刷新')
 }
 
 const exportReport = () => {
-  ElMessage.success('诊断报告已导出为 PDF（演示模式）')
+  openActionDialog('report')
 }
 
-const exportPdfReport = () => {
-  ElMessage.success('PDF 报告已导出（演示模式）')
+const jumpToWeaknessArea = () => {
+  diagnosisTab.value = 'weakness'
+  nextTick(() => {
+    diagnosisSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
 }
 
-const shareReport = () => {
-  ElMessage.success('报告分享链接已生成（演示模式）')
+const openMoreData = () => {
+  moreDataDrawerVisible.value = true
 }
 
-const syncReviewPlan = () => {
-  ElMessage.success('复习计划已同步到个人中心（演示模式）')
+const openMistakeDialog = () => {
+  mistakeDialogVisible.value = true
 }
 
-const actionLearn = () => {
-  ElMessage.success('已跳转到知识点学习页面（演示模式）')
+const openQaDialog = () => {
+  qaDialogVisible.value = true
 }
 
-const actionPractice = () => {
-  ElMessage.success('已跳转到错题重做页面（演示模式）')
+const askAiExplain = item => {
+  emit('start-weak-point', { id: item.id, name: item.name })
+  ElMessage.success(`已请求 AI 讲解：${item.name}`)
 }
 
-const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
+const goPractice = item => {
+  emit('generate-test')
+  openActionDialog('practice', item)
 }
 
-const loadPracticeRecords = async () => {
-  if (!props.studentId) return
-  try {
-    const [historyRes, wrongRes] = await Promise.all([
-      studentCoursewareApi.getPracticeHistory({
-        studentId: props.studentId,
-        courseId: props.courseId,
-        pageSize: 100
-      }),
-      studentCoursewareApi.getWrongQuestions({
-        studentId: props.studentId,
-        courseId: props.courseId,
-        pageSize: 100
-      })
-    ])
-    const historyData = historyRes?.data || {}
-    const wrongData = wrongRes?.data || {}
-    practiceHistory.value = Array.isArray(historyData.items) ? historyData.items : []
-    wrongQuestions.value = Array.isArray(wrongData.items) ? wrongData.items : []
-    totalPracticeCount.value = Number(historyData.total || practiceHistory.value.length || 0)
-    totalWrongCount.value = Number(wrongData.total || wrongQuestions.value.length || 0)
-  } catch (error) {
-    practiceHistory.value = []
-    wrongQuestions.value = []
-    totalPracticeCount.value = 0
-    totalWrongCount.value = 0
-    ElMessage.error(`加载错题记录失败：${error.message}`)
+const openActionDialog = (type, payload = null) => {
+  const name = payload?.name || '当前薄弱点'
+  const actions = {
+    review: {
+      title: '一键复习计划',
+      lines: [
+        `优先复习：${weakPointCards.value[0]?.name || name}、${weakPointCards.value[1]?.name || '配套知识点'}`,
+        `计划结构：讲解 10 分钟 + 练习 ${Math.max(4, weakPointCards.value.length * 2)} 题 + 复盘 8 分钟`,
+        '已同步到个人学习待办清单'
+      ]
+    },
+    redo: {
+      title: '错题重做路径',
+      lines: [
+        '第一步：按知识点归类错题，优先处理高频错因',
+        '第二步：重做后立即对照解析，记录易错模板',
+        '第三步：次日进行5题回测确认掌握度'
+      ]
+    },
+    special: {
+      title: '专项学习方案',
+      lines: [
+        `本次专项主题：${weakPointCards.value[0]?.name || name}`,
+        '建议路径：AI讲解 -> 随堂例题 -> 变式训练 -> 错因复盘',
+        '预估完成时长：35 分钟'
+      ]
+    },
+    practice: {
+      title: `练习任务：${name}`,
+      lines: [
+        '已生成基础题3道、进阶题2道，建议先独立完成再看解析',
+        '完成后可在“更多数据 > 错题分析”查看变化趋势'
+      ]
+    },
+    report: {
+      title: '导出报告说明',
+      lines: [
+        `导出范围：${timeRangeLabel.value}学习分析`,
+        '内容包含：健康度雷达、薄弱点卡片、趋势图与行动建议',
+        '状态：报告模板已生成，可直接分享给教师端'
+      ]
+    }
   }
+
+  const current = actions[type] || {
+    title: '学习提示',
+    lines: ['当前操作已完成。']
+  }
+
+  actionDialogTitle.value = current.title
+  actionDialogContent.value = current.lines
+  actionDialogVisible.value = true
 }
+
+watch(
+  [selectedCourse, selectedTimeRange, metrics, weakPointCards, radarCurrentValues, radarLastWeekValues],
+  () => {
+    renderAllCharts()
+  },
+  { deep: true }
+)
+
+watch(diagnosisTab, tab => {
+  if (tab === 'trend') {
+    nextTick(() => {
+      renderMasteryTrendChart()
+      renderAccuracyTrendChart()
+    })
+  }
+})
 
 onMounted(() => {
-  loadPracticeRecords()
+  renderAllCharts()
+  window.addEventListener('resize', resizeCharts)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', resizeCharts)
+  disposeCharts()
 })
 </script>
 
 <style scoped>
-.analytics-workbench {
-  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
-  border-radius: 22px;
-  border: 1px solid #d7e6de;
+.study-analytics-page {
+  --primary: #2d8cf0;
+  --primary-soft: #eaf3ff;
+  --ink-900: #1d2a44;
+  --ink-700: #46597a;
+  --ink-500: #6d7f9f;
+  --line: #d7e5f8;
+
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   padding: 16px;
-  box-shadow: 0 18px 36px rgba(24, 55, 46, 0.08);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(45, 140, 240, 0.12), transparent 40%),
+    radial-gradient(circle at 90% 2%, rgba(56, 189, 248, 0.18), transparent 32%),
+    linear-gradient(180deg, #f9fcff 0%, #f4f8ff 38%, #f8fbff 100%);
 }
 
-.head-area {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 14px;
-}
-
-.eyebrow {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #67867a;
-}
-
-h3 {
-  margin: 4px 0 0;
-  color: #1f443d;
-  font-size: 20px;
-}
-
-.head-tip {
-  margin: 6px 0 0;
-  color: #5f7a70;
-  font-size: 13px;
-}
-
-.head-controls {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.overview-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.card {
-  background: #fff;
-  border: 1px solid #d8e7df;
-  border-radius: 12px;
-  padding: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-  border-color: #2f605a;
-}
-
-.card.highlight {
-  background: linear-gradient(135deg, #f0f9f6 0%, #e8f4f1 100%);
-}
-
-.card-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.card-emoji {
-  font-size: 20px;
-}
-
-.card-label {
-  font-size: 12px;
-  color: #5a7a6f;
-}
-
-.card-number {
-  font-size: 22px;
-  font-weight: bold;
-  color: #1f443d;
-  margin: 4px 0;
-}
-
-.card-sub {
-  font-size: 11px;
-  color: #6f857b;
-  line-height: 1.4;
-}
-
-.card-trend {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.card-trend.up {
-  color: #1f8f57;
-}
-
-.card-trend.down {
-  color: #cc4c43;
-}
-
-.diagnostic-area {
-  background: #fff;
-  border: 1px solid #d8e7df;
+.analysis-header {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  border: 1px solid var(--line);
   border-radius: 14px;
+  background: rgba(250, 253, 255, 0.94);
+  backdrop-filter: blur(6px);
   padding: 14px;
-  margin-bottom: 12px;
-}
-
-.tab-content {
-  padding: 8px 0;
-}
-
-.mastery-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.mastery-chart,
-.mastery-pie {
-  background: #f9fcfb;
-  border: 1px solid #dce9e3;
-  border-radius: 10px;
-  padding: 10px;
-}
-
-.heatmap {
-  display: grid;
-  gap: 6px;
-}
-
-.heatmap-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.ch-name {
-  min-width: 70px;
-  font-size: 12px;
-  color: #3e6860;
-}
-
-.heat-items {
-  display: flex;
-  gap: 4px;
-}
-
-.heat-item {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.heat-item:hover {
-  transform: scale(1.2);
-}
-
-.pie-visual {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
-
-.pie-item {
-  text-align: center;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid #dce9e3;
-}
-
-.pie-item.mastered {
-  background: #f0f8f3;
-  border-color: #1f8f57;
-}
-
-.pie-item.basic {
-  background: #fffbf0;
-  border-color: #faad14;
-}
-
-.pie-item.weak {
-  background: #fef2f0;
-  border-color: #cc4c43;
-}
-
-.pie-item strong {
-  display: block;
-  font-size: 18px;
-}
-
-.pie-item small {
-  color: #667d73;
-}
-
-.poi-list,
-.ai-diagnosis,
-.weak-top3-panel,
-.teaching-advice-panel,
-.weakness-top5,
-.weakness-radar,
-.weakness-plan,
-.practice-overview,
-.trend-chart,
-.mistake-list,
-.behavior-grid,
-.ai-behavior-tip,
-.qa-overview,
-.qa-cloud,
-.qa-history,
-.report-section {
-  background: #f9fcfb;
-  border: 1px solid #dce9e3;
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 10px;
-}
-
-.poi-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.poi-table thead {
-  background: #eef6f2;
-  border-bottom: 2px solid #d8e7df;
-}
-
-.poi-table th,
-.poi-table td {
-  padding: 8px;
-  text-align: left;
-}
-
-.top5-cards {
-  display: grid;
-  gap: 8px;
-}
-
-.weakness-card {
-  background: #fff;
-  border: 1px solid #dce9e3;
-  border-radius: 8px;
-  padding: 10px;
-  display: flex;
-  align-items: center;
   gap: 10px;
 }
 
-.rank-badge {
-  min-width: 32px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #faad14;
-  color: #fff;
-  border-radius: 50%;
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.card-body {
-  flex: 1;
-}
-
-.card-body strong {
-  display: block;
-}
-
-.cause {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: #6f857b;
-}
-
-.score {
-  font-size: 16px;
-  font-weight: bold;
-  color: #1f443d;
-}
-
-.card-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.radar-sim {
-  display: grid;
-  gap: 8px;
-}
-
-.radar-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.radar-item span {
-  min-width: 80px;
-  font-size: 12px;
-}
-
-.radar-bar {
-  flex: 1;
-  height: 8px;
-  background: #dce9e3;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.radar-bar::after {
-  content: '';
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, #1f8f57, #52c41a);
-  border-radius: 4px;
-}
-
-.plan-step {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.step-no {
-  min-width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e8f0ec;
-  border-radius: 50%;
-  font-weight: bold;
-  color: #2f605a;
-}
-
-.stat-item {
-  text-align: center;
-  padding: 10px;
-  border-radius: 8px;
-  background: #fff;
-  border: 1px solid #dce9e3;
-}
-
-.stat-num {
-  display: block;
-  font-size: 18px;
-  font-weight: bold;
-  color: #1f443d;
-}
-
-.stat-label {
-  display: block;
-  font-size: 11px;
-  color: #6f857b;
-  margin-top: 4px;
-}
-
-.mini-chart {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  height: 120px;
-}
-
-.trend-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-.trend-bar {
-  width: 100%;
-  background: linear-gradient(180deg, #52c41a 0%, #1f8f57 100%);
-  border-radius: 4px;
-}
-
-.trend-col small {
-  font-size: 10px;
-  color: #6f857b;
-}
-
-.mistake-item {
-  background: #fff;
-  border: 1px solid #dce9e3;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 8px;
-}
-
-.mistake-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.mistake-poi {
-  font-size: 11px;
-  background: #e8f0ec;
-  color: #2f605a;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.mistake-cause,
-.mistake-answer {
-  font-size: 12px;
-  margin: 4px 0;
-  line-height: 1.5;
-}
-
-.mistake-actions {
-  margin-top: 6px;
-  display: flex;
-  gap: 6px;
-}
-
-.behavior-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 10px !important;
-}
-
-.behavior-chart,
-.activity-dist {
-  background: #fff;
-  border: 1px solid #dce9e3;
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.behavior-bars {
-  display: flex;
-  gap: 6px;
-  align-items: flex-end;
-  height: 120px;
-}
-
-.bar-item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-.bar {
-  flex: 1;
-  width: 100%;
-  background: #dce9e3;
-  border-radius: 4px;
-  max-width: 24px;
-  background: linear-gradient(180deg, #52c41a 0%, #1f8f57 100%);
-}
-
-.activity-items {
-  display: grid;
-  gap: 8px;
-}
-
-.activity-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.activity-item span:first-child {
-  min-width: 60px;
-}
-
-.activity-item .bar {
-  flex: 1;
-  height: 12px;
-  left: 0;
-  background: #dce9e3;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.activity-item .fill {
-  display: block;
-  height: 100%;
-  background: #1f8f57;
-}
-
-.word-cloud {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  background: #fff;
-  border-radius: 8px;
-}
-
-.word {
-  display: inline-block;
-  padding: 4px 10px;
-  background: linear-gradient(135deg, #e8f0ec 0%, #f0f8f3 100%);
-  border: 1px solid #dce9e3;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #2f605a;
-  transition: all 0.2s;
-}
-
-.word:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.qa-item {
-  background: #fff;
-  border: 1px solid #dce9e3;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 8px;
-}
-
-.qa-item p {
-  margin: 4px 0;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.qa-item small {
-  color: #6f857b;
-}
-
-.report-content {
-  background: #fff;
-  border: 1px solid #dce9e3;
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.report-content p {
-  margin: 6px 0;
-}
-
-.report-content ul {
-  margin: 6px 0 6px 20px;
-  padding: 0;
-}
-
-.report-content li {
-  margin: 3px 0;
-}
-
-.report-actions {
-  margin-top: 10px;
-  display: flex;
-  gap: 8px;
-}
-
-.action-guide {
-  background: linear-gradient(135deg, #f0f9f6 0%, #e8f4f1 100%);
-  border: 1px solid #d8e7df;
-  border-radius: 12px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-
-.action-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.action-item {
-  background: #fff;
-  border: 1px solid #d8e7df;
-  border-radius: 10px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.action-icon {
+.analysis-header-main h3 {
+  margin: 2px 0 8px;
+  color: var(--ink-900);
   font-size: 24px;
 }
 
-.action-item strong {
-  display: block;
+.header-kicker {
+  margin: 0;
+  font-size: 12px;
+  color: #4d6fb0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.flow-strip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  border: 1px solid #c7dcfb;
+  color: #2f4f86;
+  font-size: 12px;
+}
+
+.flow-label {
+  font-weight: 700;
+  color: #1f3f74;
+}
+
+.flow-node {
+  background: #fff;
+  border: 1px solid #bdd6fb;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.flow-arrow {
+  color: #4e6fa8;
+  font-weight: 700;
+}
+
+.analysis-header-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.data-source-tip {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 12px;
+}
+
+.health-overview {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 14px;
+}
+
+.health-radar-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.panel-head h4 {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: 18px;
+}
+
+.panel-head p {
+  margin: 4px 0 0;
+  color: var(--ink-500);
+  font-size: 12px;
+}
+
+.health-delta {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #eafaf3;
+  color: #1f8f5f;
+  border: 1px solid #bde8cf;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.health-delta.down {
+  color: #b42318;
+  background: #fff2f0;
+  border-color: #ffd0c7;
+}
+
+.radar-body {
+  position: relative;
+}
+
+.chart {
+  width: 100%;
+}
+
+.radar-chart {
+  height: 360px;
+}
+
+.score-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -48%);
+  width: 136px;
+  height: 136px;
+  border-radius: 50%;
+  border: 1px solid #c7dcfb;
+  background: radial-gradient(circle at 30% 26%, #ffffff 0%, #e8f3ff 72%);
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.score-core strong {
+  color: var(--primary);
+  font-size: 44px;
+  line-height: 1;
+}
+
+.score-core small {
+  color: var(--ink-700);
+  font-size: 12px;
+}
+
+.issue-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.issue-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+  text-align: left;
+  display: grid;
+  gap: 8px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.issue-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(45, 140, 240, 0.14);
+}
+
+.issue-card :deep(.el-progress-bar__outer) {
+  background: #f0f5ff;
+}
+
+.issue-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-900);
   font-size: 13px;
 }
 
-.action-item p {
+.issue-top strong {
+  font-size: 15px;
+}
+
+.issue-card p {
   margin: 0;
+  font-size: 12px;
+  color: var(--ink-700);
+}
+
+.issue-card small {
+  color: var(--ink-500);
   font-size: 11px;
-  color: #5f7a70;
 }
 
-.floating-quick-ops {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
+.issue-card.weak {
+  background: linear-gradient(130deg, #fffaf0 0%, #fff 86%);
+}
+
+.issue-card.mistake {
+  background: linear-gradient(130deg, #f5f9ff 0%, #fff 86%);
+}
+
+.issue-card.focus {
+  background: linear-gradient(130deg, #f0f9ff 0%, #fff 86%);
+}
+
+.issue-card.qa {
+  background: linear-gradient(130deg, #f3f5ff 0%, #fff 86%);
+}
+
+.diagnosis-section {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px;
   display: grid;
-  gap: 10px;
-  z-index: 20;
+  gap: 12px;
 }
 
-@media (max-width: 1100px) {
-  .overview-cards {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
 
-  .mastery-grid {
+.section-head h4 {
+  margin: 0;
+  color: var(--ink-900);
+}
+
+.section-head p {
+  margin: 3px 0 0;
+  color: var(--ink-500);
+  font-size: 12px;
+}
+
+.diagnosis-tabs :deep(.el-tabs__item) {
+  font-weight: 600;
+}
+
+.diagnosis-tabs :deep(.el-tabs__active-bar) {
+  background: var(--primary);
+}
+
+.weak-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weak-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  background: linear-gradient(148deg, #ffffff 0%, #f6f9ff 100%);
+}
+
+.weak-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.weak-head h5 {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: 15px;
+}
+
+.weak-head p {
+  margin: 4px 0 0;
+  color: var(--ink-500);
+  font-size: 12px;
+}
+
+.weak-score {
+  align-self: center;
+  background: #eff6ff;
+  border: 1px solid #c9deff;
+  color: #1f4da7;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 4px 9px;
+  font-weight: 700;
+}
+
+.weak-reason,
+.weak-advice {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-700);
+  line-height: 1.55;
+}
+
+.weak-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.backend-feedback-panel {
+  margin-top: 12px;
+  border: 1px dashed #b8d3fb;
+  border-radius: 12px;
+  background: #f5f9ff;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.backend-feedback-panel h5 {
+  margin: 0;
+  color: #1f4da7;
+}
+
+.backend-feedback-panel p {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.trend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.trend-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fdfefe;
+  padding: 10px;
+}
+
+.trend-card h5,
+.trend-summary h5 {
+  margin: 0;
+  color: var(--ink-900);
+}
+
+.trend-chart {
+  height: 260px;
+}
+
+.trend-summary {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7fbff;
+  padding: 12px;
+}
+
+.trend-summary p {
+  margin: 8px 0 0;
+  color: var(--ink-700);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.fixed-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 8;
+  border: 1px solid #b8d4fa;
+  border-radius: 14px;
+  background: rgba(233, 244, 255, 0.95);
+  backdrop-filter: blur(4px);
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.fixed-action-bar p {
+  margin: 0;
+  color: #1f406e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fixed-action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.fixed-action-buttons :deep(.el-button) {
+  border-radius: 10px;
+}
+
+.more-data-tabs :deep(.el-tabs__content) {
+  max-height: 65vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.drawer-metric-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.drawer-metric-card span {
+  color: var(--ink-500);
+  font-size: 12px;
+}
+
+.drawer-metric-card strong {
+  color: var(--ink-900);
+  font-size: 22px;
+}
+
+.drawer-list {
+  display: grid;
+  gap: 8px;
+}
+
+.drawer-list-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+}
+
+.drawer-list-item h6 {
+  margin: 0;
+  color: var(--ink-900);
+  font-size: 13px;
+}
+
+.drawer-list-item p {
+  margin: 0;
+  color: var(--ink-700);
+  line-height: 1.45;
+  font-size: 12px;
+}
+
+.drawer-list-item small {
+  color: var(--ink-500);
+}
+
+.behavior-list {
+  display: grid;
+  gap: 8px;
+}
+
+.behavior-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 48px;
+  align-items: center;
+  gap: 8px;
+}
+
+.behavior-row span,
+.behavior-row strong {
+  color: var(--ink-700);
+  font-size: 13px;
+}
+
+.drawer-note {
+  margin: 12px 0 0;
+  color: var(--ink-500);
+  font-size: 12px;
+}
+
+.report-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.report-card h5 {
+  margin: 0;
+  color: var(--ink-900);
+}
+
+.report-card p {
+  margin: 8px 0;
+  color: var(--ink-700);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.report-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-700);
+  line-height: 1.6;
+  font-size: 13px;
+}
+
+.dialog-list {
+  display: grid;
+  gap: 8px;
+}
+
+.dialog-item {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+  color: var(--ink-700);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dialog-item h6 {
+  margin: 0 0 4px;
+  color: var(--ink-900);
+}
+
+.dialog-item p,
+.dialog-item small {
+  margin: 0;
+}
+
+@media (max-width: 1220px) {
+  .health-overview {
     grid-template-columns: 1fr;
   }
 
-  .behavior-grid {
+  .weak-grid,
+  .trend-grid {
     grid-template-columns: 1fr;
   }
 
-  .action-cards {
+  .fixed-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fixed-action-buttons {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 820px) {
+  .analysis-header-controls {
+    justify-content: flex-start;
+  }
+
+  .flow-strip {
+    width: 100%;
+  }
+
+  .drawer-grid {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 600px) {
-  .head-area {
-    flex-direction: column;
+  .study-analytics-page {
+    padding: 10px;
   }
 
-  .overview-cards {
-    grid-template-columns: repeat(2, 1fr);
+  .analysis-header-main h3 {
+    font-size: 20px;
+  }
+
+  .radar-chart {
+    height: 320px;
+  }
+
+  .score-core {
+    width: 118px;
+    height: 118px;
+  }
+
+  .score-core strong {
+    font-size: 36px;
+  }
+
+  .behavior-row {
+    grid-template-columns: 70px 1fr 40px;
   }
 }
 </style>

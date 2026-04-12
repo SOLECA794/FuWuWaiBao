@@ -222,6 +222,12 @@
       </div>
       <el-empty v-else description="暂无历史记录" />
     </el-dialog>
+
+    <el-dialog v-model="actionDialogVisible" :title="actionDialogTitle" width="560px">
+      <div class="action-dialog-body">
+        <p v-for="(line, index) in actionDialogLines" :key="`${actionDialogTitle}-${index}`">{{ line }}</p>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -283,6 +289,9 @@ const detailDraft = ref('')
 const qaInput = ref('')
 const noteInput = ref('')
 const showHistory = ref(false)
+const actionDialogVisible = ref(false)
+const actionDialogTitle = ref('')
+const actionDialogLines = ref([])
 
 const nodeStateMap = reactive({})
 const historyRecords = ref([])
@@ -456,30 +465,33 @@ const collapseAll = () => {
 }
 
 const saveTreeEdits = () => {
-  ElMessage.success('知识树结构已保存（演示模式）')
+  openActionDialog('知识树保存', ['树结构已保存（演示模式）', '你可以继续拖拽调整节点层级。'])
 }
 
 const markMastered = () => {
   if (!currentNodeId.value) return
   ensureNodeState({ id: currentNodeId.value, name: currentNodeName.value }).mastery = 'mastered'
-  ElMessage.success('已标记为已掌握')
+  openActionDialog('掌握度更新', [`已将“${currentNodeName.value || '当前知识点'}”标记为已掌握。`])
 }
 
 const saveDetail = () => {
   if (!currentNodeId.value) return
   ensureNodeState({ id: currentNodeId.value, name: currentNodeName.value }).detail = detailDraft.value
-  ElMessage.success('知识点内容已保存')
+  openActionDialog('内容已保存', ['当前知识点详情已保存，可在复习计划中直接引用。'])
 }
 
 const toggleFavorite = () => {
   if (!currentNodeId.value) return
   const state = ensureNodeState({ id: currentNodeId.value, name: currentNodeName.value })
   state.favorite = !state.favorite
-  ElMessage.success(state.favorite ? '已收藏知识点' : '已取消收藏')
+  openActionDialog(
+    state.favorite ? '已收藏知识点' : '已取消收藏',
+    [state.favorite ? '该节点已加入重点复习。' : '该节点已从重点复习移除。']
+  )
 }
 
 const addToReview = () => {
-  ElMessage.success('已添加到复习计划（演示模式）')
+  openActionDialog('复习计划', ['已加入本周复习计划（演示模式）。'])
 }
 
 const regenPractice = () => {
@@ -487,7 +499,7 @@ const regenPractice = () => {
   const state = ensureNodeState({ id: currentNodeId.value, name: currentNodeName.value })
   state.questions = buildMockQuestions({ id: currentNodeId.value, name: currentNodeName.value })
   activeTab.value = 'practice'
-  ElMessage.success('已重新生成配套习题')
+  openActionDialog('配套习题已更新', ['已按当前知识点重新生成 2 道预置题。'])
 }
 
 const sendMockQa = () => {
@@ -509,7 +521,7 @@ const saveNote = () => {
     content
   })
   noteInput.value = ''
-  ElMessage.success('笔记已保存')
+  openActionDialog('笔记保存成功', ['笔记已写入当前知识点档案。'])
 }
 
 const submitQuestion = (question) => {
@@ -524,19 +536,27 @@ const submitQuestion = (question) => {
 }
 
 const globalAsk = () => {
-  ElMessage.success('已进入全局问答（演示模式）')
+  openActionDialog('全局问答', ['已打开演示问答入口，可回到课堂页继续提问。'])
 }
 
 const generateReviewPack = () => {
-  ElMessage.success('完整复习包已生成并同步到个人中心（演示模式）')
+  openActionDialog('复习包生成完成', ['已生成“遗传算法”复习包并同步到个人中心（演示模式）。'])
 }
 
 const exportMockDoc = () => {
-  ElMessage.success('知识树与笔记已导出（演示模式）')
+  openActionDialog('导出成功', ['知识树与笔记文档已导出（演示模式）。'])
 }
 
 const syncToCourse = () => {
-  ElMessage.success('已同步到课程学习进度（演示模式）')
+  openActionDialog('同步完成', ['知识拆解结果已同步到课程学习进度（演示模式）。'])
+}
+
+const openActionDialog = (title, lines = []) => {
+  actionDialogTitle.value = String(title || '操作提示')
+  actionDialogLines.value = Array.isArray(lines) && lines.length
+    ? lines
+    : ['当前操作已完成。']
+  actionDialogVisible.value = true
 }
 
 const saveHistoryRecord = () => {
@@ -619,11 +639,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .knowledge-workbench {
   position: relative;
+  height: 100%;
+  min-height: 0;
   background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
   border-radius: 22px;
   border: 1px solid #d7e6de;
   padding: 16px;
   box-shadow: 0 18px 36px rgba(24, 55, 46, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .workbench-head {
@@ -659,17 +684,22 @@ h3 {
 }
 
 .init-state {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 14px;
+  overflow: hidden;
 }
 
 .upload-card,
 .history-mini {
+  min-height: 0;
   background: #fff;
   border: 1px solid #d9e8e1;
   border-radius: 14px;
   padding: 12px;
+  overflow: auto;
 }
 
 .upload-sub {
@@ -745,17 +775,46 @@ h3 {
 }
 
 .parsed-state {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 34% 66%;
   gap: 14px;
+  overflow: hidden;
 }
 
 .left-pane,
 .right-pane {
+  min-height: 0;
   background: #fff;
   border: 1px solid #d8e7df;
   border-radius: 14px;
   padding: 12px;
+  overflow: hidden;
+}
+
+.left-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+.right-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+.right-pane :deep(.el-tabs) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-pane :deep(.el-tabs__content) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .left-tools {
@@ -766,7 +825,8 @@ h3 {
 }
 
 .knowledge-tree {
-  max-height: 560px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   border: 1px solid #e0ece6;
   border-radius: 10px;
@@ -907,6 +967,20 @@ h3 {
 .history-dialog-card p {
   margin: 4px 0 0;
   color: #698378;
+}
+
+.action-dialog-body {
+  display: grid;
+  gap: 8px;
+}
+
+.action-dialog-body p {
+  margin: 0;
+  border: 1px solid #dbe8e2;
+  background: #f8fcfa;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: #4f6d63;
 }
 
 @media (max-width: 1100px) {
