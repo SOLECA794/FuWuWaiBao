@@ -112,7 +112,7 @@
           <TeacherKnowledgeGraphPanel
             :course-id="currentCourseId"
             :course-name="currentCourseName"
-            @close="closeOverlay"
+            @cite-resource="$emit('cite-to-script', $event)"
           />
         </div>
       </section>
@@ -153,7 +153,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 'select-page'])
+defineEmits(['open-publish', 'open-upload', 'select-course', 'delete-course', 'select-page', 'cite-to-script'])
 
 const isOverlayOpen = computed(() => activePanel.value !== '')
 
