@@ -266,12 +266,30 @@ const tryLocalLoginFallback = () => {
   const pwd = String(password.value || '')
   const accountRoleMap = {
     jiaoshi: 'teacher',
-    xuesheng: 'student'
+    teacher: 'teacher',
+    laoshi: 'teacher',
+    xuesheng: 'student',
+    student: 'student',
+    xuesheng1: 'student'
   }
-  if (!accountRoleMap[uname] || pwd !== uname) {
+  const mappedRole = accountRoleMap[uname]
+  const isValidDemoPassword = pwd === uname || pwd === '123456'
+  if (!mappedRole || !isValidDemoPassword) {
     throw new Error('账号或密码错误')
   }
-  return { username: uname, role: accountRoleMap[uname] }
+  return { username: uname, role: mappedRole }
+}
+
+const resolveRemoteLoginUser = (payload) => {
+  const root = payload && typeof payload === 'object' ? payload : {}
+  const data = root.data && typeof root.data === 'object' ? root.data : root
+  const usernameRaw = String(data.username || '').trim()
+  if (!usernameRaw) return null
+  const roleRaw = String(data.role || '').trim().toLowerCase()
+  return {
+    username: usernameRaw,
+    role: roleRaw === 'teacher' ? 'teacher' : 'student'
+  }
 }
 
 const switchMode = () => {
@@ -298,12 +316,25 @@ const handleLogin = async () => {
       emit('login-success', fallbackUser)
       return
     }
+
     const payload = await res.json().catch(() => ({}))
-    if (!res.ok || payload.code !== 200) {
-      throw new Error(payload.message || `登录失败 (${res.status})`)
+    if (res.ok) {
+      const remoteUser = resolveRemoteLoginUser(payload)
+      if (remoteUser) {
+        emit('login-success', remoteUser)
+        return
+      }
+      throw new Error(String(payload?.message || '').trim() || '登录响应异常，请稍后重试')
     }
-    const data = payload.data || {}
-    emit('login-success', { username: data.username || username.value, role: data.role || 'student' })
+
+    try {
+      const fallbackUser = tryLocalLoginFallback()
+      emit('login-success', fallbackUser)
+      return
+    } catch (fallbackErr) {
+      const message = String(payload?.message || '').trim()
+      throw new Error(message || fallbackErr.message || `登录失败 (${res.status})`)
+    }
   } catch (err) {
     if (String(err?.message || '').includes('Failed to fetch')) {
       try {

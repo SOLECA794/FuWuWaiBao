@@ -26,6 +26,20 @@
           <span>第 {{ currentPage }} 页</span>
           <span>{{ isPlay ? '讲授进行中' : '讲授已暂停' }}</span>
         </div>
+        <div class="state-indicators">
+          <div class="indicator-item">
+            <span class="label">学习时长</span>
+            <span class="value">{{ studyDuration }} 分钟</span>
+          </div>
+          <div class="indicator-item">
+            <span class="label">专注度</span>
+            <span class="value">{{ focusScore }}%</span>
+          </div>
+          <div class="indicator-item">
+            <span class="label">掌握度</span>
+            <span class="value">{{ masteryRate }}%</span>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -61,6 +75,18 @@ defineProps({
   isPlay: {
     type: Boolean,
     default: false
+  },
+  studyDuration: {
+    type: Number,
+    default: 0
+  },
+  focusScore: {
+    type: Number,
+    default: 0
+  },
+  masteryRate: {
+    type: Number,
+    default: 0
   }
 })
 </script>
@@ -81,6 +107,62 @@ defineProps({
   border-radius: 14px;
   box-shadow: 0 12px 24px rgba(47, 96, 90, 0.25);
   gap: 12px;
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.progress-card, .state-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.overview-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.overview-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.state-indicators {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.indicator-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.label {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
 }
 
 .brand {

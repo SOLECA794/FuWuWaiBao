@@ -516,7 +516,7 @@ const renderRadarChart = () => {
     tooltip: {
       trigger: 'item',
       backgroundColor: 'rgba(15, 23, 42, 0.92)',
-      borderColor: '#2d8cf0',
+      borderColor: '#3f8f62',
       textStyle: { color: '#f8fbff', fontSize: 12 },
       formatter: params => {
         const values = params.value || []
@@ -531,7 +531,7 @@ const renderRadarChart = () => {
       right: 8,
       icon: 'roundRect',
       itemWidth: 14,
-      textStyle: { color: '#3b4c66', fontSize: 11 },
+      textStyle: { color: '#4f6f60', fontSize: 11 },
       data: ['本周', '上周']
     },
     radar: {
@@ -539,9 +539,9 @@ const renderRadarChart = () => {
       center: ['50%', '56%'],
       indicator: radarIndicators,
       splitNumber: 4,
-      axisName: { color: '#53627a', fontSize: 12 },
-      splitLine: { lineStyle: { color: '#d3deee' } },
-      splitArea: { areaStyle: { color: ['#f8fbff', '#f2f7ff'] } }
+      axisName: { color: '#4f6f60', fontSize: 12 },
+      splitLine: { lineStyle: { color: '#d5e7dc' } },
+      splitArea: { areaStyle: { color: ['#f8fcf9', '#eef7f0'] } }
     },
     series: [
       {
@@ -552,16 +552,16 @@ const renderRadarChart = () => {
           {
             value: radarCurrentValues.value,
             name: '本周',
-            lineStyle: { color: '#2d8cf0', width: 2 },
-            itemStyle: { color: '#2d8cf0' },
-            areaStyle: { color: 'rgba(45, 140, 240, 0.32)' }
+            lineStyle: { color: '#3f8f62', width: 2 },
+            itemStyle: { color: '#3f8f62' },
+            areaStyle: { color: 'rgba(63, 143, 98, 0.32)' }
           },
           {
             value: radarLastWeekValues.value,
             name: '上周',
-            lineStyle: { color: '#94a3b8', width: 2, type: 'dashed' },
-            itemStyle: { color: '#94a3b8' },
-            areaStyle: { color: 'rgba(148, 163, 184, 0.08)' }
+            lineStyle: { color: '#95afa0', width: 2, type: 'dashed' },
+            itemStyle: { color: '#95afa0' },
+            areaStyle: { color: 'rgba(149, 175, 160, 0.1)' }
           }
         ]
       }
@@ -586,15 +586,15 @@ const renderMasteryTrendChart = () => {
     xAxis: {
       type: 'category',
       data: trendLabels.value,
-      axisLine: { lineStyle: { color: '#c8d8ef' } },
-      axisLabel: { color: '#52617b' }
+      axisLine: { lineStyle: { color: '#cde2d6' } },
+      axisLabel: { color: '#587367' }
     },
     yAxis: {
       type: 'value',
       min: 20,
       max: 100,
-      axisLabel: { color: '#52617b', formatter: '{value}%' },
-      splitLine: { lineStyle: { color: '#e3edfa' } }
+      axisLabel: { color: '#587367', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#e2efe6' } }
     },
     series: [
       {
@@ -603,12 +603,12 @@ const renderMasteryTrendChart = () => {
         data: masteryTrendValues.value,
         symbol: 'circle',
         symbolSize: 8,
-        lineStyle: { color: '#2d8cf0', width: 3 },
-        itemStyle: { color: '#2d8cf0' },
+        lineStyle: { color: '#3f8f62', width: 3 },
+        itemStyle: { color: '#3f8f62' },
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(45, 140, 240, 0.35)' },
-            { offset: 1, color: 'rgba(45, 140, 240, 0.03)' }
+            { offset: 0, color: 'rgba(63, 143, 98, 0.34)' },
+            { offset: 1, color: 'rgba(63, 143, 98, 0.04)' }
           ])
         }
       }
@@ -633,15 +633,15 @@ const renderAccuracyTrendChart = () => {
     xAxis: {
       type: 'category',
       data: trendLabels.value,
-      axisLine: { lineStyle: { color: '#c8d8ef' } },
-      axisLabel: { color: '#52617b' }
+      axisLine: { lineStyle: { color: '#cde2d6' } },
+      axisLabel: { color: '#587367' }
     },
     yAxis: {
       type: 'value',
       min: 20,
       max: 100,
-      axisLabel: { color: '#52617b', formatter: '{value}%' },
-      splitLine: { lineStyle: { color: '#e3edfa' } }
+      axisLabel: { color: '#587367', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#e2efe6' } }
     },
     series: [
       {
@@ -651,8 +651,8 @@ const renderAccuracyTrendChart = () => {
         itemStyle: {
           borderRadius: [8, 8, 0, 0],
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#40a9ff' },
-            { offset: 1, color: '#2d8cf0' }
+            { offset: 0, color: '#77c59a' },
+            { offset: 1, color: '#3f8f62' }
           ])
         }
       }
@@ -807,12 +807,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .study-analytics-page {
-  --primary: #2d8cf0;
-  --primary-soft: #eaf3ff;
-  --ink-900: #1d2a44;
-  --ink-700: #46597a;
-  --ink-500: #6d7f9f;
-  --line: #d7e5f8;
+  --primary: #3f8f62;
+  --primary-soft: #eaf7ef;
+  --ink-900: #214a37;
+  --ink-700: #4f6f60;
+  --ink-500: #739382;
+  --line: #d4e7dc;
 
   height: 100%;
   min-height: 0;
@@ -824,18 +824,17 @@ onBeforeUnmount(() => {
   border-radius: 20px;
   border: 1px solid var(--line);
   background:
-    radial-gradient(circle at 10% 12%, rgba(45, 140, 240, 0.12), transparent 40%),
-    radial-gradient(circle at 90% 2%, rgba(56, 189, 248, 0.18), transparent 32%),
-    linear-gradient(180deg, #f9fcff 0%, #f4f8ff 38%, #f8fbff 100%);
+    radial-gradient(circle at 10% 12%, rgba(63, 143, 98, 0.13), transparent 42%),
+    radial-gradient(circle at 90% 2%, rgba(121, 188, 145, 0.18), transparent 36%),
+    linear-gradient(180deg, #f8fcf9 0%, #f2f9f4 38%, #f7fcf8 100%);
 }
 
 .analysis-header {
-  position: sticky;
-  top: 0;
-  z-index: 9;
+  position: relative;
+  z-index: 1;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(250, 253, 255, 0.94);
+  background: rgba(248, 253, 249, 0.96);
   backdrop-filter: blur(6px);
   padding: 14px;
   display: grid;
@@ -851,7 +850,7 @@ onBeforeUnmount(() => {
 .header-kicker {
   margin: 0;
   font-size: 12px;
-  color: #4d6fb0;
+  color: #4f8a67;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
@@ -865,25 +864,25 @@ onBeforeUnmount(() => {
   padding: 7px 10px;
   border-radius: 10px;
   background: var(--primary-soft);
-  border: 1px solid #c7dcfb;
-  color: #2f4f86;
+  border: 1px solid #c8e1d1;
+  color: #3f6a55;
   font-size: 12px;
 }
 
 .flow-label {
   font-weight: 700;
-  color: #1f3f74;
+  color: #2d5c45;
 }
 
 .flow-node {
   background: #fff;
-  border: 1px solid #bdd6fb;
+  border: 1px solid #c3ddcd;
   border-radius: 999px;
   padding: 3px 10px;
 }
 
 .flow-arrow {
-  color: #4e6fa8;
+  color: #5f8a74;
   font-weight: 700;
 }
 
@@ -973,8 +972,8 @@ onBeforeUnmount(() => {
   width: 136px;
   height: 136px;
   border-radius: 50%;
-  border: 1px solid #c7dcfb;
-  background: radial-gradient(circle at 30% 26%, #ffffff 0%, #e8f3ff 72%);
+  border: 1px solid #c5decd;
+  background: radial-gradient(circle at 30% 26%, #ffffff 0%, #eaf6ef 72%);
   display: grid;
   place-content: center;
   text-align: center;
@@ -1010,11 +1009,11 @@ onBeforeUnmount(() => {
 
 .issue-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 24px rgba(45, 140, 240, 0.14);
+  box-shadow: 0 12px 24px rgba(63, 143, 98, 0.18);
 }
 
 .issue-card :deep(.el-progress-bar__outer) {
-  background: #f0f5ff;
+  background: #ecf5ef;
 }
 
 .issue-top {
@@ -1042,19 +1041,19 @@ onBeforeUnmount(() => {
 }
 
 .issue-card.weak {
-  background: linear-gradient(130deg, #fffaf0 0%, #fff 86%);
+  background: linear-gradient(130deg, #f3fbf5 0%, #fff 86%);
 }
 
 .issue-card.mistake {
-  background: linear-gradient(130deg, #f5f9ff 0%, #fff 86%);
+  background: linear-gradient(130deg, #f5fbf7 0%, #fff 86%);
 }
 
 .issue-card.focus {
-  background: linear-gradient(130deg, #f0f9ff 0%, #fff 86%);
+  background: linear-gradient(130deg, #f0faf4 0%, #fff 86%);
 }
 
 .issue-card.qa {
-  background: linear-gradient(130deg, #f3f5ff 0%, #fff 86%);
+  background: linear-gradient(130deg, #f2f9f4 0%, #fff 86%);
 }
 
 .diagnosis-section {
@@ -1104,7 +1103,7 @@ onBeforeUnmount(() => {
   padding: 12px;
   display: grid;
   gap: 8px;
-  background: linear-gradient(148deg, #ffffff 0%, #f6f9ff 100%);
+  background: linear-gradient(148deg, #ffffff 0%, #f3faf5 100%);
 }
 
 .weak-head {
@@ -1127,9 +1126,9 @@ onBeforeUnmount(() => {
 
 .weak-score {
   align-self: center;
-  background: #eff6ff;
-  border: 1px solid #c9deff;
-  color: #1f4da7;
+  background: #eaf6ef;
+  border: 1px solid #c7ddce;
+  color: #2f6d4b;
   border-radius: 999px;
   font-size: 12px;
   padding: 4px 9px;
@@ -1151,9 +1150,9 @@ onBeforeUnmount(() => {
 
 .backend-feedback-panel {
   margin-top: 12px;
-  border: 1px dashed #b8d3fb;
+  border: 1px dashed #c3decd;
   border-radius: 12px;
-  background: #f5f9ff;
+  background: #f3faf5;
   padding: 12px;
   display: grid;
   gap: 6px;
@@ -1161,7 +1160,7 @@ onBeforeUnmount(() => {
 
 .backend-feedback-panel h5 {
   margin: 0;
-  color: #1f4da7;
+  color: #2f6d4b;
 }
 
 .backend-feedback-panel p {
@@ -1198,7 +1197,7 @@ onBeforeUnmount(() => {
   margin-top: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f7fbff;
+  background: #f3faf5;
   padding: 12px;
 }
 
@@ -1210,12 +1209,11 @@ onBeforeUnmount(() => {
 }
 
 .fixed-action-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 8;
-  border: 1px solid #b8d4fa;
+  position: relative;
+  z-index: 1;
+  border: 1px solid #bfdccc;
   border-radius: 14px;
-  background: rgba(233, 244, 255, 0.95);
+  background: rgba(236, 248, 240, 0.95);
   backdrop-filter: blur(4px);
   padding: 12px;
   display: flex;
@@ -1226,7 +1224,7 @@ onBeforeUnmount(() => {
 
 .fixed-action-bar p {
   margin: 0;
-  color: #1f406e;
+  color: #2b6147;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -1258,7 +1256,7 @@ onBeforeUnmount(() => {
 .drawer-metric-card {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #f8fbff;
+  background: #f4faf6;
   padding: 10px;
   display: grid;
   gap: 4px;
@@ -1332,7 +1330,7 @@ onBeforeUnmount(() => {
 .report-card {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f8fbff;
+  background: #f3faf5;
   padding: 12px;
 }
 
@@ -1365,7 +1363,7 @@ onBeforeUnmount(() => {
   margin: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #f8fbff;
+  background: #f4faf6;
   padding: 10px;
   color: var(--ink-700);
   font-size: 13px;

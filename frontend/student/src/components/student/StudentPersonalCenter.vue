@@ -1204,13 +1204,14 @@ export default {
 .banner-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .banner-text { color: #334155; font-weight: 600; }
 
-.pc-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-.pc-tabs.sticky { position: sticky; top: 0; z-index: 3; padding: 10px 0; background: rgba(245,247,250,0.92); backdrop-filter: blur(10px); box-shadow: 0 10px 26px rgba(0,0,0,0.06); }
-.tab { border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 999px; padding: 8px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out, background 0.2s ease-out; }
-.tab:hover { transform: translateY(-2px) scale(1.01); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 8px 30px rgba(47, 96, 90, 0.08); }
+.pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-tabs.sticky { position: sticky; top: 0; z-index: 3; padding: 8px 0; background: rgba(245,247,250,0.9); backdrop-filter: blur(8px); box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
+.tab { border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 999px; padding: 6px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out, background 0.2s ease-out; }
+.tab:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 6px 18px rgba(47, 96, 90, 0.08); }
 .tab:active { transform: translateY(0) scale(0.97); }
 .tab.active { background: #2f605a; color: #fff; border-color: #2f605a; box-shadow: 0 8px 30px rgba(47, 96, 90, 0.14); }
-.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.tab-label { line-height: 1; }
+.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 800; }
 .tab:not(.active) .tab-count { background: #F8FAFC; border-color: rgba(226,232,240,0.95); color: #334155; }
 
 .pc-body { min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; padding-bottom: 2px; }

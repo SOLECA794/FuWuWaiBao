@@ -11,26 +11,6 @@
       </div>
     </div>
 
-    <div class="status-strip" v-if="showStatusStrip">
-      <div class="status-row">
-        <span class="status-pill">进度 {{ progressPercent }}%</span>
-        <span class="status-pill">{{ isPlay ? '正在讲解' : '已暂停' }}</span>
-        <span class="status-pill" v-if="currentNodeTitle">节点 {{ currentNodeTitle }}</span>
-        <span class="status-pill" v-if="pageTimelineDuration > 0">{{ formatTime(currentTimelineSec) }} / {{ formatTime(pageTimelineDuration) }}</span>
-      </div>
-      <div class="status-track" v-if="pageTimelineDuration > 0">
-        <div class="status-fill" :style="{ width: timelinePercent + '%' }"></div>
-      </div>
-      <div class="status-track" v-else>
-        <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-      </div>
-      <div class="status-note" v-if="audioStatusText || activeNodeDuration > 0">
-        <span v-if="activeNodeDuration > 0">节点 {{ formatTime(activeNodeElapsedSec) }} / {{ formatTime(activeNodeDuration) }}</span>
-        <span>{{ activeNodeTypeLabel }}</span>
-        <span v-if="audioStatusText">{{ audioStatusText }}</span>
-      </div>
-    </div>
-
     <div class="course-content" :class="displayMode === 'voice' ? 'voice-mode' : 'script-mode'">
       <template v-if="displayMode === 'voice'">
         <div class="voice-progress-shell">
@@ -70,38 +50,34 @@
           <p>请先播放本页或切换到含讲稿节点，系统将自动同步进度与文本。</p>
         </div>
       </template>
+
+      <div class="voice-orb-dock" role="group" aria-label="语音控制浮球">
+        <div class="orb-mini-actions">
+          <button class="orb-mini-btn orb-mini-play" type="button" :title="isPlay ? '暂停讲解' : '开始讲解'" @click="emit('toggle-play')">
+            <span>{{ isPlay ? '⏸' : '▶' }}</span>
+          </button>
+
+          <button class="orb-mini-btn orb-mini-speed" type="button" :title="`切换倍速（当前 ${playbackRate}x）`" @click="cyclePlaybackRate">
+            <span>⚡</span>
+            <small>{{ playbackRate }}x</small>
+          </button>
+
+          <button class="orb-mini-btn orb-mini-ask" type="button" title="打开问答助手" @click="emit('open-qa')">
+            <span>❓</span>
+          </button>
+        </div>
+
+        <button
+          class="voice-orb-main"
+          type="button"
+          :title="isPlay ? '语音讲解中（悬浮展开控制）' : '语音已暂停（悬浮展开控制）'"
+          @click="emit('toggle-play')"
+        >
+          <span class="orb-main-icon">◉</span>
+        </button>
+      </div>
     </div>
 
-    <div class="course-control">
-      <div class="control-cluster">
-        <el-button class="control-btn" @click="$emit('prev-page')" size="small" plain>上一页</el-button>
-        <el-button class="control-btn" @click="emit('seek-step', -5)" size="small" plain>快退 5 秒</el-button>
-        <el-button class="control-btn control-main" @click="$emit('toggle-play')" size="small">
-          {{ isPlay ? '暂停讲解' : '开始讲解' }}
-        </el-button>
-        <el-button class="control-btn" @click="emit('seek-step', 5)" size="small" plain>快进 5 秒</el-button>
-        <el-button class="control-btn" @click="$emit('next-page')" size="small" plain>下一页</el-button>
-      </div>
-      <div class="control-cluster control-secondary">
-        <el-select
-          :model-value="playbackRate"
-          size="small"
-          class="rate-select"
-          @change="$emit('update:playback-rate', Number($event || 1))"
-        >
-          <el-option label="0.75x" :value="0.75" />
-          <el-option label="1.0x" :value="1" />
-          <el-option label="1.25x" :value="1.25" />
-          <el-option label="1.5x" :value="1.5" />
-        </el-select>
-        <el-button class="control-btn" @click="$emit('toggle-tts')" :type="ttsEnabled ? 'primary' : 'default'" plain size="small">
-          {{ ttsEnabled ? '语音开启' : '语音关闭' }}
-        </el-button>
-        <el-button class="control-btn" @click="$emit('speak-current-node')" size="small" plain>朗读节点</el-button>
-        <el-button class="control-btn" @click="emit('seek-to-start')" size="small" plain>重播本页</el-button>
-        <el-button class="control-btn" @click="emit('open-shortcuts')" size="small" plain>快捷键</el-button>
-      </div>
-    </div>
     <div class="timeline-seek" v-if="pageTimelineDuration > 0">
       <span>{{ formatTime(currentTimelineSec) }}</span>
       <div class="seek-box">
@@ -121,7 +97,14 @@
       </div>
       <span>{{ formatTime(pageTimelineDuration) }}</span>
     </div>
-    <div class="control-tip">系统会自动记录到当前页，下次可直接续学。快捷键：Space 播放/暂停，←/→ 快退快进 5 秒（长按连续），Shift+←/→ 10 秒，[ / ] 调整倍速，0 重置倍速，M 语音开关，K 打开帮助。</div>
+
+    <div class="bottom-control-row">
+      <el-button class="page-control-btn" @click="$emit('prev-page')" size="small" plain>上一页</el-button>
+      <el-button class="page-control-btn page-control-main" @click="$emit('toggle-play')" size="small" type="primary">
+        {{ isPlay ? '暂停播放' : '开始播放' }}
+      </el-button>
+      <el-button class="page-control-btn" @click="$emit('next-page')" size="small" plain>下一页</el-button>
+    </div>
   </div>
 </template>
 
@@ -250,6 +233,7 @@ const emit = defineEmits([
   'seek-step',
   'seek-to-start',
   'open-shortcuts',
+  'open-qa',
   'update:playback-rate'
 ])
 
@@ -305,19 +289,16 @@ const lectureMilestones = computed(() => {
   })
 })
 
-const audioStatusText = computed(() => {
-  const status = props.playbackAudioMeta?.audio_status
-  const duration = Number(props.playbackAudioMeta?.audio_duration_sec || 0)
-  if (!status) return ''
-  if (status === 'ready' && duration > 0) {
-    return `音频已生成 ${formatTime(duration)}`
-  }
-  if (status === 'processing') return '音频生成中'
-  return '使用时长驱动讲解'
-})
-
 const seekDraftSec = ref(-1)
 let seekPreviewTimer = null
+
+const cyclePlaybackRate = () => {
+  const sequence = [0.75, 1, 1.25, 1.5]
+  const current = Number(props.playbackRate || 1)
+  const currentIndex = sequence.indexOf(current)
+  const next = sequence[(currentIndex + 1) % sequence.length]
+  emit('update:playback-rate', next)
+}
 
 const seekPreviewText = computed(() => {
   if (seekDraftSec.value < 0) return ''
@@ -374,18 +355,20 @@ const formatTime = (seconds) => {
 .course-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
   border-radius: 24px;
-  padding: 20px;
+  padding: 14px;
   height: 100%;
+  min-height: 0;
   border: 1px solid rgba(148, 163, 184, 0.16);
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 .course-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 .header-label {
   font-size: 12px;
@@ -455,6 +438,7 @@ const formatTime = (seconds) => {
 }
 .course-content {
   flex: 1;
+  position: relative;
   background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
   border-radius: 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
@@ -464,9 +448,20 @@ const formatTime = (seconds) => {
   overflow: hidden;
 }
 
+.course-content :deep(.student-script-viewer) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
 .course-content.voice-mode {
   padding: 12px;
   background: linear-gradient(180deg, #f9fdfb 0%, #f2f8f5 100%);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .voice-progress-shell {
@@ -479,6 +474,7 @@ const formatTime = (seconds) => {
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 .voice-progress-head {
@@ -591,45 +587,120 @@ const formatTime = (seconds) => {
   line-height: 1.6;
 }
 
-.course-control {
-  margin-top: 16px;
+.voice-orb-dock {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.control-cluster {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.control-secondary {
-  padding-top: 2px;
+.voice-orb-main {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  color: #ffffff;
+  background: radial-gradient(circle at 30% 25%, #38bdf8 0%, #0284c7 45%, #075985 100%);
+  box-shadow: 0 16px 34px rgba(3, 105, 161, 0.34);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.24s ease, box-shadow 0.24s ease;
 }
 
-.control-btn {
+.orb-main-icon {
+  transform: translateY(-1px);
+}
+
+.voice-orb-main:hover,
+.voice-orb-main:focus-visible {
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 22px 38px rgba(3, 105, 161, 0.42);
+}
+
+.orb-mini-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.94);
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.voice-orb-dock:hover .orb-mini-actions,
+.voice-orb-dock:focus-within .orb-mini-actions {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.orb-mini-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid rgba(186, 230, 253, 0.8);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 246, 255, 0.98) 100%);
+  color: #0c4a6e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(14, 116, 144, 0.18);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.orb-mini-speed {
+  gap: 1px;
+  flex-direction: column;
+  font-size: 12px;
+}
+
+.orb-mini-speed small {
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.orb-mini-btn:hover,
+.orb-mini-btn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(14, 116, 144, 0.24);
+  background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+}
+
+.bottom-control-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 2px 0;
+}
+
+.page-control-btn {
+  min-height: 38px;
   border-radius: 12px;
   font-weight: 600;
 }
 
-.control-main {
-  background: linear-gradient(135deg, #2f605a 0%, #3f8b79 100%);
-  border-color: #2f605a;
-  color: #fff;
-  box-shadow: 0 8px 16px rgba(47, 96, 90, 0.24);
-}
-
-.rate-select {
-  width: 120px;
-}
-
-.control-tip {
-  margin-top: 10px;
-  text-align: left;
-  font-size: 12px;
-  color: #5a746b;
+.page-control-main {
+  min-width: 130px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
 }
 .timeline-seek {
   margin-top: 10px;
@@ -651,7 +722,7 @@ const formatTime = (seconds) => {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
-  max-width: min(300px, 78vw);
+  max-width: min(240px, 60vw);
   padding: 3px 8px;
   border-radius: 999px;
   font-size: 11px;
@@ -758,17 +829,39 @@ const formatTime = (seconds) => {
   background: linear-gradient(180deg, #eff6ff 0%, #f8fbff 100%);
 }
 
+@media (min-width: 1500px) {
+  .course-content {
+    min-height: 460px;
+  }
+
+  .course-content :deep(.student-script-viewer) {
+    padding: 20px;
+  }
+}
+
 @media (max-width: 720px) {
-  .control-cluster {
-    width: 100%;
+  .voice-orb-dock {
+    right: 12px;
+    bottom: 12px;
   }
 
-  .control-btn {
-    flex: 1 1 calc(50% - 8px);
+  .voice-orb-main {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
   }
 
-  .rate-select {
-    flex: 1 1 100%;
+  .orb-mini-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .bottom-control-row {
+    grid-template-columns: 1fr;
+  }
+
+  .page-control-main,
+  .page-control-btn {
     width: 100%;
   }
 

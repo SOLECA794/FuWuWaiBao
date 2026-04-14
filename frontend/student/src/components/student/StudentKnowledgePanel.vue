@@ -4,7 +4,6 @@
       <div>
         <p class="eyebrow">个人知识拆解</p>
         <h3>构建你的专属知识体系</h3>
-        <p class="head-tip">上传复习资料后自动拆解为知识树，支持问答、笔记、习题和复习计划演示。</p>
       </div>
       <div class="head-actions">
         <el-button plain @click="showHistory = true">我的拆解历史</el-button>
@@ -63,12 +62,6 @@
 
         <el-alert v-if="isParsing" title="正在拆解中，请稍候..." type="info" show-icon :closable="false" />
         <el-alert v-if="parseResult" :title="parseResult" type="success" show-icon />
-      </div>
-
-      <div class="feature-grid">
-        <div class="feature-item">AI 自动拆解知识点并生成结构化知识树</div>
-        <div class="feature-item">支持知识点编辑、问答、习题与笔记联动</div>
-        <div class="feature-item">演示数据可直接驱动完整学习闭环</div>
       </div>
 
       <div class="history-mini">
@@ -672,11 +665,6 @@ h3 {
   color: #1f443d;
 }
 
-.head-tip {
-  margin: 0;
-  color: #5f7a70;
-}
-
 .head-actions {
   display: flex;
   gap: 8px;
@@ -687,7 +675,7 @@ h3 {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.9fr);
   gap: 14px;
   overflow: hidden;
 }
@@ -737,20 +725,6 @@ h3 {
   margin: 12px 0;
 }
 
-.feature-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.feature-item {
-  background: linear-gradient(130deg, #eef8f3 0%, #f9fcfb 100%);
-  border: 1px solid #d8e7df;
-  border-radius: 12px;
-  padding: 10px;
-  color: #31544a;
-}
-
 .block-head {
   display: flex;
   justify-content: space-between;
@@ -778,7 +752,7 @@ h3 {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 34% 66%;
+  grid-template-columns: 68% 32%;
   gap: 14px;
   overflow: hidden;
 }

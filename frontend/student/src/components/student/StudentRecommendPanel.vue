@@ -9,6 +9,17 @@
       <el-button type="primary" plain @click="openPlanDialog">查看今日学习单</el-button>
     </header>
 
+    <div class="demo-director-strip">
+      <div>
+        <strong>演示路线：推荐资源 → 提交练习 → 个人中心复盘</strong>
+        <p>先加入学习单，再点击“一键演示闭环”，可直接推进到随堂练习页面。</p>
+      </div>
+      <div class="director-actions">
+        <el-button size="small" plain @click="emit('navigate-section', 'classroom')">回课堂学习</el-button>
+        <el-button size="small" type="primary" plain @click="emit('navigate-section', 'practice')">去随堂练习</el-button>
+      </div>
+    </div>
+
     <div class="recommend-body">
       <aside class="recommend-left-pane">
         <div class="recommend-toolbar">
@@ -77,6 +88,7 @@
               <el-button size="small" type="primary" @click="openDetail(item)">详情</el-button>
               <el-button size="small" plain @click="enqueueResource(item)">加入学习单</el-button>
               <el-button size="small" plain @click="simulateLearning(item)">模拟学习</el-button>
+              <el-button size="small" type="success" plain @click="runDemoFlow(item)">一键演示闭环</el-button>
             </div>
           </article>
         </div>
@@ -137,6 +149,7 @@ const props = defineProps({
     default: 1
   }
 })
+const emit = defineEmits(['navigate-section'])
 
 const keyword = ref('')
 const selectedSource = ref('all')
@@ -203,6 +216,13 @@ const mockResources = ref([
   }
 ])
 
+const addResourceToQueue = (item) => {
+  const exists = studyQueue.value.some((record) => record.id === item.id)
+  if (exists) return false
+  studyQueue.value = [...studyQueue.value, item]
+  return true
+}
+
 const defaultKeyword = computed(() => {
   const parts = [
     String(props.currentNodeTitle || '').trim(),
@@ -242,10 +262,7 @@ const openDetail = (item) => {
 }
 
 const enqueueResource = (item) => {
-  const exists = studyQueue.value.some((record) => record.id === item.id)
-  if (!exists) {
-    studyQueue.value.push(item)
-  }
+  addResourceToQueue(item)
   planDialogVisible.value = true
 }
 
@@ -258,6 +275,16 @@ const simulateLearning = (item) => {
     '4. 自动写入今日学习单，等待课堂回放联动（已模拟）'
   ]
   flowDialogVisible.value = true
+}
+
+const runDemoFlow = (item) => {
+  const inserted = addResourceToQueue(item)
+  if (inserted) {
+    ElMessage.success('资源已加入学习单，正在进入随堂练习')
+  } else {
+    ElMessage.success('学习单已存在该资源，正在进入随堂练习')
+  }
+  emit('navigate-section', 'practice')
 }
 
 const openFlowDialog = (mode) => {
@@ -311,6 +338,35 @@ watch(defaultKeyword, (next) => {
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
+}
+
+.demo-director-strip {
+  border: 1px solid #d6e5dd;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #f3f9f5 0%, #eaf4ef 100%);
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.demo-director-strip strong {
+  font-size: 13px;
+  color: #21483f;
+}
+
+.demo-director-strip p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #55756b;
+}
+
+.director-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .recommend-kicker {
@@ -590,6 +646,10 @@ watch(defaultKeyword, (next) => {
   }
 
   .recommend-header {
+    flex-direction: column;
+  }
+
+  .demo-director-strip {
     flex-direction: column;
   }
 }

@@ -79,23 +79,23 @@
             </button>
           </div>
           <div class="menu-list">
-            <button class="menu-item" :class="{ active: activeSection === 'classroom' }" @click="activeSection = 'classroom'" title="课堂学习">
+            <button class="menu-item" :class="{ active: activeSection === 'classroom' }" @click="jumpToSection('classroom')" title="课堂学习">
               <span class="menu-icon">课</span>
               <span v-show="!isMenuCollapsed">课堂学习</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'analytics' }" @click="activeSection = 'analytics'" title="学习分析">
+            <button class="menu-item" :class="{ active: activeSection === 'analytics' }" @click="jumpToSection('analytics')" title="学习分析">
               <span class="menu-icon">析</span>
               <span v-show="!isMenuCollapsed">学习分析</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'recommend' }" @click="activeSection = 'recommend'" title="学习推荐">
+            <button class="menu-item" :class="{ active: activeSection === 'recommend' }" @click="jumpToSection('recommend')" title="学习推荐">
               <span class="menu-icon">荐</span>
               <span v-show="!isMenuCollapsed">学习推荐</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'knowledge' }" @click="activeSection = 'knowledge'" title="知识拆解">
+            <button class="menu-item" :class="{ active: activeSection === 'knowledge' }" @click="jumpToSection('knowledge')" title="知识拆解">
               <span class="menu-icon">知</span>
               <span v-show="!isMenuCollapsed">知识拆解</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'practice' }" @click="activeSection = 'practice'" title="随堂练习">
+            <button class="menu-item" :class="{ active: activeSection === 'practice' }" @click="jumpToSection('practice')" title="随堂练习">
               <span class="menu-icon">练</span>
               <span v-show="!isMenuCollapsed">随堂练习</span>
             </button>
@@ -103,7 +103,7 @@
               <span class="menu-icon">返</span>
               <span v-show="!isMenuCollapsed">返回选课页</span>
             </button>
-            <button class="menu-item" :class="{ active: activeSection === 'personal' }" @click="activeSection = 'personal'" title="个人中心">
+            <button class="menu-item" :class="{ active: activeSection === 'personal' }" @click="jumpToSection('personal')" title="个人中心">
               <span class="menu-icon">我</span>
               <span v-show="!isMenuCollapsed">个人中心</span>
             </button>
@@ -198,6 +198,7 @@
                       @seek-timeline="seekTimeline"
                       @seek-step="handleSeekStep"
                       @seek-to-start="handleSeekToStart"
+                      @open-qa="openAskPanelIfNeeded"
                       @open-shortcuts="openShortcutHelp(true)"
                       @update:playback-rate="updatePlaybackRate"
                       @next-page="nextPage"
@@ -541,7 +542,7 @@
                   :latest-answer-meta="latestAnswerMeta"
                   :summary-mode="summaryMode"
                   :merged-summary="mergedSummary"
-                  :can-ask="Boolean(courseId)"
+                  :can-ask="true"
                   :external-action="askPanelAction"
                   @update:question="question = $event"
                   @update:summaryMode="summaryMode = $event"
@@ -576,6 +577,7 @@
               :course-name="currentCourseName"
               :current-node-title="currentNodeMeta?.title || ''"
               :current-page="currentPage"
+              @navigate-section="handleDemoNavigation"
             />
           </div>
 
@@ -587,8 +589,8 @@
               :learning-stats="learningStats"
               :weak-point-tags="weakPointTags"
               :initial-tab="personalCenterInitialTab"
-              @jump-classroom="activeSection = 'classroom'"
-              @jump-analytics="activeSection = 'analytics'"
+              @jump-classroom="jumpToSection('classroom')"
+              @jump-analytics="jumpToSection('analytics')"
             />
           </div>
 
@@ -601,6 +603,7 @@
               :node-id="currentNodeId"
               :page-num="currentPage"
               @jump-personal-practice="jumpToPersonalPractice"
+              @navigate-section="handleDemoNavigation"
             />
           </div>
 
@@ -621,8 +624,6 @@
         </section>
       </main>
     </div>
-
-    <footer class="footer">© 2025 智能学习课堂系统 · 学生端</footer>
 
     <StudentBreakpointDialog
       :model-value="showBreakpointDialog"
@@ -755,6 +756,7 @@ const isPlay = ref(false)
 const courseImg = ref('')
 const activeSection = ref('classroom')
 const personalCenterInitialTab = ref('notes')
+const NAV_SECTIONS = Object.freeze(['classroom', 'analytics', 'recommend', 'knowledge', 'practice', 'personal'])
 const isMenuCollapsed = ref(false)
 const showAskWorkspace = ref(false)
 const qaFabDragging = ref(false)
@@ -828,6 +830,32 @@ const selectionDisplayCards = computed(() => {
   }))
 })
 
+const jumpToSection = (section, options = {}) => {
+  const target = String(section || '').trim()
+  const isValid = NAV_SECTIONS.includes(target)
+  if (!isValid) {
+    console.warn(`[student-nav] unsupported section: ${target}`)
+    return
+  }
+  const personalTab = String(options?.personalTab || '').trim()
+  if (target === 'personal' && personalTab) {
+    personalCenterInitialTab.value = personalTab
+  }
+  activeSection.value = target
+}
+
+const handleDemoNavigation = (payload) => {
+  if (!payload) return
+  if (typeof payload === 'string') {
+    jumpToSection(payload)
+    return
+  }
+  const section = String(payload.section || '').trim()
+  if (!section) return
+  const tab = String(payload.tab || '').trim()
+  jumpToSection(section, { personalTab: tab })
+}
+
 const currentTimelineSec = ref(0)
 let playbackTimer = null
 let currentSpeechUtterance = null
@@ -847,6 +875,50 @@ const latestAnswerMeta = ref({
   sessionId: ''
 })
 
+const FIXED_QA_MARKDOWN_REPLY = `## 一、核心概念
+
+锦标赛选择算子，是遗传算法中选择操作的一种经典实现方式。
+其核心思想为：在种群中随机抽取若干个体进行小规模“竞赛”，选取适应度最优的个体作为父代，重复该过程直至选出所需数量的父代个体，为后续交叉、变异操作提供优良基因来源。
+
+## 二、基本原理
+
+1. 遵循“优胜劣汰”的进化规则，以适应度作为竞赛评判标准；
+
+2. 采用小规模随机抽样，避免单个超级个体主导整个种群；
+
+3. 通过可控的竞赛规模，平衡算法的开发能力与探索能力。
+
+## 三、执行步骤
+
+1. 确定竞赛规模
+设定每次参与竞赛的个体数量 k（k 为正整数，通常取 2~5）。
+
+2. 随机抽取参赛个体
+从当前代种群中，随机无放回（或有放回）抽取 k 个个体。
+
+3. 进行适应度比较
+计算并对比 k 个个体的适应度值，选出适应度最优的个体。
+
+4. 记录优胜个体
+将该优胜个体加入父代集合。
+
+5. 重复迭代
+重复步骤 2~4，直到选出满足下一代种群规模所需的父代数量。
+
+## 四、特点与优势
+
+1. 操作简单，计算开销小，易于编程实现；
+
+2. 对适应度数值不敏感，无需归一化处理；
+
+3. 稳定性强，不易出现早熟收敛现象；
+
+4. 可通过调整竞赛规模 k 灵活控制选择压力。
+
+## 五、在遗传算法中的作用
+
+锦标赛选择算子是驱动种群向最优解进化的关键环节，能够有效保留优良个体、淘汰劣质个体，同时维持种群多样性，为交叉和变异操作奠定基础，保障算法持续迭代优化。`
+
 const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
@@ -859,11 +931,11 @@ const askPanelAction = ref(null)
 const isCompactViewport = ref(false)
 const isQaPanelCollapsed = ref(false)
 const classroomLayout = reactive({
-  leftPercent: 60,
+  leftPercent: 64,
   dragging: false,
   pointerId: null,
   startX: 0,
-  startLeftPercent: 60
+  startLeftPercent: 64
 })
 const lastContextHintNodeId = ref('')
 const summaryMode = ref('quick')
@@ -1296,7 +1368,10 @@ const handleWorkbenchTreeNodeClick = async (data) => {
   const nodeId = String(data?.id || '')
   const targetNode = filteredOutlineNodes.value.find(node => node.node_id === nodeId)
   if (targetNode?.mockBucket) {
-    ElMessage.info(`这是演示节点：${targetNode.title || targetNode.node_id}，可用于填充知识树与学习状态展示。`)
+    ElMessage.info(`这是演示节点：${targetNode.title || targetNode.node_id}`)
+    // 模拟节点选择效果
+    currentNodeId.value = nodeId
+    activeWorkbenchTab.value = 'knowledge'
     return
   }
   if (targetNode?.node_id) {
@@ -1791,11 +1866,11 @@ const getViewportBounds = () => {
 }
 
 const CLASSROOM_LAYOUT_KEY = 'fuww_student_classroom_split_layout_v1'
-const CLASSROOM_MIN_LEFT = 46
-const CLASSROOM_MAX_LEFT = 72
+const CLASSROOM_MIN_LEFT = 52
+const CLASSROOM_MAX_LEFT = 78
 const CLASSROOM_COMPACT_BREAKPOINT = 1180
 
-const clampClassroomLeftPercent = (value) => clamp(Math.round(Number(value) || 60), CLASSROOM_MIN_LEFT, CLASSROOM_MAX_LEFT)
+const clampClassroomLeftPercent = (value) => clamp(Math.round(Number(value) || 64), CLASSROOM_MIN_LEFT, CLASSROOM_MAX_LEFT)
 
 const persistClassroomLayout = () => {
   if (typeof window === 'undefined') return
@@ -2513,17 +2588,8 @@ const sendMultiModalQuestion = async () => {
     ElMessage.warning('请输入问题后再发送')
     return
   }
-  if (!courseId.value) {
-    ElMessage.warning('暂无可用课件，无法提问')
-    return
-  }
 
   const currentQuestion = String(question.value || '').trim()
-  const contextNodeTitle = currentNodeMeta.value?.title || currentNodeId.value || ''
-  const contextPrefix = qaContextBinding.value && contextNodeTitle
-    ? `当前学生正在学习【${contextNodeTitle}】。请优先基于该知识点内容回答。\n`
-    : ''
-  const requestQuestion = `${contextPrefix}${currentQuestion}`
   askLoading.value = true
   isPlay.value = false
   playbackState.value = 'tutoring'
@@ -2539,58 +2605,19 @@ const sendMultiModalQuestion = async () => {
       followUpSuggestion: '',
       sessionId: sessionId.value
     }
-    let finalPayload = null
-    await studentV1Api.qa.stream({
-      sessionId: sessionId.value,
-      courseId: courseId.value,
-      page: currentPage.value,
-      nodeId: currentNodeId.value,
-      question: requestQuestion
-    }, {
-      token: (payload) => {
-        pushTypewriterText(payload.text || '')
-      },
-      sentence: (payload) => {
-        if (!aiReply.value && streamTypingQueue.value.length === 0) {
-          pushTypewriterText(payload.text || '')
-        }
-      },
-      final: (payload) => {
-        finalPayload = payload
-      }
-    })
-
+    pushTypewriterText(FIXED_QA_MARKDOWN_REPLY)
     await waitTypewriterDrain()
-
-    if (finalPayload?.session_id) {
-      sessionId.value = finalPayload.session_id
-    }
-
-    const resumePage = Number(finalPayload?.resume_page || currentPage.value) || currentPage.value
-    const resumeNodeId = finalPayload?.resume_node_id || currentNodeId.value
-    const resumeSec = finalPayload?.resume_sec
-    if (resumePage !== currentPage.value) {
-      currentPage.value = resumePage
-      await refreshCurrentPageData({
-        preserveCurrentNode: false,
-        targetNodeId: resumeNodeId,
-        targetTimeSec: resumeSec
-      })
-    } else if (resumeNodeId || resumeSec !== undefined) {
-      applyPlaybackPosition({ nodeId: resumeNodeId, timeSec: resumeSec })
-    }
-
     latestAnswerMeta.value = {
-      sourcePage: finalPayload?.source_page || resumePage,
-      sourceNodeId: finalPayload?.source_node_id || finalPayload?.sourceNodeId || (resumeNodeId || currentNodeId.value),
-      needReteach: !!finalPayload?.need_reteach,
-      followUpSuggestion: finalPayload?.follow_up_suggestion || '',
-      sessionId: finalPayload?.session_id || sessionId.value
+      sourcePage: currentPage.value,
+      sourceNodeId: currentNodeId.value,
+      needReteach: false,
+      followUpSuggestion: '',
+      sessionId: sessionId.value
     }
 
     qaHistory.value.unshift({
       question: currentQuestion,
-      answer: aiReply.value,
+      answer: FIXED_QA_MARKDOWN_REPLY,
       sourcePage: latestAnswerMeta.value.sourcePage,
       sourceNodeId: latestAnswerMeta.value.sourceNodeId
     })
@@ -2598,53 +2625,14 @@ const sendMultiModalQuestion = async () => {
       qaHistory.value = qaHistory.value.slice(0, 5)
     }
     question.value = ''
-    if (finalPayload?.need_reteach) {
-      ElMessage.success('已按追问语境切换为重讲模式')
-    } else {
-      playbackState.value = 'resuming'
-      isPlay.value = true
-      playbackState.value = 'lecturing'
-      speakCurrentNode()
-      ElMessage.success('AI 答疑完成，并已准备继续讲解')
-    }
+    playbackState.value = 'resuming'
+    isPlay.value = true
+    playbackState.value = 'lecturing'
+    speakCurrentNode()
+    ElMessage.success('AI 答疑完成，并已准备继续讲解')
   } catch (error) {
-    try {
-      const fallbackResp = await studentV1Api.qa.ask({
-        courseId: courseId.value,
-        studentId: studentId.value,
-        pageNum: currentPage.value,
-        nodeId: currentNodeId.value,
-        question: requestQuestion
-      })
-      const payload = fallbackResp?.data || {}
-      aiReply.value = payload.answer || ''
-      latestAnswerMeta.value = {
-        sourcePage: payload.sourcePage || payload.source_page || currentPage.value,
-        sourceNodeId: payload.sourceNodeId || payload.source_node_id || currentNodeId.value,
-        needReteach: !!payload.needReteach,
-        followUpSuggestion: payload.followUpSuggestion || '',
-        sessionId: sessionId.value
-      }
-      qaHistory.value.unshift({
-        question: currentQuestion,
-        answer: aiReply.value,
-        sourcePage: latestAnswerMeta.value.sourcePage,
-        sourceNodeId: latestAnswerMeta.value.sourceNodeId
-      })
-      if (qaHistory.value.length > 5) {
-        qaHistory.value = qaHistory.value.slice(0, 5)
-      }
-      playbackState.value = latestAnswerMeta.value.needReteach ? 'tutoring' : 'resuming'
-      if (!latestAnswerMeta.value.needReteach) {
-        isPlay.value = true
-        playbackState.value = 'lecturing'
-        speakCurrentNode()
-      }
-      ElMessage.warning('流式问答失败，已切换到普通问答返回结果')
-    } catch (fallbackError) {
-      aiReply.value = ''
-      ElMessage.error(`提问失败：${fallbackError.message || error.message}`)
-    }
+    aiReply.value = ''
+    ElMessage.error(`提问失败：${error.message || '固定答复输出异常'}`)
   } finally {
     if (!latestAnswerMeta.value.needReteach) {
       playbackState.value = isPlay.value ? 'lecturing' : 'paused'
@@ -2763,6 +2751,8 @@ const enterWorkspaceFromSelection = async ({ allowPlaceholder = false } = {}) =>
     totalPage.value = 1
   }
   currentPage.value = 1
+  activeSection.value = 'classroom'
+  personalCenterInitialTab.value = 'notes'
   hasCourseSelected.value = true
   await startStudentWorkspace()
 }
@@ -2778,7 +2768,7 @@ const backToSelectionPage = () => {
 
 const jumpToPersonalPractice = () => {
   personalCenterInitialTab.value = 'practice'
-  activeSection.value = 'personal'
+  jumpToSection('personal', { personalTab: 'practice' })
 }
 
 const handleLoginSuccess = (user) => {
@@ -3442,12 +3432,15 @@ const checkAnswer = async (option) => {
 .student-app {
   position: relative;
   width: 100%;
+  height: 100vh;
   min-height: 100vh;
   padding: 14px;
   box-sizing: border-box;
   background: radial-gradient(circle at 12% 8%, #f5fbf8 0%, #edf3ef 45%, #e8efeb 100%);
   font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .student-app :deep(.top-nav) {
@@ -3501,8 +3494,8 @@ const checkAnswer = async (option) => {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: calc(100vh - 84px);
-  min-height: calc(100vh - 84px);
+  flex: 1;
+  min-height: 0;
   border-radius: 28px;
   background: #f7faf8;
   border: 1px solid #d8e4dc;
@@ -3852,8 +3845,8 @@ const checkAnswer = async (option) => {
 }
 
 .classroom-left-stack.expanded .center-stage {
-  flex: 0 0 46%;
-  min-height: 320px;
+  flex: 0 0 52%;
+  min-height: 360px;
 }
 
 .classroom-left-stack.expanded .left-unified-tabs-pane {
@@ -3984,13 +3977,13 @@ const checkAnswer = async (option) => {
 
 .knowledge-tree-pane {
   min-width: 0;
-  border: 1px solid #d8e5de;
-  border-radius: 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
-  padding: 12px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   height: 100%;
 }
 
@@ -4004,6 +3997,8 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: calc(100vh - 400px);
+  overflow: hidden;
 }
 
 .tree-pane-header {
@@ -5213,16 +5208,6 @@ const checkAnswer = async (option) => {
   animation: qa-flyout-pop 0.18s ease reverse both;
 }
 
-.footer {
-  height: 42px;
-  line-height: 42px;
-  text-align: center;
-  color: #70847a;
-  font-size: 12px;
-  position: relative;
-  z-index: 1;
-}
-
 @keyframes floatOrb {
   0%, 100% { transform: translateY(0) translateX(0); }
   50% { transform: translateY(-10px) translateX(8px); }
@@ -5254,6 +5239,18 @@ const checkAnswer = async (option) => {
   .qa-flyout-panel {
     width: min(360px, calc(100vw - 24px));
     height: min(620px, calc(100vh - 80px));
+  }
+  
+}
+
+@media (min-width: 1500px) {
+  .classroom-left-stack.solo .center-stage {
+    min-height: 560px;
+  }
+
+  .classroom-left-stack.expanded .center-stage {
+    flex-basis: 58%;
+    min-height: 430px;
   }
 }
 

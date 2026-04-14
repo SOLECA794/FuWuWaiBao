@@ -103,17 +103,33 @@
         </article>
       </main>
 
-      <div class="preset-row">
+      <div class="preset-toggle-shell">
         <button
-          v-for="preset in promptPresets"
-          :key="preset"
-          class="preset-chip"
+          class="preset-toggle-btn"
           type="button"
-          @click="applyPreset(preset)"
           :disabled="askLoading"
+          :aria-expanded="presetExpanded ? 'true' : 'false'"
+          aria-controls="ask-preset-panel"
+          @click="togglePresetPanel"
         >
-          {{ preset }}
+          <span>💡 快捷提问</span>
+          <span class="preset-toggle-arrow">{{ presetExpanded ? '▲' : '▼' }}</span>
         </button>
+        <div v-if="presetExpanded" id="ask-preset-panel" class="preset-panel">
+          <div class="preset-chip-list">
+            <button
+              v-for="preset in promptPresets"
+              :key="preset.id"
+              class="preset-chip"
+              type="button"
+              @click="applyPreset(preset.label)"
+              :disabled="askLoading"
+              :title="preset.desc"
+            >
+              {{ preset.label }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <footer class="composer">
@@ -159,9 +175,11 @@ const MAX_SESSIONS = 40
 const MAX_MESSAGES = 300
 
 const promptPresets = [
-  '解释这个知识点',
-  '给我出 3 道配套练习题',
-  '总结这个章节的关键结论'
+  { id: 'explain', label: '📖 解释知识点', desc: '深入理解核心概念' },
+  { id: 'practice', label: '📝 3道练习题', desc: '巩固学习成果' },
+  { id: 'summary', label: '📋 总结要点', desc: '提炼关键结论' },
+  { id: 'example', label: '💡 举例说明', desc: '实例化理解' },
+  { id: 'compare', label: '🔍 对比分析', desc: '区分相似概念' }
 ]
 
 const keywordMap = {
@@ -231,6 +249,7 @@ const sessions = ref([])
 const activeSessionId = ref('')
 const pendingSessionId = ref('')
 const pendingAssistantMessageId = ref('')
+const presetExpanded = ref(false)
 
 let persistTimer = null
 
@@ -257,7 +276,7 @@ const activeMessages = computed(() => activeSession.value?.messages || [])
 
 const sendDisabled = computed(() => {
   const hasText = String(props.question || '').trim().length > 0
-  return !hasText || props.askLoading || props.streamTypingActive || !props.canAsk
+  return !hasText || props.askLoading || props.streamTypingActive
 })
 
 const hasUserMessage = computed(() => activeMessages.value.some((item) => item.role === 'user' && String(item.content || '').trim()))
@@ -631,14 +650,14 @@ function applyPreset(presetText) {
   nextTick(() => focusComposer())
 }
 
+function togglePresetPanel() {
+  presetExpanded.value = !presetExpanded.value
+}
+
 function sendWithText(rawText) {
   const text = String(rawText || '').trim()
   if (!text) {
     ElMessage.warning('请输入问题后再发送')
-    return
-  }
-  if (!props.canAsk) {
-    ElMessage.warning('请先选择课件后再提问')
     return
   }
   if (props.askLoading || props.streamTypingActive) {
@@ -736,6 +755,24 @@ function handleMarkdownAction(event) {
   copyText(decoded, '代码已复制')
 }
 
+function finalizePendingAssistantIfIdle() {
+  if (!pendingSessionId.value || !pendingAssistantMessageId.value) return
+  if (props.askLoading || props.streamTypingActive) return
+
+  const finalText = String(props.aiReply || '').trim()
+  if (!finalText) {
+    updateAssistantMessage(
+      pendingSessionId.value,
+      pendingAssistantMessageId.value,
+      '这次回答为空，建议点击「重新生成」再试一次。'
+    )
+  }
+
+  pendingSessionId.value = ''
+  pendingAssistantMessageId.value = ''
+  nextTick(() => scrollToBottom(false))
+}
+
 watch(
   () => props.aiReply,
   (replyText) => {
@@ -753,28 +790,18 @@ watch(
       return
     }
     if (!prev) return
-    if (!pendingSessionId.value || !pendingAssistantMessageId.value) return
-
-    const finalText = String(props.aiReply || '').trim()
-    if (!finalText) {
-      updateAssistantMessage(
-        pendingSessionId.value,
-        pendingAssistantMessageId.value,
-        '这次回答为空，建议点击「重新生成」再试一次。'
-      )
-    }
-
-    pendingSessionId.value = ''
-    pendingAssistantMessageId.value = ''
-    nextTick(() => scrollToBottom(false))
+    finalizePendingAssistantIfIdle()
   }
 )
 
 watch(
   () => props.streamTypingActive,
   (active) => {
-    if (!active) return
-    nextTick(() => scrollToBottom(false))
+    if (active) {
+      nextTick(() => scrollToBottom(false))
+      return
+    }
+    finalizePendingAssistantIfIdle()
   }
 )
 
@@ -1046,13 +1073,13 @@ onUnmounted(() => {
 
 .message-row.user .message-bubble {
   order: 1;
-  background: linear-gradient(180deg, #2f7f66 0%, #2a6f5a 100%);
-  border: 1px solid rgba(36, 94, 76, 0.25);
+  background: linear-gradient(180deg, #4a9f7e 0%, #3d8c6d 100%);
+  border: 1px solid rgba(58, 127, 102, 0.25);
   color: #ffffff;
 }
 
 .message-row.assistant .message-bubble {
-  background: #eff6f2;
+  background: #f8fbf8;
   border: 1px solid #d2e2da;
   color: #1f3f35;
 }
@@ -1193,28 +1220,73 @@ onUnmounted(() => {
   animation: pulse 1.1s ease-in-out infinite;
 }
 
-.preset-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.preset-toggle-shell {
+  margin-top: 4px;
 }
 
-.preset-chip {
-  border: 1px solid #cbe0d6;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
-  color: #2e6657;
+.preset-toggle-btn {
+  width: 100%;
+  border: 1px solid #c8ded3;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f7fcfa 0%, #eef8f3 100%);
+  color: #2c6456;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
   font-size: 12px;
-  padding: 5px 10px;
+  font-weight: 700;
   cursor: pointer;
 }
 
+.preset-toggle-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f0faf5 0%, #e7f5ee 100%);
+}
+
+.preset-toggle-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.preset-toggle-arrow {
+  color: #54786b;
+  font-size: 11px;
+}
+
+.preset-panel {
+  margin-top: 8px;
+  border: 1px solid #d5e6de;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px;
+}
+
+.preset-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-chip {
+  border: 1px solid #c6ddd2;
+  border-radius: 999px;
+  background: #f6fbf8;
+  color: #2f6658;
+  font-size: 12px;
+  line-height: 1;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
 .preset-chip:hover:not(:disabled) {
-  background: #eef8f3;
+  background: #ebf7f1;
+  border-color: #9fc8b7;
 }
 
 .preset-chip:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
