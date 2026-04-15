@@ -124,7 +124,7 @@
               <p class="weak-advice">AI建议：{{ item.advice }}</p>
               <div class="weak-actions">
                 <el-button size="small" type="primary" plain @click="askAiExplain(item)">AI讲解</el-button>
-                <el-button size="small" @click="goPractice(item)">去练习</el-button>
+                <el-button size="small" @click="collectWeakPoint(item)">收藏</el-button>
               </div>
             </article>
           </div>
@@ -296,7 +296,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['start-weak-point', 'generate-test', 'check-answer'])
+const emit = defineEmits(['start-weak-point', 'generate-test', 'check-answer', 'collect-weak-point'])
 
 const selectedCourse = ref('current')
 const selectedTimeRange = ref('week')
@@ -718,9 +718,8 @@ const askAiExplain = item => {
   ElMessage.success(`已请求 AI 讲解：${item.name}`)
 }
 
-const goPractice = item => {
-  emit('generate-test')
-  openActionDialog('practice', item)
+const collectWeakPoint = item => {
+  emit('collect-weak-point', item)
 }
 
 const openActionDialog = (type, payload = null) => {

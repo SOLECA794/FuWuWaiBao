@@ -119,13 +119,6 @@
                 <h3>左侧学习区 · 右侧 AI 课堂助手</h3>
               </div>
               <div class="classroom-header-actions">
-                <el-switch
-                  v-model="qaContextBinding"
-                  size="small"
-                  inline-prompt
-                  active-text="上下文绑定"
-                  inactive-text="自由问答"
-                />
                 <el-button v-if="isCompactViewport" size="small" plain @click="toggleQaPanel">
                   {{ isQaPanelCollapsed ? '展开 AI 助手' : '收起 AI 助手' }}
                 </el-button>
@@ -164,6 +157,7 @@
                       </el-button>
                     </div>
                     <StudentCoursePanel
+                      v-if="!isLowerWorkbenchExpanded"
                       :current-course-name="currentCourseName"
                       :current-page="currentPage"
                       :total-page="totalPage"
@@ -176,7 +170,8 @@
                       :playback-mode="playbackMode"
                       :playback-audio-meta="playbackAudioMeta"
                       :progress-percent="progressPercent"
-                      :course-img="courseImg"
+                      :course-img="classroomCourseImageSrc"
+                      :fallback-course-img="coursePreviewFallbackSrc"
                       :playback-nodes="playbackNodes"
                       :current-node-id="currentNodeId"
                       :tts-enabled="ttsEnabled"
@@ -203,6 +198,14 @@
                       @update:playback-rate="updatePlaybackRate"
                       @next-page="nextPage"
                     />
+                    <div v-if="!isLowerWorkbenchExpanded && hasClassroomSubtitle" class="classroom-live-subtitle" :class="{ qa: classroomSubtitleSource === 'qa' }">
+                      <div class="subtitle-label">{{ classroomSubtitleSource === 'qa' ? 'AI 回答字幕' : '课堂字幕' }}</div>
+                      <p class="subtitle-text">{{ classroomSubtitleText }}</p>
+                    </div>
+                    <div v-else class="center-stage-collapsed-title" aria-label="已折叠课堂面板">
+                      <h4>{{ currentCourseName || '当前课件' }}</h4>
+                      <span>第 {{ currentPage }} / {{ totalPage }} 页</span>
+                    </div>
                   </section>
 
                   <div v-if="isLowerWorkbenchExpanded" class="tab-workspace-pane merged-tabs-pane left-unified-tabs-pane">
@@ -542,16 +545,90 @@
                   :latest-answer-meta="latestAnswerMeta"
                   :summary-mode="summaryMode"
                   :merged-summary="mergedSummary"
+                  :context-binding="qaContextBinding"
+                  :deep-reasoning="qaDeepReasoning"
+                  :web-search="qaWebSearch"
+                  :auto-speak-answer="qaAutoSpeakAnswer"
+                  :preset-lecture-script="presetLectureScriptOnPlay"
                   :can-ask="true"
                   :external-action="askPanelAction"
                   @update:question="question = $event"
                   @update:summaryMode="summaryMode = $event"
+                  @update:context-binding="qaContextBinding = $event"
+                  @update:deep-reasoning="qaDeepReasoning = $event"
+                  @update:web-search="qaWebSearch = $event"
+                  @update:auto-speak-answer="qaAutoSpeakAnswer = $event"
+                  @update:preset-lecture-script="presetLectureScriptOnPlay = $event"
                   @open-upload="openUpload"
                   @generate-summary="generateMergedSummary"
                   @use-summary="injectSummaryToQuestion"
                   @clear-draft="clearQaDraft"
                   @send-question="sendMultiModalQuestion"
+                  @play-answer-audio="playAnswerMessageAudio"
                 />
+              </aside>
+
+              <aside v-if="showClassroomRightSidebar" class="workbench-right-sidebar">
+                <div class="right-rail">
+                  <button
+                    class="rail-btn"
+                    :class="{ active: activeRightPanel === 'courseware' }"
+                    type="button"
+                    @click="toggleRightPanel('courseware')"
+                  >
+                    <span>课件</span>
+                  </button>
+                  <button
+                    class="rail-btn"
+                    :class="{ active: activeRightPanel === 'mindmap' }"
+                    type="button"
+                    @click="toggleRightPanel('mindmap')"
+                  >
+                    <span>导图</span>
+                  </button>
+                </div>
+
+                <transition name="drawer-slide">
+                  <div v-if="isRightDrawerOpen" class="overlay-drawer">
+                    <header class="section-header">
+                      <h3>{{ activeRightPanel === 'mindmap' ? '思维导图' : '课件选择' }}</h3>
+                      <button class="close-btn" type="button" @click="closeRightPanel">关闭</button>
+                    </header>
+
+                    <template v-if="activeRightPanel === 'courseware'">
+                      <div class="panel-body courseware-select-body">
+                        <div class="courseware-select-list" v-if="classroomCoursewareList.length">
+                          <button
+                            v-for="item in classroomCoursewareList"
+                            :key="item.id"
+                            class="courseware-select-item"
+                            :class="{ active: item.id === courseId }"
+                            type="button"
+                            @click="selectCoursewareFromDrawer(item)"
+                          >
+                            <div class="courseware-item-main">
+                              <strong>{{ item.name }}</strong>
+                              <span>{{ item.courseName || '未绑定课程' }} · {{ item.className || '未绑定班级' }}</span>
+                            </div>
+                            <div class="courseware-item-meta">{{ Number(item.totalPage || 1) }}页</div>
+                          </button>
+                        </div>
+                        <div v-else class="courseware-empty">暂无可选课件，请返回选课页刷新资源。</div>
+                      </div>
+                      <div class="drawer-page-nav" v-if="courseId">
+                        <button class="nav-icon-btn" type="button" :disabled="currentPage <= 1" @click="prevPage">◀</button>
+                        <span class="page-indicator">{{ currentPage }} / {{ totalPage }}</span>
+                        <button class="nav-icon-btn" type="button" :disabled="currentPage >= totalPage" @click="nextPage">▶</button>
+                      </div>
+                    </template>
+
+                    <div v-else class="graph-body">
+                      <div class="mindmap-preview-shell">
+                        <img class="mindmap-preview-image" :src="presetMindmapImageSrc" alt="预置思维导图" />
+                      </div>
+                    </div>
+                  </div>
+                </transition>
               </aside>
             </div>
           </div>
@@ -567,6 +644,7 @@
               :current-test="currentTest"
               :test-result="testResult"
               @start-weak-point="startWeakPointLearn"
+              @collect-weak-point="collectWeakPointToFavorite"
               @generate-test="generateTest"
               @check-answer="checkAnswer"
             />
@@ -665,7 +743,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { studentV1Api } from './services/v1'
-import { API_BASE } from './config/api'
+import { API_BASE, AI_API_BASE } from './config/api'
 import StudentCoursePanel from './components/student/StudentCoursePanel.vue'
 import StudentAskPanel from './components/student/StudentAskPanel.vue'
 import StudentStudyPanel from './components/student/StudentStudyPanel.vue'
@@ -754,6 +832,7 @@ const currentPage = ref(1)
 const totalPage = ref(10)
 const isPlay = ref(false)
 const courseImg = ref('')
+const selectedCoursePreviewImageUrl = ref('')
 const activeSection = ref('classroom')
 const personalCenterInitialTab = ref('notes')
 const NAV_SECTIONS = Object.freeze(['classroom', 'analytics', 'recommend', 'knowledge', 'practice', 'personal'])
@@ -842,6 +921,9 @@ const jumpToSection = (section, options = {}) => {
     personalCenterInitialTab.value = personalTab
   }
   activeSection.value = target
+  if (target === 'knowledge') {
+    void ensureKnowledgeWorkspaceDefaults({ autoParse: true, silent: true })
+  }
 }
 
 const handleDemoNavigation = (payload) => {
@@ -859,9 +941,108 @@ const handleDemoNavigation = (payload) => {
 const currentTimelineSec = ref(0)
 let playbackTimer = null
 let currentSpeechUtterance = null
+let currentSpeechAudioElement = null
+let currentSpeechCancel = null
+let activeSpeechMark = ''
+const classroomSubtitleText = ref('')
+const classroomSubtitleSource = ref('')
+let subtitleHideTimer = null
+let subtitleVersion = 0
+const ttsAudioUrlCache = new Map()
+const hasClassroomSubtitle = computed(() => String(classroomSubtitleText.value || '').trim().length > 0)
+let presetSpeechTaskId = 0
 let streamTypingTimer = null
 const streamTypingQueue = ref([])
 const streamTypingActive = ref(false)
+const TYPEWRITER_INTERVAL_MS = 38
+const TYPEWRITER_FORCE_FLUSH_MS = 120000
+const THINKING_DELAY_MS = 3000
+const QA_RESUME_WAIT_TYPEWRITER_MS = 2200
+const QA_ANSWER_SPEAK_TIMEOUT_MS = 7000
+const TTS_MAX_CACHE_ENTRIES = 80
+const TTS_DEFAULT_PROVIDER = 'openai-tts'
+const TTS_DEFAULT_VOICE = 'alloy'
+const TTS_DEFAULT_FORMAT = 'mp3'
+const QA_AUTO_SPEAK_PREF_KEY = 'fuww_student_qa_auto_speak_answer_v1'
+const PRESET_LECTURE_SPEAK_PREF_KEY = 'fuww_student_preset_lecture_speak_v1'
+const STATIC_ASSET_BASE = (typeof process !== 'undefined' && process.env && process.env.BASE_URL)
+  ? process.env.BASE_URL
+  : '/'
+const PRESET_MINDMAP_SRC = `${STATIC_ASSET_BASE}mindmap-preset.svg`
+const COURSE_PREVIEW_FALLBACK_SRC = `${STATIC_ASSET_BASE}course-preview-fallback.png`
+const PRESET_LECTURE_SCRIPT_TEXT = `同学们，我们开始今天的核心主题：遗传算法。
+这节内容请抓住一个主线：我们不做穷举，而是通过“种群进化”逐代逼近最优解。
+
+先看第一步，编码。我们要把一个候选解表示成染色体，染色体上的每个位置就是基因。
+根据问题类型不同，编码可以是二进制编码、实数编码，或者排列编码。
+
+第二步，适应度评估。适应度函数只回答一个问题：这个解到底有多好。
+适应度越高，个体在后续选择中被保留的概率越大。
+
+第三步，进入进化循环，每一代都做三件事：
+第一，选择：从当前种群选出父代，常见方法是轮盘赌和锦标赛选择；
+第二，交叉：让父代交换部分基因，组合出更优的后代；
+第三，变异：以较低概率随机修改基因，避免算法过早陷入局部最优。
+
+参数设置上，我们重点关注三项：种群规模、交叉概率、变异概率。
+一般来说，种群太小会导致多样性不足；交叉概率通常高于变异概率；
+终止条件可以设为达到最大代数，或若干代最优值不再提升。
+
+最后总结：遗传算法的本质是“保留好解、探索新解、逐代改进”。
+请带着这个流程去看本页节点：编码、适应度、选择、交叉、变异，你会更容易理解每一步在整体优化中的作用。`
+
+const isImageFileType = (value) => {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return false
+  return normalized.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(normalized)
+}
+
+const isLikelyImageUrl = (value) => {
+  const src = String(value || '').trim()
+  if (!src) return false
+  if (/^data:image\//i.test(src)) return true
+  return /\.(png|jpe?g|webp|gif|bmp|svg)(\?|#|$)/i.test(src)
+}
+
+const normalizePreviewImageUrl = (value, { force = false } = {}) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (/^(https?:)?\/\//i.test(raw) || /^data:image\//i.test(raw) || /^blob:/i.test(raw)) {
+    return raw
+  }
+  if (!force && !isLikelyImageUrl(raw)) return ''
+  const base = String(API_BASE || '').replace(/\/+$/, '')
+  const path = raw.startsWith('/') ? raw : `/${raw}`
+  return `${base}${path}`
+}
+
+const loadBooleanPreference = (storageKey, fallbackValue) => {
+  if (typeof window === 'undefined') return fallbackValue
+  const raw = String(window.localStorage.getItem(storageKey) || '').trim().toLowerCase()
+  if (!raw) return fallbackValue
+  if (['1', 'true', 'yes', 'on'].includes(raw)) return true
+  if (['0', 'false', 'no', 'off'].includes(raw)) return false
+  return fallbackValue
+}
+
+const normalizeTextForSpeech = (value, maxLength = 900) => {
+  const input = String(value || '')
+  if (!input.trim()) return ''
+  const stripped = input
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*>\s?/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!stripped) return ''
+  return stripped.slice(0, maxLength)
+}
 
 const question = ref('')
 const aiReply = ref('')
@@ -927,6 +1108,14 @@ const activeWorkbenchTab = ref('tree')
 const isLowerWorkbenchExpanded = ref(false)
 const activeRightPanel = ref('')
 const qaContextBinding = ref(true)
+const qaDeepReasoning = ref(false)
+const qaWebSearch = ref(false)
+const qaAutoSpeakAnswer = ref(true)
+const presetLectureScriptOnPlay = ref(true)
+const isPresetLectureSpeaking = ref(false)
+const shouldSpeakPresetOnNextPlay = ref(false)
+const shouldResumeSpeechOnNextPlay = ref(false)
+const shouldResumePlaybackAfterQa = ref(false)
 const askPanelAction = ref(null)
 const isCompactViewport = ref(false)
 const isQaPanelCollapsed = ref(false)
@@ -1312,27 +1501,56 @@ const currentNodeNote = computed({
 })
 
 const isRightDrawerOpen = computed(() => activeRightPanel.value !== '')
+const showClassroomRightSidebar = computed(() => !isCompactViewport.value)
+const classroomCoursewareList = computed(() => {
+  if (filteredSelectionCoursewares.value.length > 0) return filteredSelectionCoursewares.value
+  return selectionCoursewares.value
+})
+const classroomCourseImageSrc = computed(() => {
+  const preferred = String(selectedCoursePreviewImageUrl.value || '').trim()
+  if (preferred) return preferred
+
+  const selectedCourseware = selectionCoursewares.value.find((item) => item.id === selectedCoursewareId.value)
+  const imageFileFallback = String(selectedCourseware?.imageFileUrl || '').trim()
+  if (imageFileFallback) return imageFileFallback
+
+  const pagePreview = String(courseImg.value || '').trim()
+  if (pagePreview) return pagePreview
+
+  return COURSE_PREVIEW_FALLBACK_SRC
+})
 const graphSummaryVisible = computed(() => Boolean(graphSyncPayload.value || graphScanReport.value))
 const graphEdgeCount = computed(() => Number(graphSyncPayload.value?.edgeCount || 0))
 const graphOrphanCount = computed(() => Number(graphScanReport.value?.unionOrphanNodeIds?.length || 0))
 const graphBucketCount = computed(() => Number(graphScanReport.value?.buckets?.length || 0))
+const presetMindmapImageSrc = computed(() => PRESET_MINDMAP_SRC)
+const coursePreviewFallbackSrc = computed(() => COURSE_PREVIEW_FALLBACK_SRC)
 const qaFabStyle = computed(() => ({
   left: `${qaFabLayout.left}px`,
   top: `${qaFabLayout.top}px`,
   right: 'auto',
   bottom: 'auto'
 }))
+
+const getClassroomPaneBasis = (percentValue) => {
+  const ratio = Math.min(1, Math.max(0, Number(percentValue || 0) / 100))
+  if (!showClassroomRightSidebar.value) {
+    return `${Math.round(Number(percentValue || 0))}%`
+  }
+  return `calc((100% - ${CLASSROOM_RIGHT_RAIL_WIDTH}px) * ${ratio.toFixed(4)})`
+}
+
 const classroomLeftPaneStyle = computed(() => {
   if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
   return {
-    flexBasis: `${classroomLayout.leftPercent}%`
+    flexBasis: getClassroomPaneBasis(classroomLayout.leftPercent)
   }
 })
 
 const classroomQaPaneStyle = computed(() => {
   if (isCompactViewport.value || isQaPanelCollapsed.value) return {}
   return {
-    flexBasis: `${100 - classroomLayout.leftPercent}%`
+    flexBasis: getClassroomPaneBasis(100 - classroomLayout.leftPercent)
   }
 })
 
@@ -1641,6 +1859,70 @@ const closeRightPanel = () => {
   activeRightPanel.value = ''
 }
 
+const selectCoursewareFromDrawer = async (courseware) => {
+  const nextCourseId = String(courseware?.id || '').trim()
+  if (!nextCourseId) return
+
+  if (courseware?.teachingCourseId) {
+    selectedTeachingCourseId.value = String(courseware.teachingCourseId)
+  }
+  if (courseware?.courseClassId) {
+    selectedCourseClassId.value = String(courseware.courseClassId)
+  }
+
+  selectedCoursewareId.value = nextCourseId
+  selectedCoursePreviewImageUrl.value = String(courseware?.previewImageUrl || courseware?.imageFileUrl || '').trim()
+
+  if (nextCourseId === courseId.value) return
+
+  isPlay.value = false
+  stopSpeechNarration()
+  courseId.value = nextCourseId
+  currentCourseName.value = String(courseware?.name || '未命名课件')
+  resetKnowledgeWorkspace()
+  totalPage.value = Number(courseware?.totalPage || 1)
+  currentPage.value = 1
+  currentNodeId.value = 'p1_n1'
+
+  try {
+    await refreshCurrentPageData({ preserveCurrentNode: false })
+    const session = await studentV1Api.sessions.start({
+      userId: studentId.value,
+      courseId: courseId.value
+    })
+    sessionId.value = session?.data?.sessionId || sessionId.value
+    await Promise.all([loadWeakPoints(), loadStudyData(), saveBreakpoint()])
+  } catch (error) {
+    console.warn('切换课件失败', error)
+  }
+}
+
+const collectWeakPointToFavorite = async (weakPoint) => {
+  const weakName = String(weakPoint?.name || '').trim() || '薄弱知识点'
+  personalCenterInitialTab.value = 'favorites'
+
+  if (!courseId.value || !studentId.value) {
+    console.warn('收藏薄弱点失败：缺少课程或学生上下文')
+    return
+  }
+
+  try {
+    const response = await studentV1Api.coursewares.addFavorite({
+      studentId: studentId.value,
+      courseId: courseId.value,
+      nodeId: currentNodeId.value || null,
+      pageNum: currentPage.value,
+      title: `${weakName} · 学习分析收藏`,
+      tags: [resolveFavoriteCategoryLabel('weak'), '学习分析']
+    })
+    const favoriteId = response?.data?.id || response?.data?.favoriteId || ''
+    setFavoriteBoardColumn(favoriteId, 'weak')
+    ElMessage.success(`已收藏「${weakName}」到个人中心`) 
+  } catch (error) {
+    console.warn('收藏薄弱点失败（已忽略弹窗）', error)
+  }
+}
+
 const handleGraphSync = async () => {
   if (!courseId.value || graphSyncLoading.value) return
   graphSyncLoading.value = true
@@ -1869,6 +2151,7 @@ const CLASSROOM_LAYOUT_KEY = 'fuww_student_classroom_split_layout_v1'
 const CLASSROOM_MIN_LEFT = 52
 const CLASSROOM_MAX_LEFT = 78
 const CLASSROOM_COMPACT_BREAKPOINT = 1180
+const CLASSROOM_RIGHT_RAIL_WIDTH = 56
 
 const clampClassroomLeftPercent = (value) => clamp(Math.round(Number(value) || 64), CLASSROOM_MIN_LEFT, CLASSROOM_MAX_LEFT)
 
@@ -2204,7 +2487,7 @@ const startStreamTypewriter = () => {
     }
     const nextChar = streamTypingQueue.value.shift()
     aiReply.value += nextChar
-  }, 16)
+  }, TYPEWRITER_INTERVAL_MS)
 }
 
 const pushTypewriterText = (text) => {
@@ -2217,54 +2500,506 @@ const pushTypewriterText = (text) => {
 const waitTypewriterDrain = async () => {
   const startedAt = Date.now()
   while (streamTypingQueue.value.length > 0 || streamTypingActive.value) {
-    if (Date.now() - startedAt > 3000) {
+    if (Date.now() - startedAt > TYPEWRITER_FORCE_FLUSH_MS) {
       aiReply.value += streamTypingQueue.value.join('')
       stopStreamTypewriter()
       break
     }
-    await new Promise(resolve => window.setTimeout(resolve, 30))
+    await new Promise(resolve => window.setTimeout(resolve, 50))
   }
 }
 
-const stopSpeechNarration = () => {
-  if (window.speechSynthesis) {
-    window.speechSynthesis.cancel()
+const waitTypewriterReadyForResume = async (maxWaitMs = QA_RESUME_WAIT_TYPEWRITER_MS) => {
+  const startedAt = Date.now()
+  while (streamTypingQueue.value.length > 0 || streamTypingActive.value) {
+    if (Date.now() - startedAt >= maxWaitMs) break
+    await new Promise(resolve => window.setTimeout(resolve, 50))
   }
-  currentSpeechUtterance = null
 }
 
-const speakCurrentNode = () => {
-  if (!ttsEnabled.value || !isPlay.value) return
-  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') return
-  const node = currentNodeMeta.value
-  if (!node) return
-  const text = String(node.text || node.title || '').trim()
-  if (!text) return
+const setClassroomSubtitle = (text, source = 'lecture', autoHideMs = 0) => {
+  const normalized = normalizeTextForSpeech(text, 260)
+  if (!normalized) return subtitleVersion
+  subtitleVersion += 1
+  const currentVersion = subtitleVersion
+  classroomSubtitleText.value = normalized
+  classroomSubtitleSource.value = source === 'qa' ? 'qa' : 'lecture'
+  if (subtitleHideTimer) {
+    window.clearTimeout(subtitleHideTimer)
+    subtitleHideTimer = null
+  }
+  if (autoHideMs > 0) {
+    subtitleHideTimer = window.setTimeout(() => {
+      subtitleHideTimer = null
+      if (currentVersion !== subtitleVersion) return
+      classroomSubtitleText.value = ''
+      classroomSubtitleSource.value = ''
+    }, autoHideMs)
+  }
+  return currentVersion
+}
 
-  const speakingMark = `${currentPage.value}:${node.node_id}:${normalizeTimeSec(node.start_sec)}`
-  if (currentSpeechUtterance?.__mark === speakingMark) {
+const clearClassroomSubtitle = (delayMs = 0, expectedVersion = null) => {
+  const expected = expectedVersion === null ? subtitleVersion : Number(expectedVersion)
+  if (subtitleHideTimer) {
+    window.clearTimeout(subtitleHideTimer)
+    subtitleHideTimer = null
+  }
+  if (delayMs > 0) {
+    subtitleHideTimer = window.setTimeout(() => {
+      subtitleHideTimer = null
+      if (expected !== subtitleVersion) return
+      subtitleVersion += 1
+      classroomSubtitleText.value = ''
+      classroomSubtitleSource.value = ''
+    }, delayMs)
+    return
+  }
+  if (expected !== subtitleVersion) return
+  subtitleVersion += 1
+  classroomSubtitleText.value = ''
+  classroomSubtitleSource.value = ''
+}
+
+const canUseSpeechSynthesis = () => (
+  typeof window !== 'undefined'
+    && Boolean(window.speechSynthesis)
+    && typeof window.SpeechSynthesisUtterance !== 'undefined'
+)
+
+const resolveServiceAudioUrl = (value) => {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+  if (/^(https?:)?\/\//i.test(raw) || /^data:/i.test(raw) || /^blob:/i.test(raw)) {
+    return raw
+  }
+  const base = String(AI_API_BASE || '').trim() || 'http://localhost:8000'
+  try {
+    const normalizedBase = base.endsWith('/') ? base : `${base}/`
+    return new URL(raw, normalizedBase).toString()
+  } catch (error) {
+    return raw
+  }
+}
+
+const getPlaybackNodeAudioUrl = (nodeId) => {
+  const targetNodeId = String(nodeId || '').trim()
+  if (!targetNodeId) return ''
+  const sections = Array.isArray(playbackAudioMeta.value?.sections)
+    ? playbackAudioMeta.value.sections
+    : []
+  const section = sections.find(item => String(item?.node_id || '').trim() === targetNodeId)
+  return resolveServiceAudioUrl(section?.audio_url || '')
+}
+
+const buildTtsCacheKey = (normalizedText, options = {}) => {
+  const provider = String(options.provider || TTS_DEFAULT_PROVIDER).trim().toLowerCase()
+  const voiceType = String(options.voiceType || TTS_DEFAULT_VOICE).trim().toLowerCase()
+  return `${provider}|${voiceType}|${normalizedText}`
+}
+
+const pushTtsAudioCache = (cacheKey, audioUrl) => {
+  if (!cacheKey || !audioUrl) return
+  ttsAudioUrlCache.set(cacheKey, audioUrl)
+  if (ttsAudioUrlCache.size <= TTS_MAX_CACHE_ENTRIES) return
+  const oldestKey = ttsAudioUrlCache.keys().next().value
+  if (oldestKey) {
+    ttsAudioUrlCache.delete(oldestKey)
+  }
+}
+
+const requestServiceTtsAudio = async (normalizedText, options = {}) => {
+  const cacheKey = buildTtsCacheKey(normalizedText, options)
+  const cachedAudioUrl = ttsAudioUrlCache.get(cacheKey)
+  if (cachedAudioUrl) {
+    return {
+      audioUrl: cachedAudioUrl,
+      provider: 'cache',
+      status: 'cached',
+      fromMeta: false
+    }
+  }
+
+  const provider = String(options.provider || TTS_DEFAULT_PROVIDER).trim()
+  const voiceType = String(options.voiceType || TTS_DEFAULT_VOICE).trim()
+  const format = String(options.format || TTS_DEFAULT_FORMAT).trim().toLowerCase()
+  const endpoint = `${String(AI_API_BASE || '').replace(/\/+$/, '')}/generate-audio`
+  const payload = {
+    course_id: String(options.courseId || courseId.value || 'student-course'),
+    page: Math.max(1, Number(options.page || currentPage.value || 1)),
+    voice_type: voiceType,
+    format,
+    provider,
+    playback_id: String(options.mark || `student-tts-${Date.now()}`),
+    nodes: [
+      {
+        node_id: String(options.nodeId || `node_${Date.now()}`),
+        title: String(options.title || ''),
+        text: normalizedText,
+        duration_sec: 0,
+        start_sec: 0,
+        end_sec: 0
+      }
+    ]
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  })
+  if (!response.ok) {
+    throw new Error(`TTS服务请求失败: ${response.status}`)
+  }
+
+  const data = await response.json().catch(() => ({}))
+  const sections = Array.isArray(data?.sections) ? data.sections : []
+  const firstAudioSection = sections.find(section => String(section?.audio_url || '').trim())
+  const audioUrl = resolveServiceAudioUrl(firstAudioSection?.audio_url || data?.audio_url || '')
+  if (audioUrl) {
+    pushTtsAudioCache(cacheKey, audioUrl)
+  }
+
+  return {
+    audioUrl,
+    provider: String(data?.provider || provider || '').trim().toLowerCase(),
+    status: String(data?.status || '').trim().toLowerCase(),
+    fromMeta: false
+  }
+}
+
+const createSpeechUtterance = (text, { mark = '', rate = playbackRate.value, maxLength = 900 } = {}) => {
+  const normalizedText = normalizeTextForSpeech(text, maxLength)
+  if (!normalizedText) return null
+  const utter = new SpeechSynthesisUtterance(normalizedText)
+  utter.lang = 'zh-CN'
+  utter.rate = Math.min(2, Math.max(0.5, Number(rate || 1)))
+  utter.pitch = 1
+  utter.volume = 1
+  utter.__mark = String(mark || `speech:${normalizedText.slice(0, 64)}`)
+  return utter
+}
+
+const speakWithBrowserTtsAndWait = (text, options = {}) => new Promise((resolve) => {
+  if (!canUseSpeechSynthesis()) {
+    resolve(false)
+    return
+  }
+  const utter = createSpeechUtterance(text, options)
+  if (!utter) {
+    resolve(false)
+    return
+  }
+  const speakingMark = String(utter.__mark || options.mark || '')
+  if (
+    speakingMark
+    && currentSpeechUtterance?.__mark === speakingMark
+    && typeof window !== 'undefined'
+    && window.speechSynthesis?.speaking
+  ) {
+    resolve(true)
     return
   }
 
   stopSpeechNarration()
-  const utter = new SpeechSynthesisUtterance(text)
-  utter.lang = 'zh-CN'
-  utter.rate = Math.min(2, Math.max(0.5, Number(playbackRate.value || 1)))
-  utter.pitch = 1
-  utter.volume = 1
-  utter.__mark = speakingMark
-  utter.onend = () => {
+
+  let settled = false
+  const settleOnce = (result) => {
+    if (settled) return
+    settled = true
+    if (currentSpeechCancel === cancelSpeech) {
+      currentSpeechCancel = null
+    }
     if (currentSpeechUtterance === utter) {
       currentSpeechUtterance = null
     }
-  }
-  utter.onerror = () => {
-    if (currentSpeechUtterance === utter) {
-      currentSpeechUtterance = null
+    if (activeSpeechMark === speakingMark) {
+      activeSpeechMark = ''
     }
+    resolve(result)
   }
+
+  const cancelSpeech = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+    settleOnce(false)
+  }
+
   currentSpeechUtterance = utter
+  activeSpeechMark = speakingMark
+  currentSpeechCancel = cancelSpeech
+
+  utter.onend = () => settleOnce(true)
+  utter.onerror = () => settleOnce(false)
+
   window.speechSynthesis.speak(utter)
+})
+
+const playAudioUrlAndWait = (audioUrl, { mark = '', rate = playbackRate.value } = {}) => new Promise((resolve) => {
+  if (!audioUrl || typeof Audio === 'undefined') {
+    resolve(false)
+    return
+  }
+
+  if (
+    mark
+    && activeSpeechMark === mark
+    && currentSpeechAudioElement
+    && !currentSpeechAudioElement.paused
+  ) {
+    resolve(true)
+    return
+  }
+
+  stopSpeechNarration()
+
+  const audio = new Audio(audioUrl)
+  audio.preload = 'auto'
+  audio.playbackRate = Math.min(2, Math.max(0.5, Number(rate || 1)))
+  currentSpeechAudioElement = audio
+  activeSpeechMark = String(mark || `audio:${Date.now()}`)
+  const speakingMark = activeSpeechMark
+
+  let settled = false
+  const settleOnce = (result) => {
+    if (settled) return
+    settled = true
+    if (currentSpeechCancel === cancelAudio) {
+      currentSpeechCancel = null
+    }
+    if (currentSpeechAudioElement === audio) {
+      currentSpeechAudioElement = null
+    }
+    if (activeSpeechMark === speakingMark) {
+      activeSpeechMark = ''
+    }
+    resolve(result)
+  }
+
+  const cancelAudio = () => {
+    audio.pause()
+    settleOnce(false)
+  }
+
+  currentSpeechCancel = cancelAudio
+  audio.addEventListener('ended', () => settleOnce(true), { once: true })
+  audio.addEventListener('error', () => settleOnce(false), { once: true })
+
+  const playPromise = audio.play()
+  if (playPromise && typeof playPromise.catch === 'function') {
+    playPromise.catch(() => settleOnce(false))
+  }
+})
+
+const speakTextAndWait = async (text, options = {}) => {
+  if (!ttsEnabled.value) return false
+  const maxLength = Number(options.maxLength || 900)
+  const normalizedText = normalizeTextForSpeech(text, maxLength)
+  if (!normalizedText) return false
+
+  const speakingMark = String(options.mark || `speech:${normalizedText.slice(0, 64)}`)
+  if (
+    speakingMark
+    && activeSpeechMark === speakingMark
+    && (
+      (currentSpeechAudioElement && !currentSpeechAudioElement.paused)
+      || (currentSpeechUtterance && canUseSpeechSynthesis() && window.speechSynthesis?.speaking)
+    )
+  ) {
+    return true
+  }
+
+  const subtitleSource = String(options.source || 'lecture').trim().toLowerCase() === 'qa' ? 'qa' : 'lecture'
+  const subtitleSnapshot = setClassroomSubtitle(normalizedText, subtitleSource)
+
+  const preferService = options.preferService !== false
+  if (preferService) {
+    try {
+      const nodeAudioUrl = options.nodeId ? getPlaybackNodeAudioUrl(options.nodeId) : ''
+      const serviceResult = nodeAudioUrl
+        ? {
+            audioUrl: nodeAudioUrl,
+            provider: 'course-meta',
+            status: 'ready',
+            fromMeta: true
+          }
+        : await requestServiceTtsAudio(normalizedText, {
+            mark: speakingMark,
+            nodeId: options.nodeId,
+            title: options.title,
+            page: options.page,
+            courseId: options.courseId,
+            provider: options.provider,
+            voiceType: options.voiceType,
+            format: options.format
+          })
+
+      const shouldSkipServiceAudio = (
+        !serviceResult.fromMeta
+        && canUseSpeechSynthesis()
+        && (
+          serviceResult.provider === 'mock-tts'
+          || serviceResult.status === 'fallback_ready'
+        )
+      )
+
+      if (serviceResult.audioUrl && !shouldSkipServiceAudio) {
+        const played = await playAudioUrlAndWait(serviceResult.audioUrl, {
+          mark: speakingMark,
+          rate: options.rate
+        })
+        if (played) {
+          if (subtitleSource === 'qa') {
+            clearClassroomSubtitle(1600, subtitleSnapshot)
+          }
+          return true
+        }
+      }
+    } catch (error) {
+      console.warn('TTS服务播报失败，准备回退浏览器语音', error)
+    }
+  }
+
+  const fallbackSpoken = await speakWithBrowserTtsAndWait(normalizedText, {
+    mark: speakingMark,
+    rate: options.rate,
+    maxLength
+  })
+  if (subtitleSource === 'qa') {
+    clearClassroomSubtitle(1600, subtitleSnapshot)
+  }
+  return fallbackSpoken
+}
+
+const speakText = (text, options = {}) => {
+  void speakTextAndWait(text, options)
+}
+
+const splitSpeechSegments = (text) => {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim()
+  if (!normalized) return []
+
+  const major = normalized
+    .split(/(?<=[。！？；!?;])/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+
+  if (major.length >= 2) return major
+
+  const minor = normalized
+    .split(/[，,]/)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+
+  if (minor.length >= 2) return minor
+  return [normalized]
+}
+
+const buildResumeSpeechText = (text, elapsedSec, durationSec) => {
+  const source = String(text || '').trim()
+  if (!source) return ''
+
+  const elapsed = Math.max(0, Number(elapsedSec || 0))
+  if (elapsed <= 1) return source
+
+  const segments = splitSpeechSegments(source)
+  if (segments.length <= 1) return source
+
+  const duration = Math.max(0, Number(durationSec || 0))
+  const ratio = duration > 1
+    ? Math.min(0.95, Math.max(0, elapsed / duration))
+    : Math.min(0.92, elapsed / Math.max(6, segments.length * 2))
+
+  const startIndex = Math.min(segments.length - 1, Math.floor(segments.length * ratio))
+  const remainder = segments.slice(startIndex).join('')
+  if (remainder.trim().length >= 8) return remainder
+
+  return segments.slice(Math.max(0, segments.length - 2)).join('')
+}
+
+const stopSpeechNarration = () => {
+  const cancelCurrentSpeech = currentSpeechCancel
+  currentSpeechCancel = null
+  cancelCurrentSpeech?.()
+
+  if (currentSpeechAudioElement) {
+    currentSpeechAudioElement.pause()
+    currentSpeechAudioElement = null
+  }
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+  }
+  currentSpeechUtterance = null
+  activeSpeechMark = ''
+}
+
+const cancelPresetSpeechTask = () => {
+  presetSpeechTaskId += 1
+  isPresetLectureSpeaking.value = false
+}
+
+const speakCurrentNode = ({ resumeFromBreakpoint = false } = {}) => {
+  if (!ttsEnabled.value || !isPlay.value || isPresetLectureSpeaking.value) return
+  const node = currentNodeMeta.value
+  if (!node) return
+
+  const rawText = String(node.text || node.title || '').trim()
+  if (!rawText) return
+
+  const nodeStart = Number(node.start_sec || 0)
+  const nodeDuration = Number(node.duration_sec || 0) || Math.max(1, Number(node.end_sec || nodeStart) - nodeStart)
+  const elapsedInNode = Math.max(0, Number(activeNodeElapsedSec.value || 0))
+  const text = resumeFromBreakpoint
+    ? buildResumeSpeechText(rawText, elapsedInNode, nodeDuration)
+    : rawText
+  if (!text) return
+
+  const speakingOffset = resumeFromBreakpoint ? normalizeTimeSec(elapsedInNode) : normalizeTimeSec(nodeStart)
+  const speakingMark = `node:${currentPage.value}:${node.node_id}:${speakingOffset}:${resumeFromBreakpoint ? 'resume' : 'start'}`
+  speakText(text, {
+    mark: speakingMark,
+    maxLength: 500,
+    source: 'lecture',
+    nodeId: node.node_id,
+    title: node.title,
+    page: currentPage.value,
+    courseId: courseId.value,
+    provider: TTS_DEFAULT_PROVIDER,
+    voiceType: TTS_DEFAULT_VOICE,
+    format: TTS_DEFAULT_FORMAT
+  })
+}
+
+const playPresetLectureScriptThenCurrentNode = async () => {
+  if (!isPlay.value || askLoading.value) return
+  if (!presetLectureScriptOnPlay.value || !ttsEnabled.value) {
+    speakCurrentNode()
+    return
+  }
+
+  const taskId = ++presetSpeechTaskId
+  isPresetLectureSpeaking.value = true
+  await speakTextAndWait(PRESET_LECTURE_SCRIPT_TEXT, {
+    mark: `preset-lecture:${currentPage.value}:${Date.now()}`,
+    rate: Math.min(1.2, Math.max(0.85, Number(playbackRate.value || 1))),
+    maxLength: 1200,
+    source: 'lecture',
+    page: currentPage.value,
+    courseId: courseId.value,
+    provider: TTS_DEFAULT_PROVIDER,
+    voiceType: TTS_DEFAULT_VOICE,
+    format: TTS_DEFAULT_FORMAT
+  })
+  if (taskId !== presetSpeechTaskId) {
+    return
+  }
+  isPresetLectureSpeaking.value = false
+
+  if (!isPlay.value || askLoading.value) return
+  speakCurrentNode()
 }
 
 const startPlaybackTimer = () => {
@@ -2519,7 +3254,7 @@ const handlePlaybackShortcutKeyup = (event) => {
 const updatePlaybackRate = (rate) => {
   const normalized = Number(rate || 1)
   playbackRate.value = [0.75, 1, 1.25, 1.5].includes(normalized) ? normalized : 1
-  if (isPlay.value && ttsEnabled.value) {
+  if (isPlay.value && ttsEnabled.value && !isPresetLectureSpeaking.value) {
     speakCurrentNode()
   }
   flashPlaybackHud(`⚡ ${playbackRate.value}x`)
@@ -2553,19 +3288,32 @@ const togglePlay = () => {
     ElMessage.warning('当前页暂无可播放的讲授节点')
     return
   }
-  isPlay.value = !isPlay.value
-  playbackState.value = isPlay.value ? 'lecturing' : 'paused'
-  if (!isPlay.value) {
-    stopSpeechNarration()
-    return
+
+  const hadProgress = Number(currentTimelineSec.value || 0) > 0 || Number(activeNodeElapsedSec.value || 0) > 0
+  const nextPlay = !isPlay.value
+  if (nextPlay) {
+    shouldSpeakPresetOnNextPlay.value = !hadProgress
+    shouldResumeSpeechOnNextPlay.value = hadProgress
+  } else {
+    shouldSpeakPresetOnNextPlay.value = false
+    shouldResumeSpeechOnNextPlay.value = hadProgress
   }
-  speakCurrentNode()
+
+  isPlay.value = nextPlay
+  playbackState.value = nextPlay ? 'lecturing' : 'paused'
+  if (!nextPlay) {
+    cancelPresetSpeechTask()
+    stopSpeechNarration()
+    clearClassroomSubtitle()
+  }
 }
 
 const toggleTts = () => {
   ttsEnabled.value = !ttsEnabled.value
   if (!ttsEnabled.value) {
+    cancelPresetSpeechTask()
     stopSpeechNarration()
+    clearClassroomSubtitle()
     ElMessage.info('已关闭语音讲稿')
     return
   }
@@ -2579,6 +3327,37 @@ const openUpload = () => {
   ElMessage.info('已打开截图/圈图提问')
 }
 
+const playAnswerMessageAudio = async (payload) => {
+  const answerText = String(payload?.content || '').trim()
+  if (!answerText) {
+    ElMessage.info('该条回答暂无可播放内容')
+    return
+  }
+
+  if (!ttsEnabled.value) {
+    ttsEnabled.value = true
+  }
+
+  cancelPresetSpeechTask()
+  isPlay.value = false
+  playbackState.value = 'tutoring'
+  stopSpeechNarration()
+
+  const played = await speakTextAndWait(answerText, {
+    mark: `qa-bubble:${payload?.messageId || 'unknown'}:${Date.now()}`,
+    rate: Math.min(1.2, Math.max(0.9, Number(playbackRate.value || 1))),
+    maxLength: 1800,
+    source: 'qa',
+    provider: TTS_DEFAULT_PROVIDER,
+    voiceType: TTS_DEFAULT_VOICE,
+    format: TTS_DEFAULT_FORMAT
+  })
+
+  if (!played) {
+    ElMessage.warning('当前语音播放不可用，请稍后重试')
+  }
+}
+
 const sendMultiModalQuestion = async () => {
   if (askLoading.value) {
     ElMessage.info('当前正在处理上一条提问，请稍后')
@@ -2590,10 +3369,16 @@ const sendMultiModalQuestion = async () => {
   }
 
   const currentQuestion = String(question.value || '').trim()
+  const wasPlaying = Boolean(isPlay.value)
+  shouldResumePlaybackAfterQa.value = wasPlaying
+  shouldResumeSpeechOnNextPlay.value = wasPlaying
   askLoading.value = true
   isPlay.value = false
   playbackState.value = 'tutoring'
   stopSpeechNarration()
+  clearClassroomSubtitle()
+  cancelPresetSpeechTask()
+  shouldSpeakPresetOnNextPlay.value = false
   stopStreamTypewriter()
   question.value = ''
   try {
@@ -2605,8 +3390,9 @@ const sendMultiModalQuestion = async () => {
       followUpSuggestion: '',
       sessionId: sessionId.value
     }
+    await new Promise(resolve => window.setTimeout(resolve, THINKING_DELAY_MS))
     pushTypewriterText(FIXED_QA_MARKDOWN_REPLY)
-    await waitTypewriterDrain()
+    await waitTypewriterReadyForResume()
     latestAnswerMeta.value = {
       sourcePage: currentPage.value,
       sourceNodeId: currentNodeId.value,
@@ -2625,20 +3411,42 @@ const sendMultiModalQuestion = async () => {
       qaHistory.value = qaHistory.value.slice(0, 5)
     }
     question.value = ''
-    playbackState.value = 'resuming'
-    isPlay.value = true
-    playbackState.value = 'lecturing'
-    speakCurrentNode()
-    ElMessage.success('AI 答疑完成，并已准备继续讲解')
+
+    if (qaAutoSpeakAnswer.value && ttsEnabled.value) {
+      await Promise.race([
+        speakTextAndWait(aiReply.value || FIXED_QA_MARKDOWN_REPLY, {
+          mark: `qa-answer:${sessionId.value || 'default'}:${Date.now()}`,
+          rate: Math.min(1.2, Math.max(0.9, Number(playbackRate.value || 1))),
+          maxLength: 720,
+          source: 'qa',
+          provider: TTS_DEFAULT_PROVIDER,
+          voiceType: TTS_DEFAULT_VOICE,
+          format: TTS_DEFAULT_FORMAT
+        }),
+        new Promise(resolve => {
+          window.setTimeout(() => resolve(false), QA_ANSWER_SPEAK_TIMEOUT_MS)
+        })
+      ])
+    }
+
+    if (shouldResumePlaybackAfterQa.value) {
+      playbackState.value = 'resuming'
+      shouldSpeakPresetOnNextPlay.value = false
+      shouldResumeSpeechOnNextPlay.value = true
+      isPlay.value = true
+      playbackState.value = 'lecturing'
+      ElMessage.success('AI 答疑完成，已从断点继续讲解')
+    } else {
+      playbackState.value = 'paused'
+      ElMessage.success('AI 答疑完成')
+    }
   } catch (error) {
     aiReply.value = ''
     ElMessage.error(`提问失败：${error.message || '固定答复输出异常'}`)
   } finally {
+    shouldResumePlaybackAfterQa.value = false
     if (!latestAnswerMeta.value.needReteach) {
       playbackState.value = isPlay.value ? 'lecturing' : 'paused'
-      if (isPlay.value) {
-        speakCurrentNode()
-      }
     }
     askLoading.value = false
   }
@@ -2693,17 +3501,30 @@ const loadCourseSelectionData = async () => {
       teachingCourseId: String(item.teachingCourseId || '')
     }))
 
-    selectionCoursewares.value = coursewareList.map((item) => ({
-      id: String(item.id || item.courseId || ''),
-      name: item.title || '未命名课件',
-      totalPage: Number(item.total_page || 1),
-      teachingCourseId: String(item.teaching_course_id || ''),
-      courseName: String(item.teaching_course_title || ''),
-      courseClassId: String(item.course_class_id || ''),
-      className: String(item.course_class_name || ''),
-      desc: item.is_published ? '已发布，可进入学习' : '未发布，暂为教师侧预览资源',
-      published: Boolean(item.is_published)
-    }))
+    selectionCoursewares.value = coursewareList.map((item) => {
+      const fileType = String(item.file_type || item.fileType || '')
+      const rawPreview = item.cover_url || item.coverUrl || item.image_url || item.imageUrl || item.preview_url || item.previewUrl || ''
+      const rawFileUrl = item.file_url || item.fileUrl || ''
+      const normalizedPreview = normalizePreviewImageUrl(rawPreview, { force: true })
+      const normalizedFileUrl = normalizePreviewImageUrl(rawFileUrl, { force: true })
+      const imageFileUrl = (isImageFileType(fileType) || isLikelyImageUrl(rawFileUrl)) ? normalizedFileUrl : ''
+
+      return {
+        id: String(item.id || item.courseId || ''),
+        name: item.title || '未命名课件',
+        totalPage: Number(item.total_page || 1),
+        teachingCourseId: String(item.teaching_course_id || ''),
+        courseName: String(item.teaching_course_title || ''),
+        courseClassId: String(item.course_class_id || ''),
+        className: String(item.course_class_name || ''),
+        fileType,
+        fileUrl: normalizedFileUrl,
+        imageFileUrl,
+        previewImageUrl: normalizedPreview || imageFileUrl,
+        desc: item.is_published ? '已发布，可进入学习' : '未发布，暂为教师侧预览资源',
+        published: Boolean(item.is_published)
+      }
+    })
 
     if (!selectedTeachingCourseId.value && selectionCourseOptions.value.length > 0) {
       selectedTeachingCourseId.value = selectionCourseOptions.value[0].id
@@ -2745,23 +3566,27 @@ const enterWorkspaceFromSelection = async ({ allowPlaceholder = false } = {}) =>
     courseId.value = selected.id
     currentCourseName.value = selected.name
     totalPage.value = selected.totalPage || 1
+    selectedCoursePreviewImageUrl.value = String(selected.previewImageUrl || selected.imageFileUrl || '').trim()
   } else {
     courseId.value = ''
     currentCourseName.value = '临时占位学习空间'
     totalPage.value = 1
+    selectedCoursePreviewImageUrl.value = ''
   }
   currentPage.value = 1
   activeSection.value = 'classroom'
   personalCenterInitialTab.value = 'notes'
+  resetKnowledgeWorkspace()
   hasCourseSelected.value = true
   await startStudentWorkspace()
 }
 
 const backToSelectionPage = () => {
   hasCourseSelected.value = false
-  isPlay.value = false
-  playbackState.value = 'paused'
+  cancelPresetSpeechTask()
+  shouldSpeakPresetOnNextPlay.value = false
   showAskWorkspace.value = false
+  selectedCoursePreviewImageUrl.value = ''
   stopSpeechNarration()
   void loadCourseSelectionData()
 }
@@ -2800,6 +3625,7 @@ const handleLogout = () => {
   selectedTeachingCourseId.value = ''
   selectedCourseClassId.value = ''
   selectedCoursewareId.value = ''
+  selectedCoursePreviewImageUrl.value = ''
   selectionCourseOptions.value = []
   selectionClassOptions.value = []
   selectionCoursewares.value = []
@@ -2808,8 +3634,11 @@ const handleLogout = () => {
   qaHistory.value = []
   resetPracticeExercise()
   isPlay.value = false
+  cancelPresetSpeechTask()
+  shouldSpeakPresetOnNextPlay.value = false
   stopPlaybackTimer()
   stopSpeechNarration()
+  clearClassroomSubtitle()
   stopStreamTypewriter()
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
@@ -2828,6 +3657,8 @@ onMounted(() => {
     loadQaFabLayout()
     loadAskWorkspaceLayout()
     loadClassroomLayout()
+    qaAutoSpeakAnswer.value = loadBooleanPreference(QA_AUTO_SPEAK_PREF_KEY, true)
+    presetLectureScriptOnPlay.value = loadBooleanPreference(PRESET_LECTURE_SPEAK_PREF_KEY, true)
     loadNodeNotes()
     loadNodeNoteTitles()
     updateViewportMode()
@@ -2884,6 +3715,7 @@ onUnmounted(() => {
   }
   stopPlaybackTimer()
   stopSpeechNarration()
+  clearClassroomSubtitle()
   stopStreamTypewriter()
   stopAskWorkspaceInteraction()
   stopClassroomResize()
@@ -2912,27 +3744,43 @@ watch(selectedCourseClassId, () => {
   }
 })
 
+watch(selectedCoursewareId, (nextId) => {
+  const selected = selectionCoursewares.value.find((item) => item.id === nextId)
+  selectedCoursePreviewImageUrl.value = String(selected?.previewImageUrl || selected?.imageFileUrl || '').trim()
+})
+
 watch(isPlay, (value) => {
   if (value) {
     playbackState.value = askLoading.value ? 'tutoring' : 'lecturing'
     startPlaybackTimer()
-    speakCurrentNode()
+    const shouldSpeakPreset = shouldSpeakPresetOnNextPlay.value
+    const shouldResumeSpeech = shouldResumeSpeechOnNextPlay.value
+    shouldSpeakPresetOnNextPlay.value = false
+    shouldResumeSpeechOnNextPlay.value = false
+    if (shouldSpeakPreset) {
+      void playPresetLectureScriptThenCurrentNode()
+      return
+    }
+    speakCurrentNode({ resumeFromBreakpoint: shouldResumeSpeech })
     return
   }
+  shouldSpeakPresetOnNextPlay.value = false
+  cancelPresetSpeechTask()
   playbackState.value = askLoading.value ? 'tutoring' : 'paused'
   stopPlaybackTimer()
   stopSpeechNarration()
+  clearClassroomSubtitle(240)
 })
 
 watch(playbackNodes, () => {
-  if (isPlay.value) {
+  if (isPlay.value && !isPresetLectureSpeaking.value) {
     startPlaybackTimer()
     speakCurrentNode()
   }
 })
 
 watch(currentNodeId, () => {
-  if (isPlay.value) {
+  if (isPlay.value && !isPresetLectureSpeaking.value) {
     speakCurrentNode()
   }
 })
@@ -2946,6 +3794,7 @@ watch(courseId, (nextCourseId) => {
     graphSyncPayload.value = null
     graphScanReport.value = null
     graphMessage.value = ''
+    clearClassroomSubtitle()
   }
 })
 
@@ -2958,6 +3807,16 @@ watch(nodeNoteTitles, (nextValue) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem('fuww_student_node_note_titles', JSON.stringify(nextValue || {}))
 }, { deep: true })
+
+watch(qaAutoSpeakAnswer, (nextValue) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(QA_AUTO_SPEAK_PREF_KEY, nextValue ? '1' : '0')
+})
+
+watch(presetLectureScriptOnPlay, (nextValue) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(PRESET_LECTURE_SPEAK_PREF_KEY, nextValue ? '1' : '0')
+})
 
 const initializeCourseContext = async () => {
   try {
@@ -3095,13 +3954,38 @@ const restartStudy = async () => {
 }
 
 const handleFileChange = (file) => {
-  uploadedFile.value = file.raw
+  uploadedFile.value = file?.raw || file || buildCurrentPptPlaceholder()
   parseResult.value = ''
   knowledgeList.value = []
 }
 
+const buildCurrentPptPlaceholder = () => {
+  const sourceName = String(currentCourseName.value || '当前PPT').trim() || '当前PPT'
+  const safeName = sourceName.replace(/[\\/:*?"<>|]/g, '_')
+  return {
+    name: `${safeName}.pptx`,
+    size: 0,
+    type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    mockCurrentPpt: true
+  }
+}
+
+const resolveKnowledgeSourceName = (fileLike) => {
+  const rawName = String(fileLike?.name || '当前PPT').trim()
+  return rawName.replace(/\.[^/.]+$/, '') || '当前PPT'
+}
+
+const ensureKnowledgeWorkspaceDefaults = async ({ autoParse = false, silent = false } = {}) => {
+  if (!uploadedFile.value) {
+    uploadedFile.value = buildCurrentPptPlaceholder()
+  }
+  if (autoParse && !isParsing.value && knowledgeList.value.length === 0) {
+    await parseKnowledge({ silent })
+  }
+}
+
 const resetKnowledgeWorkspace = () => {
-  uploadedFile.value = null
+  uploadedFile.value = buildCurrentPptPlaceholder()
   parseResult.value = ''
   knowledgeList.value = []
 }
@@ -3139,21 +4023,22 @@ const buildMockKnowledgeTree = (fileName = '个人学习资料') => {
   ]
 }
 
-const parseKnowledge = async () => {
-  if (!uploadedFile.value) {
-    ElMessage.warning('请先上传 PDF/PPTX 文件！')
-    return
-  }
+const parseKnowledge = async ({ silent = false } = {}) => {
+  const sourceFile = uploadedFile.value || buildCurrentPptPlaceholder()
+  uploadedFile.value = sourceFile
 
   isParsing.value = true
   try {
     await new Promise((resolve) => window.setTimeout(resolve, 900))
-    knowledgeList.value = buildMockKnowledgeTree(uploadedFile.value?.name)
-    parseResult.value = `演示模式拆解完成，共生成 ${countNodes(knowledgeList.value)} 个知识点`
-    ElMessage.success('已使用前端预制数据完成知识拆解演示')
+    const sourceName = resolveKnowledgeSourceName(sourceFile)
+    knowledgeList.value = buildMockKnowledgeTree(`${sourceName}.pptx`)
+    parseResult.value = `默认已按当前PPT「${sourceName}」完成预设拆解，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    if (!silent) {
+      ElMessage.success('已按当前PPT加载预设拆解结果')
+    }
   } catch (error) {
-    knowledgeList.value = buildMockKnowledgeTree('遗传算法课件')
-    parseResult.value = `演示模式兜底成功，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    knowledgeList.value = buildMockKnowledgeTree('当前PPT')
+    parseResult.value = `已加载预设拆解结果，共生成 ${countNodes(knowledgeList.value)} 个知识点`
   } finally {
     isParsing.value = false
   }
@@ -3835,6 +4720,12 @@ const checkAnswer = async (option) => {
   gap: 10px;
 }
 
+.classroom-left-stack.expanded {
+  display: grid;
+  grid-template-rows: 72px minmax(0, 1fr);
+  gap: 10px;
+}
+
 .classroom-left-stack.solo {
   height: 100%;
 }
@@ -3845,12 +4736,40 @@ const checkAnswer = async (option) => {
 }
 
 .classroom-left-stack.expanded .center-stage {
-  flex: 0 0 52%;
-  min-height: 360px;
+  min-height: 0;
+}
+
+.center-stage-collapsed-title {
+  height: 100%;
+  border: 1px solid #d6e5dd;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f5faf7 100%);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.center-stage-collapsed-title h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #1f4b42;
+  font-weight: 700;
+}
+
+.center-stage-collapsed-title span {
+  font-size: 12px;
+  color: #5f7b71;
+  border: 1px solid #d2e3da;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: #eef6f2;
+  white-space: nowrap;
 }
 
 .classroom-left-stack.expanded .left-unified-tabs-pane {
-  flex: 1;
+  flex: unset;
   min-height: 0;
 }
 
@@ -3997,7 +4916,8 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: calc(100vh - 400px);
+  height: 100%;
+  max-height: none;
   overflow: hidden;
 }
 
@@ -4455,13 +5375,16 @@ const checkAnswer = async (option) => {
 
 .workbench-right-sidebar {
   position: relative;
-  grid-column: 3;
+  flex: 0 0 56px;
+  width: 56px;
+  min-width: 56px;
+  min-height: 0;
   height: 100%;
   z-index: 5;
 }
 
 .right-rail {
-  width: 56px;
+  width: 100%;
   height: 100%;
   border-radius: 16px;
   background: linear-gradient(180deg, #f7fcf9 0%, #eef6f2 100%);
@@ -4566,6 +5489,104 @@ const checkAnswer = async (option) => {
   flex-direction: column;
   overflow: auto;
   padding: 8px 8px 4px;
+}
+
+.courseware-select-body {
+  gap: 10px;
+}
+
+.courseware-select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.courseware-select-item {
+  width: 100%;
+  border: 1px solid #d5e4dc;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.courseware-select-item:hover {
+  border-color: #9dc4b5;
+  background: #f5faf7;
+}
+
+.courseware-select-item.active {
+  border-color: #5ca68f;
+  background: #eef8f3;
+  box-shadow: 0 10px 18px rgba(92, 166, 143, 0.18);
+}
+
+.courseware-item-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.courseware-item-main strong {
+  font-size: 14px;
+  color: #214a3f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseware-item-main span {
+  font-size: 12px;
+  color: #5f7b71;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseware-item-meta {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: #3f6b5d;
+  border: 1px solid #cde2d8;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #f1f8f4;
+}
+
+.courseware-empty {
+  border: 1px dashed #bfd6cb;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 13px;
+  color: #618076;
+  text-align: center;
+  background: #f7fbf9;
+}
+
+.mindmap-preview-shell {
+  border: 1px solid #d5e4dc;
+  border-radius: 12px;
+  min-height: min(72vh, 680px);
+  height: 100%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.mindmap-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .panel-body :deep(.course-card) {
@@ -4995,6 +6016,54 @@ const checkAnswer = async (option) => {
   animation: hudPop 0.2s ease-out;
 }
 
+.classroom-live-subtitle {
+  position: absolute;
+  left: 25%;
+  right: auto;
+  width: min(46%, 560px);
+  max-width: calc(100% - 120px);
+  transform: translateX(-50%);
+  bottom: 96px;
+  z-index: 4;
+  pointer-events: none;
+  border-radius: 12px;
+  border: 1px solid rgba(22, 101, 52, 0.32);
+  background: linear-gradient(180deg, rgba(246, 255, 251, 0.96) 0%, rgba(231, 249, 241, 0.94) 100%);
+  box-shadow: 0 14px 24px rgba(17, 94, 89, 0.14);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.classroom-live-subtitle.qa {
+  border-color: rgba(2, 132, 199, 0.34);
+  background: linear-gradient(180deg, rgba(242, 249, 255, 0.97) 0%, rgba(227, 243, 255, 0.94) 100%);
+}
+
+.subtitle-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1f7661;
+}
+
+.classroom-live-subtitle.qa .subtitle-label {
+  color: #045885;
+}
+
+.subtitle-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #1f3f35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .shortcut-help-card {
   position: absolute;
   top: 50px;
@@ -5240,6 +6309,15 @@ const checkAnswer = async (option) => {
     width: min(360px, calc(100vw - 24px));
     height: min(620px, calc(100vh - 80px));
   }
+
+  .classroom-live-subtitle {
+    left: 24%;
+    right: auto;
+    width: min(50%, 460px);
+    max-width: calc(100% - 110px);
+    transform: translateX(-50%);
+    bottom: 88px;
+  }
   
 }
 
@@ -5248,9 +6326,12 @@ const checkAnswer = async (option) => {
     min-height: 560px;
   }
 
+  .classroom-left-stack.expanded {
+    grid-template-rows: 80px minmax(0, 1fr);
+  }
+
   .classroom-left-stack.expanded .center-stage {
-    flex-basis: 58%;
-    min-height: 430px;
+    min-height: 0;
   }
 }
 
@@ -5294,6 +6375,21 @@ const checkAnswer = async (option) => {
 
   .classroom-qa-head {
     flex-wrap: wrap;
+  }
+
+  .classroom-live-subtitle {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    transform: none;
+    bottom: 132px;
+    padding: 8px;
+  }
+
+  .subtitle-text {
+    font-size: 13px;
+    -webkit-line-clamp: 3;
   }
 
   .left-sidebar-menu {

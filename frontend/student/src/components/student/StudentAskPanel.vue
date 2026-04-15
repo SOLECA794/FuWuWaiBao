@@ -82,7 +82,12 @@
               </div>
             </div>
 
-            <div v-if="message.role === 'assistant'" class="assistant-body" :class="{ system: message.system }" @click="handleMarkdownAction">
+            <div
+              v-if="message.role === 'assistant'"
+              class="assistant-body"
+              :class="{ system: message.system, 'has-audio-action': !message.system && message.content }"
+              @click="handleMarkdownAction"
+            >
               <div
                 v-if="message.content"
                 class="markdown-content"
@@ -96,6 +101,16 @@
                 <span class="typing-dot"></span>
                 正在思考...
               </div>
+              <div v-if="!message.system && message.content" class="assistant-audio-action">
+                <button
+                  class="assistant-audio-btn"
+                  type="button"
+                  :disabled="isStreamingMessage(message)"
+                  @click.stop="emitPlayAnswerAudio(message)"
+                >
+                  🔊 播放语音
+                </button>
+              </div>
             </div>
 
             <div v-else class="user-text">{{ message.content }}</div>
@@ -103,9 +118,9 @@
         </article>
       </main>
 
-      <div class="preset-toggle-shell">
+      <div class="assistant-tool-row">
         <button
-          class="preset-toggle-btn"
+          class="preset-toggle-btn tool-btn"
           type="button"
           :disabled="askLoading"
           :aria-expanded="presetExpanded ? 'true' : 'false'"
@@ -115,6 +130,64 @@
           <span>💡 快捷提问</span>
           <span class="preset-toggle-arrow">{{ presetExpanded ? '▲' : '▼' }}</span>
         </button>
+
+        <button
+          class="mode-toggle-btn"
+          type="button"
+          :class="{ active: contextBinding }"
+          :aria-pressed="contextBinding ? 'true' : 'false'"
+          :disabled="askLoading"
+          @click="toggleContextBinding"
+        >
+          上下文绑定
+        </button>
+
+        <button
+          class="mode-toggle-btn"
+          type="button"
+          :class="{ active: deepReasoning }"
+          :aria-pressed="deepReasoning ? 'true' : 'false'"
+          :disabled="askLoading"
+          @click="toggleDeepReasoning"
+        >
+          深度推理
+        </button>
+
+        <button
+          class="mode-toggle-btn"
+          type="button"
+          :class="{ active: webSearch }"
+          :aria-pressed="webSearch ? 'true' : 'false'"
+          :disabled="askLoading"
+          @click="toggleWebSearch"
+        >
+          联网搜索
+        </button>
+
+        <button
+          class="mode-toggle-btn"
+          type="button"
+          :class="{ active: autoSpeakAnswer }"
+          :aria-pressed="autoSpeakAnswer ? 'true' : 'false'"
+          :disabled="askLoading"
+          @click="toggleAutoSpeakAnswer"
+        >
+          回答播报
+        </button>
+
+        <button
+          class="mode-toggle-btn"
+          type="button"
+          :class="{ active: presetLectureScript }"
+          :aria-pressed="presetLectureScript ? 'true' : 'false'"
+          :disabled="askLoading"
+          @click="togglePresetLectureScript"
+        >
+          开播讲稿
+        </button>
+      </div>
+
+      <div class="preset-toggle-shell">
         <div v-if="presetExpanded" id="ask-preset-panel" class="preset-panel">
           <div class="preset-chip-list">
             <button
@@ -223,6 +296,26 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  contextBinding: {
+    type: Boolean,
+    default: true
+  },
+  deepReasoning: {
+    type: Boolean,
+    default: false
+  },
+  webSearch: {
+    type: Boolean,
+    default: false
+  },
+  autoSpeakAnswer: {
+    type: Boolean,
+    default: true
+  },
+  presetLectureScript: {
+    type: Boolean,
+    default: true
+  },
   canAsk: {
     type: Boolean,
     default: true
@@ -238,6 +331,12 @@ const emit = defineEmits([
   'open-upload',
   'send-question',
   'update:summaryMode',
+  'update:context-binding',
+  'update:deep-reasoning',
+  'update:web-search',
+  'update:auto-speak-answer',
+  'update:preset-lecture-script',
+  'play-answer-audio',
   'generate-summary',
   'use-summary',
   'clear-draft'
@@ -654,6 +753,26 @@ function togglePresetPanel() {
   presetExpanded.value = !presetExpanded.value
 }
 
+function toggleContextBinding() {
+  emit('update:context-binding', !props.contextBinding)
+}
+
+function toggleDeepReasoning() {
+  emit('update:deep-reasoning', !props.deepReasoning)
+}
+
+function toggleWebSearch() {
+  emit('update:web-search', !props.webSearch)
+}
+
+function toggleAutoSpeakAnswer() {
+  emit('update:auto-speak-answer', !props.autoSpeakAnswer)
+}
+
+function togglePresetLectureScript() {
+  emit('update:preset-lecture-script', !props.presetLectureScript)
+}
+
 function sendWithText(rawText) {
   const text = String(rawText || '').trim()
   if (!text) {
@@ -753,6 +872,15 @@ function handleMarkdownAction(event) {
   const encoded = button.getAttribute('data-copy-code') || ''
   const decoded = decodeURIComponent(encoded)
   copyText(decoded, '代码已复制')
+}
+
+function emitPlayAnswerAudio(message) {
+  const content = String(message?.content || '').trim()
+  if (!content) return
+  emit('play-answer-audio', {
+    messageId: String(message?.id || ''),
+    content
+  })
 }
 
 function finalizePendingAssistantIfIdle() {
@@ -1173,7 +1301,12 @@ onUnmounted(() => {
 }
 
 .assistant-body {
+  position: relative;
   line-height: 1.7;
+}
+
+.assistant-body.has-audio-action {
+  padding-bottom: 34px;
 }
 
 .assistant-body.system {
@@ -1220,12 +1353,82 @@ onUnmounted(() => {
   animation: pulse 1.1s ease-in-out infinite;
 }
 
-.preset-toggle-shell {
+.assistant-audio-action {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: inline-flex;
+}
+
+.assistant-audio-btn {
+  border: 1px solid #b8d6ca;
+  background: #ffffff;
+  color: #25584b;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 10px rgba(36, 84, 69, 0.12);
+}
+
+.assistant-audio-btn:hover:not(:disabled) {
+  background: #f2faf6;
+}
+
+.assistant-audio-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.assistant-tool-row {
   margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tool-btn {
+  flex: 1 1 160px;
+  min-width: 142px;
+}
+
+.mode-toggle-btn {
+  border: 1px solid #c8ded3;
+  border-radius: 10px;
+  background: #f8fcfa;
+  color: #2f6758;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-toggle-btn:hover:not(:disabled) {
+  background: #edf8f2;
+  border-color: #9cc7b5;
+}
+
+.mode-toggle-btn.active {
+  background: linear-gradient(180deg, #71b99f 0%, #4f9a7e 100%);
+  border-color: #4f9a7e;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(79, 154, 126, 0.22);
+}
+
+.mode-toggle-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.preset-toggle-shell {
+  margin-top: 6px;
 }
 
 .preset-toggle-btn {
-  width: 100%;
   border: 1px solid #c8ded3;
   border-radius: 10px;
   background: linear-gradient(180deg, #f7fcfa 0%, #eef8f3 100%);
@@ -1469,6 +1672,11 @@ onUnmounted(() => {
   .chat-header-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .tool-btn,
+  .mode-toggle-btn {
+    flex: 1 1 calc(50% - 4px);
   }
 }
 </style>

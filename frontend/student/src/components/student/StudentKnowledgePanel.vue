@@ -23,7 +23,7 @@
           :limit="1"
         >
           <div class="el-upload__text">拖拽文件到这里，或点击上传</div>
-          <p class="upload-sub">支持 PDF / PPT / Word / 图片，演示模式仅做前端模拟</p>
+          <p class="upload-sub">支持 PDF / PPT / Word / 图片；不上传时将默认拆解当前PPT（演示模式）</p>
         </el-upload>
 
         <div v-if="uploadedFile" class="file-brief">
@@ -32,6 +32,10 @@
         </div>
 
         <div class="parse-options">
+          <div class="option-row">
+            <span>拆解对象</span>
+            <el-tag size="small" type="success">当前PPT（默认）</el-tag>
+          </div>
           <div class="option-row">
             <span>拆解粒度</span>
             <el-radio-group v-model="parseOptions.granularity" size="small">
@@ -49,8 +53,8 @@
           </div>
         </div>
 
-        <el-button class="parse-btn" type="primary" :disabled="!uploadedFile || isParsing" @click="emit('parse-knowledge')">
-          开始拆解知识点
+        <el-button class="parse-btn" type="primary" :disabled="isParsing" @click="emit('parse-knowledge')">
+          开始拆解当前PPT
         </el-button>
 
         <el-steps v-if="isParsing || parseResult" :active="parseStepActive" finish-status="success" simple class="parse-steps">

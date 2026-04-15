@@ -11,47 +11,76 @@
       </div>
     </div>
 
-    <div class="course-content" :class="displayMode === 'voice' ? 'voice-mode' : 'script-mode'">
-      <template v-if="displayMode === 'voice'">
-        <div class="voice-progress-shell">
-          <div class="voice-progress-head">
-            <strong>语音讲授进度</strong>
-            <span>{{ pageTimelineDuration > 0 ? `${formatTime(currentTimelineSec)} / ${formatTime(pageTimelineDuration)}` : `页进度 ${progressPercent}%` }}</span>
-          </div>
-          <div class="voice-progress-track">
-            <div class="voice-progress-fill" :style="{ width: `${lectureProgressPercent}%` }"></div>
-          </div>
-          <div class="voice-progress-meta">
-            <span>{{ isPlay ? '正在语音讲授' : '讲授已暂停' }}</span>
-            <span>{{ currentNodeTitle || '等待切换节点' }}</span>
-            <span>{{ activeNodeTypeLabel || '核心讲解' }}</span>
-          </div>
-          <div class="voice-milestone-list">
-            <article v-for="node in lectureMilestones" :key="node.id" class="voice-milestone" :class="node.state">
-              <div class="milestone-row">
-                <strong>{{ node.title }}</strong>
-                <span>{{ node.time }}</span>
-              </div>
-              <p>{{ node.desc }}</p>
-            </article>
-          </div>
-        </div>
-      </template>
-      <template v-else>
-        <StudentScriptViewer
-          v-if="scriptContent"
-          :script-content="scriptContent"
-          :is-loading="isScriptLoading"
-          @error="handleScriptError"
-          @warning="handleScriptWarning"
-        />
-        <div v-else class="script-empty-state">
-          <strong>当前页暂无可展示讲稿</strong>
-          <p>请先播放本页或切换到含讲稿节点，系统将自动同步进度与文本。</p>
-        </div>
-      </template>
+    <div class="course-content" ref="courseContentRef">
+      <div class="content-switcher" v-if="showContentSwitcher">
+        <el-radio-group v-model="contentView" size="small">
+          <el-radio-button v-if="hasCourseImage" value="image">课件</el-radio-button>
+          <el-radio-button v-if="isVoiceMode" value="voice">讲授</el-radio-button>
+          <el-radio-button v-else-if="hasScriptContent" value="script">讲稿</el-radio-button>
+        </el-radio-group>
+      </div>
 
-      <div class="voice-orb-dock" role="group" aria-label="语音控制浮球">
+      <div class="content-main" :class="{ 'voice-mode': contentView === 'voice' }">
+        <template v-if="contentView === 'image'">
+          <div class="course-image-view">
+            <img
+              v-if="hasCourseImage"
+              :src="resolvedCourseImg"
+              alt="课件内容"
+              class="course-img"
+              @error="handleCourseImageError"
+            />
+            <div v-else class="no-courseware">当前页课件暂未返回，请稍后重试或切换页面。</div>
+            <div
+              v-if="tracePoint"
+              class="trace-highlight"
+              :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
+            ></div>
+          </div>
+        </template>
+
+        <template v-else-if="contentView === 'voice'">
+          <div class="voice-progress-shell">
+            <div class="voice-progress-head">
+              <strong>语音讲授进度</strong>
+              <span>{{ pageTimelineDuration > 0 ? `${formatTime(currentTimelineSec)} / ${formatTime(pageTimelineDuration)}` : `页进度 ${progressPercent}%` }}</span>
+            </div>
+            <div class="voice-progress-track">
+              <div class="voice-progress-fill" :style="{ width: `${lectureProgressPercent}%` }"></div>
+            </div>
+            <div class="voice-progress-meta">
+              <span>{{ isPlay ? '正在语音讲授' : '讲授已暂停' }}</span>
+              <span>{{ currentNodeTitle || '等待切换节点' }}</span>
+              <span>{{ activeNodeTypeLabel || '核心讲解' }}</span>
+            </div>
+            <div class="voice-milestone-list">
+              <article v-for="node in lectureMilestones" :key="node.id" class="voice-milestone" :class="node.state">
+                <div class="milestone-row">
+                  <strong>{{ node.title }}</strong>
+                  <span>{{ node.time }}</span>
+                </div>
+                <p>{{ node.desc }}</p>
+              </article>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <StudentScriptViewer
+            v-if="scriptContent"
+            :script-content="scriptContent"
+            :is-loading="isScriptLoading"
+            @error="handleScriptError"
+            @warning="handleScriptWarning"
+          />
+          <div v-else class="script-empty-state">
+            <strong>当前页暂无可展示讲稿</strong>
+            <p>请先播放本页或切换到含讲稿节点，系统将自动同步进度与文本。</p>
+          </div>
+        </template>
+      </div>
+
+      <div ref="orbDockRef" class="voice-orb-dock" :class="{ dragging: orbDrag.active }" :style="voiceOrbDockStyle" role="group" aria-label="语音控制浮球">
         <div class="orb-mini-actions">
           <button class="orb-mini-btn orb-mini-play" type="button" :title="isPlay ? '暂停讲解' : '开始讲解'" @click="emit('toggle-play')">
             <span>{{ isPlay ? '⏸' : '▶' }}</span>
@@ -69,11 +98,19 @@
 
         <button
           class="voice-orb-main"
+          :class="{ playing: isPlay }"
           type="button"
           :title="isPlay ? '语音讲解中（悬浮展开控制）' : '语音已暂停（悬浮展开控制）'"
-          @click="emit('toggle-play')"
+          @pointerdown="handleOrbPointerDown"
+          @click="handleOrbMainClick"
         >
-          <span class="orb-main-icon">◉</span>
+          <span v-if="isPlay" class="orb-playing-wave" aria-hidden="true">
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+            <span class="wave-bar"></span>
+          </span>
+          <span v-else class="orb-main-icon">◉</span>
         </button>
       </div>
     </div>
@@ -110,7 +147,7 @@
 
 <script setup>
 /* eslint-disable no-undef */
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import StudentScriptViewer from './StudentScriptViewer.vue'
 
 const props = defineProps({
@@ -163,6 +200,10 @@ const props = defineProps({
     default: 0
   },
   courseImg: {
+    type: String,
+    default: ''
+  },
+  fallbackCourseImg: {
     type: String,
     default: ''
   },
@@ -263,6 +304,197 @@ const lectureProgressPercent = computed(() => {
   return Math.min(100, Math.max(0, Number(props.progressPercent || 0)))
 })
 
+const isVoiceMode = computed(() => props.displayMode === 'voice')
+
+const imageLoadFailed = ref(false)
+
+const resolvedCourseImg = computed(() => {
+  const primary = String(props.courseImg || '').trim()
+  if (!imageLoadFailed.value) return primary
+  const fallback = String(props.fallbackCourseImg || '').trim()
+  return fallback || primary
+})
+
+const hasCourseImage = computed(() => String(resolvedCourseImg.value || '').trim().length > 0)
+
+const hasScriptContent = computed(() => String(props.scriptContent || '').trim().length > 0)
+
+const contentView = ref('image')
+const courseContentRef = ref(null)
+const orbDockRef = ref(null)
+
+const orbPosition = reactive({
+  x: null,
+  y: null
+})
+
+const orbDrag = reactive({
+  active: false,
+  startPointerX: 0,
+  startPointerY: 0,
+  originX: 0,
+  originY: 0,
+  moved: false
+})
+
+const suppressNextOrbClick = ref(false)
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value))
+
+const getOrbBounds = () => {
+  const containerEl = courseContentRef.value
+  const dockEl = orbDockRef.value
+  if (!containerEl || !dockEl) return null
+
+  const containerRect = containerEl.getBoundingClientRect()
+  const dockRect = dockEl.getBoundingClientRect()
+  const maxX = Math.max(0, containerRect.width - dockRect.width)
+  const maxY = Math.max(0, containerRect.height - dockRect.height)
+
+  return {
+    containerRect,
+    dockRect,
+    maxX,
+    maxY
+  }
+}
+
+const ensureOrbPositionInitialized = () => {
+  if (orbPosition.x !== null && orbPosition.y !== null) return
+  const bounds = getOrbBounds()
+  if (!bounds) return
+
+  orbPosition.x = clamp(bounds.dockRect.left - bounds.containerRect.left, 0, bounds.maxX)
+  orbPosition.y = clamp(bounds.dockRect.top - bounds.containerRect.top, 0, bounds.maxY)
+}
+
+const clampOrbPosition = () => {
+  if (orbPosition.x === null || orbPosition.y === null) return
+  const bounds = getOrbBounds()
+  if (!bounds) return
+
+  orbPosition.x = clamp(orbPosition.x, 0, bounds.maxX)
+  orbPosition.y = clamp(orbPosition.y, 0, bounds.maxY)
+}
+
+const voiceOrbDockStyle = computed(() => {
+  if (orbPosition.x === null || orbPosition.y === null) return {}
+  return {
+    left: `${Math.round(orbPosition.x)}px`,
+    top: `${Math.round(orbPosition.y)}px`,
+    right: 'auto',
+    bottom: 'auto'
+  }
+})
+
+const showContentSwitcher = computed(() => {
+  let count = 0
+  if (hasCourseImage.value) count += 1
+  if (isVoiceMode.value || hasScriptContent.value) count += 1
+  return count > 1
+})
+
+const syncContentView = () => {
+  const availableViews = []
+  if (hasCourseImage.value) {
+    availableViews.push('image')
+  }
+  if (isVoiceMode.value) {
+    availableViews.push('voice')
+  } else if (hasScriptContent.value) {
+    availableViews.push('script')
+  }
+
+  if (!availableViews.length) {
+    availableViews.push(isVoiceMode.value ? 'voice' : 'script')
+  }
+
+  if (!availableViews.includes(contentView.value)) {
+    contentView.value = availableViews[0]
+  }
+}
+
+watch(
+  [() => props.courseImg, () => props.displayMode, () => props.scriptContent],
+  () => {
+    imageLoadFailed.value = false
+    syncContentView()
+  },
+  { immediate: true }
+)
+
+const handleCourseImageError = () => {
+  const fallback = String(props.fallbackCourseImg || '').trim()
+  if (fallback) {
+    imageLoadFailed.value = true
+  }
+}
+
+const removeOrbDragListeners = () => {
+  window.removeEventListener('pointermove', handleOrbPointerMove)
+  window.removeEventListener('pointerup', handleOrbPointerUp)
+  window.removeEventListener('pointercancel', handleOrbPointerUp)
+}
+
+const handleOrbPointerDown = event => {
+  if (event.button !== 0) return
+  ensureOrbPositionInitialized()
+  if (orbPosition.x === null || orbPosition.y === null) return
+
+  orbDrag.active = true
+  orbDrag.startPointerX = Number(event.clientX || 0)
+  orbDrag.startPointerY = Number(event.clientY || 0)
+  orbDrag.originX = Number(orbPosition.x || 0)
+  orbDrag.originY = Number(orbPosition.y || 0)
+  orbDrag.moved = false
+
+  window.addEventListener('pointermove', handleOrbPointerMove)
+  window.addEventListener('pointerup', handleOrbPointerUp)
+  window.addEventListener('pointercancel', handleOrbPointerUp)
+
+  event.preventDefault()
+}
+
+const handleOrbPointerMove = event => {
+  if (!orbDrag.active) return
+  const bounds = getOrbBounds()
+  if (!bounds) return
+
+  const deltaX = Number(event.clientX || 0) - orbDrag.startPointerX
+  const deltaY = Number(event.clientY || 0) - orbDrag.startPointerY
+  if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+    orbDrag.moved = true
+  }
+
+  orbPosition.x = clamp(orbDrag.originX + deltaX, 0, bounds.maxX)
+  orbPosition.y = clamp(orbDrag.originY + deltaY, 0, bounds.maxY)
+}
+
+const handleOrbPointerUp = () => {
+  if (!orbDrag.active) return
+  const wasMoved = orbDrag.moved
+
+  orbDrag.active = false
+  orbDrag.moved = false
+  removeOrbDragListeners()
+  clampOrbPosition()
+
+  if (wasMoved) {
+    suppressNextOrbClick.value = true
+    window.setTimeout(() => {
+      suppressNextOrbClick.value = false
+    }, 0)
+  }
+}
+
+const handleOrbMainClick = () => {
+  if (suppressNextOrbClick.value) {
+    suppressNextOrbClick.value = false
+    return
+  }
+  emit('toggle-play')
+}
+
 const lectureMilestones = computed(() => {
   const list = (props.playbackNodes || []).slice(0, 6)
   if (!list.length) {
@@ -342,6 +574,29 @@ function handleSeekCommit(event) {
     seekPreviewTimer = null
   }, 900)
 }
+
+const handleWindowResize = () => {
+  if (orbPosition.x === null || orbPosition.y === null) return
+  clampOrbPosition()
+}
+
+onMounted(() => {
+  nextTick(() => {
+    ensureOrbPositionInitialized()
+    clampOrbPosition()
+  })
+  window.addEventListener('resize', handleWindowResize)
+})
+
+onBeforeUnmount(() => {
+  orbDrag.active = false
+  removeOrbDragListeners()
+  window.removeEventListener('resize', handleWindowResize)
+  if (seekPreviewTimer) {
+    window.clearTimeout(seekPreviewTimer)
+    seekPreviewTimer = null
+  }
+})
 
 const formatTime = (seconds) => {
   const normalized = Math.max(0, Math.floor(seconds || 0))
@@ -448,6 +703,24 @@ const formatTime = (seconds) => {
   overflow: hidden;
 }
 
+.content-switcher {
+  flex: 0 0 auto;
+  padding: 10px 12px 0;
+}
+
+.content-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.content-main.voice-mode {
+  padding: 12px;
+  background: linear-gradient(180deg, #f9fdfb 0%, #f2f8f5 100%);
+}
+
 .course-content :deep(.student-script-viewer) {
   flex: 1;
   min-height: 0;
@@ -455,13 +728,44 @@ const formatTime = (seconds) => {
   overflow: hidden;
 }
 
-.course-content.voice-mode {
-  padding: 12px;
-  background: linear-gradient(180deg, #f9fdfb 0%, #f2f8f5 100%);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.course-image-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 10px 12px 12px;
+  border-radius: 14px;
+  border: 1px solid #d8e6de;
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf8 100%);
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #ffffff;
+}
+
+.no-courseware {
+  font-size: 13px;
+  color: #5f7b71;
+  text-align: center;
+  padding: 18px;
+}
+
+.trace-highlight {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: rgba(239, 68, 68, 0.75);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.24);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 .voice-progress-shell {
@@ -591,14 +895,22 @@ const formatTime = (seconds) => {
   position: absolute;
   right: 18px;
   bottom: 18px;
-  z-index: 3;
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  will-change: left, top;
+}
+
+.voice-orb-dock.dragging .orb-mini-actions {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .voice-orb-main {
+  position: relative;
+  overflow: hidden;
   width: 58px;
   height: 58px;
   border-radius: 50%;
@@ -611,12 +923,84 @@ const formatTime = (seconds) => {
   justify-content: center;
   font-size: 24px;
   line-height: 1;
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
   transition: transform 0.24s ease, box-shadow 0.24s ease;
+}
+
+.voice-orb-main:active {
+  cursor: grabbing;
+}
+
+.voice-orb-main::before,
+.voice-orb-main::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid rgba(103, 232, 249, 0.38);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.voice-orb-main.playing {
+  background: radial-gradient(circle at 30% 25%, #4ade80 0%, #10b981 46%, #065f46 100%);
+  box-shadow: 0 20px 40px rgba(6, 95, 70, 0.38);
+}
+
+.voice-orb-main.playing::before {
+  opacity: 1;
+  animation: orbRingPulse 1.35s ease-out infinite;
+}
+
+.voice-orb-main.playing::after {
+  opacity: 1;
+  animation: orbRingPulse 1.35s ease-out 0.48s infinite;
+}
+
+.orb-main-icon,
+.orb-playing-wave {
+  position: relative;
+  z-index: 1;
 }
 
 .orb-main-icon {
   transform: translateY(-1px);
+}
+
+.orb-playing-wave {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 22px;
+}
+
+.wave-bar {
+  width: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  transform-origin: center bottom;
+  animation: orbEq 900ms ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) {
+  height: 8px;
+  animation-delay: 0ms;
+}
+
+.wave-bar:nth-child(2) {
+  height: 16px;
+  animation-delay: 120ms;
+}
+
+.wave-bar:nth-child(3) {
+  height: 11px;
+  animation-delay: 240ms;
+}
+
+.wave-bar:nth-child(4) {
+  height: 19px;
+  animation-delay: 360ms;
 }
 
 .voice-orb-main:hover,
@@ -677,6 +1061,29 @@ const formatTime = (seconds) => {
   transform: translateY(-1px);
   box-shadow: 0 14px 24px rgba(14, 116, 144, 0.24);
   background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+}
+
+@keyframes orbEq {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes orbRingPulse {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+  }
 }
 
 .bottom-control-row {
