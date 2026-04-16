@@ -10,14 +10,14 @@
     </header>
 
     <div class="status-pills">
-      <span class="status-pill" :class="{ live: resourceMode === 'live', demo: resourceMode !== 'live' }">{{ recommendModeLabel }}</span>
+      <span class="status-pill" :class="{ live: resourceMode === 'live', fallback: resourceMode !== 'live' }">{{ recommendModeLabel }}</span>
       <span class="status-pill neutral">{{ recommendRefreshLabel }}</span>
     </div>
 
     <div class="demo-director-strip">
       <div>
-        <strong>演示路线：推荐资源 → 提交练习 → 个人中心复盘</strong>
-        <p>先加入学习单，再点击“一键演示闭环”，可直接推进到随堂练习页面。</p>
+        <strong>学习闭环路线：推荐资源 → 提交练习 → 个人中心复盘</strong>
+        <p>先加入学习单，再点击“一键学习闭环”，可直接推进到随堂练习页面。</p>
       </div>
       <div class="director-actions">
         <el-button size="small" plain @click="emit('navigate-section', 'classroom')">回课堂学习</el-button>
@@ -114,8 +114,8 @@
             <div class="actions">
               <el-button size="small" type="primary" @click="openDetail(item)">详情</el-button>
               <el-button size="small" plain @click="enqueueResource(item)">加入学习单</el-button>
-              <el-button size="small" plain @click="simulateLearning(item)">模拟学习</el-button>
-              <el-button size="small" type="success" plain @click="runDemoFlow(item)">一键演示闭环</el-button>
+              <el-button size="small" plain @click="simulateLearning(item)">快速学习</el-button>
+              <el-button size="small" type="success" plain @click="runDemoFlow(item)">一键学习闭环</el-button>
             </div>
           </article>
         </div>
@@ -237,7 +237,7 @@ const mockResources = ref([
   },
   {
     id: 'ga-4',
-    title: '遗传算法在路径规划中的可视化演示',
+    title: '遗传算法在路径规划中的可视化讲解',
     source: 'Bilibili',
     duration: '21分钟',
     difficulty: '进阶',
@@ -346,13 +346,13 @@ const defaultKeyword = computed(() => {
   return parts.join(' ')
 })
 
-const recommendModeLabel = computed(() => (resourceMode.value === 'live' ? '智能推荐在线' : '预制推荐模式'))
+const recommendModeLabel = computed(() => (resourceMode.value === 'live' ? '智能推荐在线' : '基础资源模式'))
 
 const recommendModeDesc = computed(() => {
   if (resourceMode.value === 'live') {
     return '已连接推荐接口：可按关键词与难度实时刷新资源结果。'
   }
-  return '推荐接口异常时自动回退到预制资源，保证演示与课堂流程不中断。'
+  return '推荐接口异常时自动回退到基础资源，保证课堂流程不中断。'
 })
 
 const recommendRefreshLabel = computed(() => {
@@ -443,7 +443,7 @@ const filterFallbackTipText = computed(() => {
 })
 
 const recommendCountText = computed(() => {
-  const modePrefix = resourceMode.value === 'live' ? '实时' : '预制'
+  const modePrefix = resourceMode.value === 'live' ? '实时' : '基础'
   const fallbackSuffix = isFilterFallbackActive.value ? '（已自动放宽筛选）' : ''
   return `${modePrefix}推荐共 ${displayResources.value.length} 条${fallbackSuffix}`
 })
@@ -500,7 +500,7 @@ const searchResources = async (options = {}) => {
       remoteResources.value = []
       resourceMode.value = 'demo'
       if (!silent) {
-        ElMessage.warning('接口已响应但暂无结果，已切换预制推荐')
+        ElMessage.warning('接口已响应但暂无结果，已切换基础推荐')
       }
     }
   } catch (error) {
@@ -509,7 +509,7 @@ const searchResources = async (options = {}) => {
     resourceMode.value = 'demo'
     const errorText = resolveErrorText(error)
     if (!silent) {
-      ElMessage.warning(`智能推荐暂不可用（${errorText}），已回退预制资源`)
+      ElMessage.warning(`智能推荐暂不可用（${errorText}），已回退基础资源`)
     }
   } finally {
     if (requestId === activeSearchRequestId) {
@@ -538,10 +538,18 @@ const useDefaultKeyword = async () => {
 
 const openDetail = (item) => {
   selectedResourceId.value = String(item?.id || '')
-  activeResource.value = {
-    ...item
+  const keywordText = pickText(item?.title)
+  if (!keywordText) {
+    ElMessage.warning('当前资源缺少标题，暂时无法跳转搜索')
+    return
   }
-  detailDialogVisible.value = true
+  const searchUrl = `https://search.bilibili.com/all?keyword=${encodeURIComponent(keywordText)}`
+  if (typeof window !== 'undefined') {
+    const opened = window.open(searchUrl, '_blank', 'noopener,noreferrer')
+    if (!opened) {
+      window.location.href = searchUrl
+    }
+  }
 }
 
 const enqueueResource = (item) => {
@@ -557,12 +565,12 @@ const enqueueResource = (item) => {
 
 const simulateLearning = (item) => {
   selectedResourceId.value = String(item?.id || '')
-  flowDialogTitle.value = `模拟学习流程：${item.title}`
+  flowDialogTitle.value = `学习流程：${item.title}`
   flowDialogLines.value = [
     '1. 进入资源并完成导学预览（约 3 分钟）',
     '2. 结合课件当前页做 2 道自测题（约 6 分钟）',
     '3. AI 助手回顾错因并输出复习提纲（约 4 分钟）',
-    '4. 自动写入今日学习单，等待课堂回放联动（已模拟）'
+    '4. 自动写入今日学习单，等待课堂回放联动（已同步）'
   ]
   flowDialogVisible.value = true
 }
@@ -651,7 +659,7 @@ watch(defaultKeyword, (next) => {
   color: #1e6048;
 }
 
-.status-pill.demo {
+.status-pill.fallback {
   background: #f8f3e5;
   border-color: #e6d8a9;
   color: #715e22;

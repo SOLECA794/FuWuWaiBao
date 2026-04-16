@@ -127,7 +127,37 @@
 
             <div class="classroom-split-layout" :class="{ compact: isCompactViewport, collapsed: isQaPanelCollapsed }">
               <section class="workbench-main center-workbench-pane classroom-left-pane" :style="classroomLeftPaneStyle">
-                <div class="classroom-left-stack" :class="{ expanded: isLowerWorkbenchExpanded, solo: !isLowerWorkbenchExpanded }">
+                <section v-if="isKnowledgeOutlineVisible" class="classroom-outline-fullscreen">
+                  <header class="outline-preview-head">
+                    <div>
+                      <p class="outline-preview-kicker">Knowledge Outline</p>
+                      <h4>遗传算法知识大纲</h4>
+                    </div>
+                    <div class="outline-preview-actions">
+                      <el-button text size="small" @click="restartKnowledgeOutlineStream">重播</el-button>
+                      <el-button text size="small" @click="closeKnowledgeOutline">关闭</el-button>
+                    </div>
+                  </header>
+                  <div class="outline-preview-body">
+                    <div v-if="knowledgeOutlineLoading" class="outline-skeleton-grid" aria-live="polite">
+                      <article class="outline-skeleton-item" v-for="index in 3" :key="`outline-skeleton-${index}`">
+                        <div class="outline-skeleton-line w-70"></div>
+                        <div class="outline-skeleton-line w-35"></div>
+                        <div class="outline-skeleton-line w-100"></div>
+                        <div class="outline-skeleton-line w-85"></div>
+                        <div class="outline-skeleton-line w-55"></div>
+                      </article>
+                    </div>
+                    <article
+                      v-else-if="knowledgeOutlineHtml"
+                      class="outline-markdown-content"
+                      v-html="knowledgeOutlineHtml"
+                    ></article>
+                    <div v-else class="outline-preview-empty">正在生成大纲内容...</div>
+                  </div>
+                </section>
+
+                <div v-else class="classroom-left-stack" :class="{ expanded: isLowerWorkbenchExpanded, solo: !isLowerWorkbenchExpanded }">
                   <section class="center-stage" :class="{ expanded: isLowerWorkbenchExpanded, solo: !isLowerWorkbenchExpanded }">
                     <div class="playback-hud" v-if="playbackHudVisible">{{ playbackHudText }}</div>
                     <div class="shortcut-help-card" v-if="shortcutHelpVisible">
@@ -207,28 +237,13 @@
                       @update:playback-rate="updatePlaybackRate"
                       @next-page="nextPage"
                     />
-                    <aside v-if="isKnowledgeOutlineVisible" class="classroom-outline-preview">
-                      <header class="outline-preview-head">
-                        <div>
-                          <p class="outline-preview-kicker">Knowledge Outline</p>
-                          <h4>遗传算法知识大纲</h4>
-                        </div>
-                        <div class="outline-preview-actions">
-                          <span class="outline-preview-status">{{ knowledgeOutlineStatusText }}</span>
-                          <el-button text size="small" @click="restartKnowledgeOutlineStream">重播</el-button>
-                          <el-button text size="small" @click="closeKnowledgeOutline">关闭</el-button>
-                        </div>
-                      </header>
-                      <div class="outline-preview-body" v-loading="knowledgeOutlineLoading">
-                        <article
-                          v-if="knowledgeOutlineHtml"
-                          class="outline-markdown-content"
-                          v-html="knowledgeOutlineHtml"
-                        ></article>
-                        <div v-else class="outline-preview-empty">正在准备大纲内容...</div>
-                      </div>
-                    </aside>
-                    <div v-if="!isLowerWorkbenchExpanded && hasClassroomSubtitle" class="classroom-live-subtitle" :class="{ qa: classroomSubtitleSource === 'qa' }">
+                    <div
+                      v-if="!isLowerWorkbenchExpanded && hasClassroomSubtitle"
+                      class="classroom-live-subtitle"
+                      :class="{ qa: classroomSubtitleSource === 'qa', dragging: subtitleLayout.dragging }"
+                      :style="classroomSubtitleStyle"
+                      @pointerdown.stop="startSubtitleDrag"
+                    >
                       <div class="subtitle-label">{{ classroomSubtitleSource === 'qa' ? 'AI 回答字幕' : '课堂字幕' }}</div>
                       <p class="subtitle-text">{{ classroomSubtitleText }}</p>
                     </div>
@@ -663,7 +678,7 @@
 
                     <div v-else class="graph-body">
                       <div class="mindmap-preview-shell">
-                        <img class="mindmap-preview-image" :src="presetMindmapImageSrc" alt="预置思维导图" />
+                        <img class="mindmap-preview-image" :src="presetMindmapImageSrc" alt="思维导图预览" />
                       </div>
                     </div>
                   </div>
@@ -682,7 +697,7 @@
               :current-weak-point="currentWeakPoint"
               :current-test="currentTest"
               :test-result="testResult"
-              @start-weak-point="startWeakPointLearn"
+              @start-weak-point="handleStudyPanelAiExplain"
               @collect-weak-point="collectWeakPointToFavorite"
               @generate-test="generateTest"
               @check-answer="checkAnswer"
@@ -962,7 +977,7 @@ const jumpToSection = (section, options = {}) => {
   }
   activeSection.value = target
   if (target === 'knowledge') {
-    void ensureKnowledgeWorkspaceDefaults({ autoParse: true, silent: true })
+    void ensureKnowledgeWorkspaceDefaults({ autoParse: false, silent: true })
   }
 }
 
@@ -1010,7 +1025,10 @@ const AI_EXPLAIN_STYLE_PREF_KEY = 'fuww_student_ai_explain_style_v1'
 const STATIC_ASSET_BASE = (typeof process !== 'undefined' && process.env && process.env.BASE_URL)
   ? process.env.BASE_URL
   : '/'
-const PRESET_MINDMAP_SRC = `${STATIC_ASSET_BASE}mindmap-preset.svg`
+const PRESET_MINDMAP_IMAGE = encodeURI(`${STATIC_ASSET_BASE}example/思维导图.jpeg`)
+const PRESET_MINDMAP_IMAGES = [
+  PRESET_MINDMAP_IMAGE
+]
 const COURSE_PREVIEW_FALLBACK_SRC = `${STATIC_ASSET_BASE}course-preview-fallback.png`
 const LOCAL_GENETIC_PAGE_IMAGES = [
   `${STATIC_ASSET_BASE}example/yichuan_1.png`,
@@ -1019,8 +1037,10 @@ const LOCAL_GENETIC_PAGE_IMAGES = [
 const LOCAL_TEST_SAMPLE_PAGE_IMAGES = [
   `${STATIC_ASSET_BASE}example/ceshi.png`
 ]
-const KNOWLEDGE_OUTLINE_MARKDOWN_PATH = encodeURI(`${STATIC_ASSET_BASE}example/预制大纲.md`)
+const PRESET_LECTURE_SCRIPT_PATH = encodeURI(`${STATIC_ASSET_BASE}example/课堂讲稿.md`)
+const KNOWLEDGE_OUTLINE_MARKDOWN_PATH = encodeURI(`${STATIC_ASSET_BASE}example/知识大纲.md`)
 const KNOWLEDGE_OUTLINE_STREAM_INTERVAL_MS = 12
+const KNOWLEDGE_OUTLINE_FIRST_LOAD_MIN_DELAY_MS = 500
 const KNOWLEDGE_OUTLINE_FALLBACK_MARKDOWN = `# 遗传算法知识大纲
 
 ## 一、课程定位
@@ -1099,7 +1119,7 @@ const resolveActiveCoursewarePageImages = () => {
   return presetPages
 }
 
-const PRESET_LECTURE_SCRIPT_TEXT = '同学们好，欢迎来到第四讲的课堂。今天我们要学习的遗传算法，是进化算法中最经典、应用最广泛的代表之一。它的核心思想，来自达尔文的生物进化论，模拟自然界中“物竞天择、适者生存”的进化过程，来解决传统算法难以处理的复杂优化问题。'
+const PRESET_LECTURE_SCRIPT_FALLBACK_TEXT = '同学们好，欢迎来到第四讲的课堂。今天我们要学习的遗传算法，是进化算法中最经典、应用最广泛的代表之一。它的核心思想，来自达尔文的生物进化论 —— 借鉴自然界中“物竞天择、适者生存”的进化过程，来解决传统算法难以处理的复杂优化问题。'
 
 const isImageFileType = (value) => {
   const normalized = String(value || '').trim().toLowerCase()
@@ -1248,6 +1268,12 @@ const escapeHtmlForMarkdown = (text) => String(text || '')
   .replace(/</g, '&lt;')
   .replace(/>/g, '&gt;')
 
+const normalizePresetLectureScript = (text) => String(text || '')
+  .replace(/^\uFEFF/, '')
+  .replace(/^[\s"'“”‘’]+/, '')
+  .replace(/[\s"'“”‘’]+$/, '')
+  .trim()
+
 const resolveExplainModeProfile = (mode) => QA_EXPLAIN_MODE_PROFILE[String(mode || '').trim()] || QA_EXPLAIN_MODE_PROFILE.deep
 
 const resolveExplainStyleProfile = (style) => QA_EXPLAIN_STYLE_PROFILE[String(style || '').trim()] || QA_EXPLAIN_STYLE_PROFILE.rigorous
@@ -1276,6 +1302,8 @@ const knowledgeOutlineLoading = ref(false)
 const knowledgeOutlineMarkdown = ref('')
 const knowledgeOutlineStreamText = ref('')
 const knowledgeOutlineStreaming = ref(false)
+const knowledgeOutlineLoadedOnce = ref(false)
+const knowledgeOutlinePanelOpenedOnce = ref(false)
 let knowledgeOutlineStreamTimer = null
 const activeRightPanel = ref('')
 const qaContextBinding = ref(true)
@@ -1285,6 +1313,8 @@ const aiExplainMode = ref('deep')
 const aiExplainStyle = ref('rigorous')
 const qaAutoSpeakAnswer = ref(true)
 const presetLectureScriptOnPlay = ref(true)
+const presetLectureScriptText = ref(PRESET_LECTURE_SCRIPT_FALLBACK_TEXT)
+const presetLectureScriptLoaded = ref(false)
 const isPresetLectureSpeaking = ref(false)
 const shouldSpeakPresetOnNextPlay = ref(false)
 const shouldResumeSpeechOnNextPlay = ref(false)
@@ -1298,6 +1328,16 @@ const classroomLayout = reactive({
   pointerId: null,
   startX: 0,
   startLeftPercent: 64
+})
+const subtitleLayout = reactive({
+  leftPercent: 25,
+  bottom: 96,
+  dragging: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  startLeftPercent: 25,
+  startBottom: 96
 })
 const lastContextHintNodeId = ref('')
 const summaryMode = ref('quick')
@@ -1353,13 +1393,6 @@ const learningStats = ref({
 
 const currentExplainModeLabel = computed(() => resolveExplainModeProfile(aiExplainMode.value).label)
 const currentExplainStyleLabel = computed(() => resolveExplainStyleProfile(aiExplainStyle.value).label)
-
-const knowledgeOutlineStatusText = computed(() => {
-  if (knowledgeOutlineLoading.value) return '加载中...'
-  if (knowledgeOutlineStreaming.value) return '流式打印中'
-  if (knowledgeOutlineMarkdown.value.trim()) return '已加载完成'
-  return '等待加载'
-})
 
 const knowledgeOutlineHtml = computed(() => {
   const source = String(knowledgeOutlineStreamText.value || '').trim()
@@ -1640,7 +1673,7 @@ const learningStatusSignals = computed(() => {
   const rhythmScore = Math.min(98, Math.max(60, 72 + Math.round((progressPercent.value - 50) * 0.22)))
   const interactionScore = Math.min(99, 76 + Math.min(18, Math.round((qaHistory.value.length || 0) * 1.5)))
   return [
-    { id: 'mastery', label: '掌握完成率', value: `${masteredRate}%`, desc: '依据节点掌握状态实时计算（含课堂演示模拟数据）。' },
+    { id: 'mastery', label: '掌握完成率', value: `${masteredRate}%`, desc: '依据节点掌握状态实时计算（结合课堂互动数据）。' },
     { id: 'weak', label: '薄弱节点占比', value: `${weakRate}%`, desc: '薄弱点会联动“薄弱强化/查找习题”按钮。' },
     { id: 'rhythm', label: '学习节奏评分', value: `${rhythmScore} 分`, desc: '结合进度推进、暂停频次与节点切换节奏评估。' },
     { id: 'interaction', label: '课堂互动活跃度', value: `${interactionScore} 分`, desc: '根据问答次数与练习提交记录生成互动指标。' }
@@ -1719,13 +1752,23 @@ const graphSummaryVisible = computed(() => Boolean(graphSyncPayload.value || gra
 const graphEdgeCount = computed(() => Number(graphSyncPayload.value?.edgeCount || 0))
 const graphOrphanCount = computed(() => Number(graphScanReport.value?.unionOrphanNodeIds?.length || 0))
 const graphBucketCount = computed(() => Number(graphScanReport.value?.buckets?.length || 0))
-const presetMindmapImageSrc = computed(() => PRESET_MINDMAP_SRC)
+const presetMindmapImageSrc = computed(() => {
+  const images = PRESET_MINDMAP_IMAGES
+  if (!images.length) return ''
+  const imageIndex = Math.min(images.length - 1, Math.max(0, Number(currentPage.value || 1) - 1))
+  return images[imageIndex] || images[0]
+})
 const coursePreviewFallbackSrc = computed(() => COURSE_PREVIEW_FALLBACK_SRC)
 const qaFabStyle = computed(() => ({
   left: `${qaFabLayout.left}px`,
   top: `${qaFabLayout.top}px`,
   right: 'auto',
   bottom: 'auto'
+}))
+
+const classroomSubtitleStyle = computed(() => ({
+  left: `${subtitleLayout.leftPercent}%`,
+  bottom: `${subtitleLayout.bottom}px`
 }))
 
 const getClassroomPaneBasis = (percentValue) => {
@@ -1782,8 +1825,8 @@ const handleWorkbenchTreeNodeClick = async (data) => {
   const nodeId = String(data?.id || '')
   const targetNode = filteredOutlineNodes.value.find(node => node.node_id === nodeId)
   if (targetNode?.mockBucket) {
-    ElMessage.info(`这是演示节点：${targetNode.title || targetNode.node_id}`)
-    // 模拟节点选择效果
+    ElMessage.info(`这是示例节点：${targetNode.title || targetNode.node_id}`)
+    // 保留节点定位交互反馈
     currentNodeId.value = nodeId
     activeWorkbenchTab.value = 'knowledge'
     return
@@ -1859,6 +1902,31 @@ const toggleLowerWorkbench = () => {
   }
 }
 
+const loadPresetLectureScriptText = async () => {
+  if (presetLectureScriptLoaded.value && String(presetLectureScriptText.value || '').trim()) {
+    return presetLectureScriptText.value
+  }
+
+  try {
+    const response = await fetch(PRESET_LECTURE_SCRIPT_PATH, {
+      cache: 'no-store'
+    })
+    if (!response.ok) {
+      throw new Error(`读取课堂讲稿失败: ${response.status}`)
+    }
+    const content = await response.text()
+    const normalized = normalizePresetLectureScript(content)
+    presetLectureScriptText.value = normalized || PRESET_LECTURE_SCRIPT_FALLBACK_TEXT
+  } catch (error) {
+    presetLectureScriptText.value = PRESET_LECTURE_SCRIPT_FALLBACK_TEXT
+    console.warn('加载课堂讲稿失败，已使用兜底文案', error)
+  } finally {
+    presetLectureScriptLoaded.value = true
+  }
+
+  return presetLectureScriptText.value
+}
+
 const stopKnowledgeOutlineStream = () => {
   if (knowledgeOutlineStreamTimer) {
     window.clearInterval(knowledgeOutlineStreamTimer)
@@ -1900,10 +1968,11 @@ const startKnowledgeOutlineStream = ({ restart = true } = {}) => {
 }
 
 const loadKnowledgeOutlineMarkdown = async () => {
-  if (String(knowledgeOutlineMarkdown.value || '').trim()) {
+  if (knowledgeOutlineLoadedOnce.value && String(knowledgeOutlineMarkdown.value || '').trim()) {
     return knowledgeOutlineMarkdown.value
   }
 
+  const loadStartAt = Date.now()
   knowledgeOutlineLoading.value = true
   try {
     const response = await fetch(KNOWLEDGE_OUTLINE_MARKDOWN_PATH, {
@@ -1918,7 +1987,14 @@ const loadKnowledgeOutlineMarkdown = async () => {
     knowledgeOutlineMarkdown.value = KNOWLEDGE_OUTLINE_FALLBACK_MARKDOWN
     console.warn('加载知识大纲失败，已使用兜底文案', error)
   } finally {
+    if (!knowledgeOutlineLoadedOnce.value) {
+      const elapsed = Date.now() - loadStartAt
+      if (elapsed < KNOWLEDGE_OUTLINE_FIRST_LOAD_MIN_DELAY_MS) {
+        await new Promise(resolve => window.setTimeout(resolve, KNOWLEDGE_OUTLINE_FIRST_LOAD_MIN_DELAY_MS - elapsed))
+      }
+    }
     knowledgeOutlineLoading.value = false
+    knowledgeOutlineLoadedOnce.value = true
   }
 
   return knowledgeOutlineMarkdown.value
@@ -1931,7 +2007,13 @@ const toggleKnowledgeOutline = async () => {
   }
 
   isKnowledgeOutlineVisible.value = true
+  if (!knowledgeOutlinePanelOpenedOnce.value && knowledgeOutlineLoadedOnce.value) {
+    knowledgeOutlineLoading.value = true
+    await new Promise(resolve => window.setTimeout(resolve, KNOWLEDGE_OUTLINE_FIRST_LOAD_MIN_DELAY_MS))
+    knowledgeOutlineLoading.value = false
+  }
   await loadKnowledgeOutlineMarkdown()
+  knowledgeOutlinePanelOpenedOnce.value = true
   startKnowledgeOutlineStream({ restart: true })
 }
 
@@ -2098,8 +2180,7 @@ const confirmSaveNoteFavorite = async () => {
 }
 
 const jumpToPersonalNotes = () => {
-  personalCenterInitialTab.value = 'notes'
-  activeSection.value = 'personal'
+  jumpToSection('personal', { personalTab: 'notes' })
 }
 
 const optimizeCurrentNoteWithAI = () => {
@@ -2430,6 +2511,104 @@ const getViewportBounds = () => {
     width: window.innerWidth || 1280,
     height: window.innerHeight || 720
   }
+}
+
+const SUBTITLE_LAYOUT_KEY = 'fuww_student_subtitle_layout_v1'
+const SUBTITLE_MIN_LEFT_PERCENT = 14
+const SUBTITLE_MAX_LEFT_PERCENT = 86
+const SUBTITLE_DEFAULT_BOTTOM = 96
+const SUBTITLE_MIN_BOTTOM = 48
+
+const clampSubtitleBottom = (value) => {
+  const viewport = getViewportBounds()
+  const maxBottom = Math.max(SUBTITLE_MIN_BOTTOM, viewport.height - 180)
+  return clamp(Math.round(Number(value) || SUBTITLE_DEFAULT_BOTTOM), SUBTITLE_MIN_BOTTOM, maxBottom)
+}
+
+const clampSubtitleLayout = ({ leftPercent, bottom }) => ({
+  leftPercent: clamp(Number(leftPercent) || 25, SUBTITLE_MIN_LEFT_PERCENT, SUBTITLE_MAX_LEFT_PERCENT),
+  bottom: clampSubtitleBottom(bottom)
+})
+
+const ensureSubtitleLayout = () => {
+  const normalized = clampSubtitleLayout(subtitleLayout)
+  subtitleLayout.leftPercent = normalized.leftPercent
+  subtitleLayout.bottom = normalized.bottom
+}
+
+const loadSubtitleLayout = () => {
+  if (typeof window === 'undefined') return
+  let parsed = null
+  try {
+    parsed = JSON.parse(window.localStorage.getItem(SUBTITLE_LAYOUT_KEY) || 'null')
+  } catch (error) {
+    parsed = null
+  }
+  const normalized = clampSubtitleLayout({
+    leftPercent: parsed?.leftPercent,
+    bottom: parsed?.bottom
+  })
+  subtitleLayout.leftPercent = normalized.leftPercent
+  subtitleLayout.bottom = normalized.bottom
+}
+
+const persistSubtitleLayout = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(SUBTITLE_LAYOUT_KEY, JSON.stringify({
+    leftPercent: subtitleLayout.leftPercent,
+    bottom: subtitleLayout.bottom
+  }))
+}
+
+const stopSubtitleDrag = () => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('pointermove', handleSubtitleDragMove)
+  window.removeEventListener('pointerup', handleSubtitleDragUp)
+  window.removeEventListener('pointercancel', handleSubtitleDragUp)
+  window.removeEventListener('blur', handleSubtitleDragUp)
+  document.body.style.userSelect = ''
+  document.body.style.cursor = ''
+  subtitleLayout.dragging = false
+  subtitleLayout.pointerId = null
+}
+
+const handleSubtitleDragMove = (event) => {
+  if (!subtitleLayout.dragging) return
+  const viewport = getViewportBounds()
+  const deltaX = Number(event.clientX || 0) - subtitleLayout.startX
+  const deltaY = Number(event.clientY || 0) - subtitleLayout.startY
+  const deltaPercent = (deltaX / Math.max(1, viewport.width)) * 100
+  subtitleLayout.leftPercent = clamp(
+    subtitleLayout.startLeftPercent + deltaPercent,
+    SUBTITLE_MIN_LEFT_PERCENT,
+    SUBTITLE_MAX_LEFT_PERCENT
+  )
+  subtitleLayout.bottom = clampSubtitleBottom(subtitleLayout.startBottom - deltaY)
+}
+
+const handleSubtitleDragUp = () => {
+  if (!subtitleLayout.dragging) return
+  stopSubtitleDrag()
+  ensureSubtitleLayout()
+  persistSubtitleLayout()
+}
+
+const startSubtitleDrag = (event) => {
+  if (isKnowledgeOutlineVisible.value) return
+  if (event.button !== 0) return
+  ensureSubtitleLayout()
+  subtitleLayout.dragging = true
+  subtitleLayout.pointerId = event.pointerId
+  subtitleLayout.startX = Number(event.clientX || 0)
+  subtitleLayout.startY = Number(event.clientY || 0)
+  subtitleLayout.startLeftPercent = subtitleLayout.leftPercent
+  subtitleLayout.startBottom = subtitleLayout.bottom
+  document.body.style.userSelect = 'none'
+  document.body.style.cursor = 'grabbing'
+  window.addEventListener('pointermove', handleSubtitleDragMove)
+  window.addEventListener('pointerup', handleSubtitleDragUp)
+  window.addEventListener('pointercancel', handleSubtitleDragUp)
+  window.addEventListener('blur', handleSubtitleDragUp)
 }
 
 const CLASSROOM_LAYOUT_KEY = 'fuww_student_classroom_split_layout_v1'
@@ -3265,9 +3444,12 @@ const playPresetLectureScriptThenCurrentNode = async () => {
     return
   }
 
+  const presetScript = await loadPresetLectureScriptText()
+  const speakingText = normalizePresetLectureScript(presetScript) || PRESET_LECTURE_SCRIPT_FALLBACK_TEXT
+
   const taskId = ++presetSpeechTaskId
   isPresetLectureSpeaking.value = true
-  await speakTextAndWait(PRESET_LECTURE_SCRIPT_TEXT, {
+  await speakTextAndWait(speakingText, {
     mark: `preset-lecture:${currentPage.value}:${Date.now()}`,
     rate: Math.min(1.2, Math.max(0.85, Number(playbackRate.value || 1))),
     maxLength: 1200,
@@ -3875,7 +4057,7 @@ const enterWorkspaceFromSelection = async ({ allowPlaceholder = false } = {}) =>
     selectedCoursePreviewImageUrl.value = ''
   }
   currentPage.value = 1
-  activeSection.value = 'classroom'
+  jumpToSection('classroom')
   personalCenterInitialTab.value = 'notes'
   resetKnowledgeWorkspace()
   hasCourseSelected.value = true
@@ -3941,6 +4123,7 @@ const handleLogout = () => {
   stopSpeechNarration()
   clearClassroomSubtitle()
   stopStreamTypewriter()
+  stopSubtitleDrag()
   if (backendHealthTimer) {
     window.clearInterval(backendHealthTimer)
     backendHealthTimer = null
@@ -3950,6 +4133,7 @@ const handleLogout = () => {
 const handleViewportResize = () => {
   ensureQaFabLayout()
   ensureAskWorkspaceLayout()
+  ensureSubtitleLayout()
   updateViewportMode()
 }
 
@@ -3958,6 +4142,7 @@ onMounted(() => {
     loadQaFabLayout()
     loadAskWorkspaceLayout()
     loadClassroomLayout()
+    loadSubtitleLayout()
     qaAutoSpeakAnswer.value = loadBooleanPreference(QA_AUTO_SPEAK_PREF_KEY, true)
     presetLectureScriptOnPlay.value = loadBooleanPreference(PRESET_LECTURE_SPEAK_PREF_KEY, true)
     aiExplainMode.value = loadEnumPreference(AI_EXPLAIN_MODE_PREF_KEY, ['deep', 'assist'], 'deep')
@@ -4023,11 +4208,13 @@ onUnmounted(() => {
   stopKnowledgeOutlineStream()
   stopAskWorkspaceInteraction()
   stopClassroomResize()
+  stopSubtitleDrag()
 })
 
 onBeforeUnmount(() => {
   stopAskWorkspaceInteraction()
   stopClassroomResize()
+  stopSubtitleDrag()
 })
 
 watch(selectedTeachingCourseId, () => {
@@ -4320,37 +4507,250 @@ const resetKnowledgeWorkspace = () => {
   knowledgeList.value = []
 }
 
-const buildMockKnowledgeTree = (fileName = '个人学习资料') => {
-  const stem = String(fileName || '个人学习资料').replace(/\.[^/.]+$/, '')
+const normalizeKnowledgeLabel = (value, fallback = '未命名知识点') => {
+  const normalized = String(value || '')
+    .replace(/[`*_>#]/g, ' ')
+    .replace(/^[-*+\d.\s]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return normalized || fallback
+}
+
+const buildOutlineTreeFromMarkdown = (markdownText, sourceName = '当前资料') => {
+  const lines = String(markdownText || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+  if (!lines.length) return []
+
+  const tree = []
+  let chapterIndex = 0
+  let pointIndex = 0
+  let currentChapter = null
+  let currentPoint = null
+
+  const createChapter = (title) => {
+    chapterIndex += 1
+    pointIndex = 0
+    currentChapter = {
+      id: `ch-${chapterIndex}`,
+      name: normalizeKnowledgeLabel(title, `${sourceName}核心章节 ${chapterIndex}`),
+      children: []
+    }
+    tree.push(currentChapter)
+    currentPoint = null
+    return currentChapter
+  }
+
+  const ensureChapter = (fallbackTitle = `${sourceName}知识主线`) => {
+    if (!currentChapter) {
+      return createChapter(fallbackTitle)
+    }
+    return currentChapter
+  }
+
+  const createPoint = (title) => {
+    const chapter = ensureChapter()
+    pointIndex += 1
+    currentPoint = {
+      id: `kp-${chapterIndex}-${pointIndex}`,
+      name: normalizeKnowledgeLabel(title, `知识点 ${pointIndex}`),
+      children: []
+    }
+    chapter.children.push(currentPoint)
+    return currentPoint
+  }
+
+  const ensurePoint = (fallbackTitle = '本章关键要点') => {
+    if (!currentPoint) {
+      return createPoint(fallbackTitle)
+    }
+    return currentPoint
+  }
+
+  lines.forEach((line) => {
+    const chapterMatch = line.match(/^#{1,2}\s+(.+)$/)
+    if (chapterMatch) {
+      createChapter(chapterMatch[1])
+      return
+    }
+
+    const pointMatch = line.match(/^#{3,4}\s+(.+)$/)
+    if (pointMatch) {
+      createPoint(pointMatch[1])
+      return
+    }
+
+    const bulletMatch = line.match(/^(?:[-*+]|\d+\.)\s+(.+)$/)
+    if (!bulletMatch) return
+
+    const point = ensurePoint()
+    const childIndex = point.children.length + 1
+    point.children.push({
+      id: `sub-${chapterIndex}-${pointIndex}-${childIndex}`,
+      name: normalizeKnowledgeLabel(bulletMatch[1], `要点 ${childIndex}`)
+    })
+  })
+
+  return tree
+    .map((chapter, chapterPosition) => {
+      const chapterChildren = Array.isArray(chapter.children) ? chapter.children : []
+      const normalizedChildren = chapterChildren.map((point, pointPosition) => {
+        const pointId = String(point.id || `kp-${chapterPosition + 1}-${pointPosition + 1}`)
+        const pointChildren = Array.isArray(point.children) && point.children.length
+          ? point.children
+          : [{ id: `${pointId}-sub-1`, name: '本节核心结论' }]
+        return {
+          ...point,
+          id: pointId,
+          name: normalizeKnowledgeLabel(point.name, `知识点 ${pointPosition + 1}`),
+          children: pointChildren
+        }
+      })
+
+      return {
+        ...chapter,
+        id: String(chapter.id || `ch-${chapterPosition + 1}`),
+        name: normalizeKnowledgeLabel(chapter.name, `${sourceName}章节 ${chapterPosition + 1}`),
+        children: normalizedChildren.length
+          ? normalizedChildren
+          : [
+              {
+                id: `kp-${chapterPosition + 1}-1`,
+                name: '关键知识点',
+                children: [{ id: `sub-${chapterPosition + 1}-1-1`, name: '本章核心要点' }]
+              }
+            ]
+      }
+    })
+    .filter((chapter) => Array.isArray(chapter.children) && chapter.children.length > 0)
+    .slice(0, 10)
+}
+
+const createFallbackKnowledgeTree = (sourceName = '个人学习资料') => {
   return [
     {
       id: 'ch-1',
-      name: `${stem}：核心概念`,
+      name: `${sourceName}：课程目标与概念边界`,
       children: [
-        { id: 'kp-1-1', name: '定义与适用范围' },
-        { id: 'kp-1-2', name: '关键术语与符号' },
-        { id: 'kp-1-3', name: '常见误区与反例' }
+        {
+          id: 'kp-1-1',
+          name: '核心概念定义',
+          children: [
+            { id: 'sub-1-1-1', name: '术语解释与适用范围' },
+            { id: 'sub-1-1-2', name: '常见概念混淆点' }
+          ]
+        },
+        {
+          id: 'kp-1-2',
+          name: '问题建模方式',
+          children: [
+            { id: 'sub-1-2-1', name: '输入输出约束识别' },
+            { id: 'sub-1-2-2', name: '目标函数设定原则' }
+          ]
+        }
       ]
     },
     {
       id: 'ch-2',
-      name: `${stem}：方法与流程`,
+      name: `${sourceName}：流程拆解与执行顺序`,
       children: [
-        { id: 'kp-2-1', name: '标准流程拆分' },
-        { id: 'kp-2-2', name: '步骤间依赖关系' },
-        { id: 'kp-2-3', name: '提速技巧与边界条件' }
+        {
+          id: 'kp-2-1',
+          name: '阶段一：初始化',
+          children: [
+            { id: 'sub-2-1-1', name: '编码方式确定' },
+            { id: 'sub-2-1-2', name: '初始群体生成' }
+          ]
+        },
+        {
+          id: 'kp-2-2',
+          name: '阶段二：迭代更新',
+          children: [
+            { id: 'sub-2-2-1', name: '选择策略对比' },
+            { id: 'sub-2-2-2', name: '交叉与变异协同' },
+            { id: 'sub-2-2-3', name: '收敛判断标准' }
+          ]
+        }
       ]
     },
     {
       id: 'ch-3',
-      name: `${stem}：实战与复习`,
+      name: `${sourceName}：参数调优与误差控制`,
       children: [
-        { id: 'kp-3-1', name: '典型题型与解题模板' },
-        { id: 'kp-3-2', name: '错题回顾清单' },
-        { id: 'kp-3-3', name: '冲刺复习路径' }
+        {
+          id: 'kp-3-1',
+          name: '关键参数影响',
+          children: [
+            { id: 'sub-3-1-1', name: '种群规模影响分析' },
+            { id: 'sub-3-1-2', name: '交叉率与变异率平衡' }
+          ]
+        },
+        {
+          id: 'kp-3-2',
+          name: '稳定性与鲁棒性',
+          children: [
+            { id: 'sub-3-2-1', name: '边界条件处理' },
+            { id: 'sub-3-2-2', name: '异常结果回溯' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'ch-4',
+      name: `${sourceName}：题型映射与实战应用`,
+      children: [
+        {
+          id: 'kp-4-1',
+          name: '典型题型拆解',
+          children: [
+            { id: 'sub-4-1-1', name: '概念判断题' },
+            { id: 'sub-4-1-2', name: '流程计算题' },
+            { id: 'sub-4-1-3', name: '综合应用题' }
+          ]
+        },
+        {
+          id: 'kp-4-2',
+          name: '解题模板库',
+          children: [
+            { id: 'sub-4-2-1', name: '四步解题框架' },
+            { id: 'sub-4-2-2', name: '常见错因定位模板' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'ch-5',
+      name: `${sourceName}：复盘与迁移计划`,
+      children: [
+        {
+          id: 'kp-5-1',
+          name: '知识闭环复盘',
+          children: [
+            { id: 'sub-5-1-1', name: '错题二次归档' },
+            { id: 'sub-5-1-2', name: '高频考点重练' }
+          ]
+        },
+        {
+          id: 'kp-5-2',
+          name: '迁移应用建议',
+          children: [
+            { id: 'sub-5-2-1', name: '跨章节联动训练' },
+            { id: 'sub-5-2-2', name: '阶段性测验计划' }
+          ]
+        }
       ]
     }
   ]
+}
+
+const buildMockKnowledgeTree = (fileName = '个人学习资料') => {
+  const stem = String(fileName || '个人学习资料').replace(/\.[^/.]+$/, '')
+  const outlineTree = buildOutlineTreeFromMarkdown(knowledgeOutlineMarkdown.value, stem)
+  if (outlineTree.length > 0) {
+    return outlineTree
+  }
+  return createFallbackKnowledgeTree(stem)
 }
 
 const parseKnowledge = async ({ silent = false } = {}) => {
@@ -4359,16 +4759,17 @@ const parseKnowledge = async ({ silent = false } = {}) => {
 
   isParsing.value = true
   try {
-    await new Promise((resolve) => window.setTimeout(resolve, 900))
+    await loadKnowledgeOutlineMarkdown()
+    await new Promise((resolve) => window.setTimeout(resolve, 1100))
     const sourceName = resolveKnowledgeSourceName(sourceFile)
     knowledgeList.value = buildMockKnowledgeTree(`${sourceName}.pptx`)
-    parseResult.value = `默认已按当前PPT「${sourceName}」完成预设拆解，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    parseResult.value = `已按当前PPT「${sourceName}」完成知识拆解，共生成 ${countNodes(knowledgeList.value)} 个知识点`
     if (!silent) {
-      ElMessage.success('已按当前PPT加载预设拆解结果')
+      ElMessage.success('知识拆解已完成')
     }
   } catch (error) {
     knowledgeList.value = buildMockKnowledgeTree('当前PPT')
-    parseResult.value = `已加载预设拆解结果，共生成 ${countNodes(knowledgeList.value)} 个知识点`
+    parseResult.value = `已生成知识拆解结果，共生成 ${countNodes(knowledgeList.value)} 个知识点`
   } finally {
     isParsing.value = false
   }
@@ -4392,10 +4793,12 @@ const handleNodeClick = (data) => {
   traceLeft.value = 300
 }
 
-const startWeakPointLearn = async (point) => {
-  currentWeakPoint.value = point.name
+const startWeakPointLearn = async (point = {}) => {
+  const pointId = String(point?.id || '').trim()
+  const pointName = String(point?.name || '').trim() || '当前薄弱点'
+  currentWeakPoint.value = pointName
   try {
-    const data = await studentV1Api.weakPoints.explain(point.id, point.name)
+    const data = await studentV1Api.weakPoints.explain(pointId, pointName)
     currentExplain.value = data?.data?.content || '暂无讲解内容'
   } catch (error) {
     currentExplain.value = '暂时无法获取讲解，请稍后重试。'
@@ -4403,6 +4806,19 @@ const startWeakPointLearn = async (point) => {
   }
   currentTest.value = null
   testResult.value = null
+}
+
+const handleStudyPanelAiExplain = async (point) => {
+  await startWeakPointLearn(point)
+  jumpToSection('classroom')
+  openAskPanelIfNeeded()
+
+  const pointName = String(point?.name || currentWeakPoint.value || '').trim()
+  if (!pointName) return
+
+  const draftQuestion = `请结合当前课堂内容，详细讲解薄弱点【${pointName}】，并给我2道巩固练习。`
+  question.value = draftQuestion
+  createAskPanelAction('draft', draftQuestion)
 }
 
 const generateTest = async () => {
@@ -4926,6 +5342,7 @@ const checkAnswer = async (option) => {
   flex-direction: column;
   gap: 8px;
   overflow: hidden;
+  position: relative;
 }
 
 .logout-btn {
@@ -5144,20 +5561,17 @@ const checkAnswer = async (option) => {
   font-weight: 600;
 }
 
-.classroom-outline-preview {
-  position: absolute;
-  top: 56px;
-  left: 12px;
-  bottom: 12px;
-  width: min(52%, 760px);
-  z-index: 6;
+.classroom-outline-fullscreen {
+  flex: 1;
+  min-height: 0;
   border: 1px solid #d4e4dc;
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 18px 30px rgba(35, 70, 59, 0.14);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin: 10px;
 }
 
 .outline-preview-head {
@@ -5167,12 +5581,12 @@ const checkAnswer = async (option) => {
   gap: 10px;
   border-bottom: 1px solid #d9e7df;
   background: linear-gradient(180deg, #f8fcfa 0%, #eef7f2 100%);
-  padding: 10px 12px;
+  padding: 14px 16px;
 }
 
 .outline-preview-kicker {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #5f786f;
@@ -5181,7 +5595,7 @@ const checkAnswer = async (option) => {
 
 .outline-preview-head h4 {
   margin: 3px 0 0;
-  font-size: 15px;
+  font-size: 20px;
   color: #1f473d;
 }
 
@@ -5193,34 +5607,47 @@ const checkAnswer = async (option) => {
   justify-content: flex-end;
 }
 
-.outline-preview-status {
-  border-radius: 999px;
-  border: 1px solid #cee1d7;
-  background: #f2f8f5;
-  color: #3d6258;
-  font-size: 11px;
-  padding: 3px 8px;
-}
-
 .outline-preview-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 10px 12px;
+  padding: 18px;
 }
 
 .outline-preview-empty {
   border: 1px dashed #cfe0d8;
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   color: #688177;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .outline-markdown-content {
   color: #274b43;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.outline-skeleton-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.outline-skeleton-item {
+  border: 1px solid #d9e7df;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.outline-skeleton-line {
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8f0eb 25%, #dce9e2 40%, #e8f0eb 65%);
+  background-size: 240% 100%;
+  animation: skeleton-shimmer 1.2s linear infinite;
 }
 
 .outline-markdown-content :deep(h1),
@@ -5228,6 +5655,7 @@ const checkAnswer = async (option) => {
 .outline-markdown-content :deep(h3) {
   margin: 0.65em 0 0.35em;
   color: #1f473d;
+  line-height: 1.35;
 }
 
 .outline-markdown-content :deep(p) {
@@ -5241,20 +5669,20 @@ const checkAnswer = async (option) => {
 }
 
 .outline-markdown-content :deep(li + li) {
-  margin-top: 0.2em;
+  margin-top: 0.35em;
 }
 
 .outline-markdown-content :deep(table) {
   border-collapse: collapse;
   width: 100%;
   margin: 0.6em 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .outline-markdown-content :deep(th),
 .outline-markdown-content :deep(td) {
   border: 1px solid #d5e5dd;
-  padding: 6px 8px;
+  padding: 8px 10px;
 }
 
 .outline-markdown-content :deep(th) {
@@ -6048,19 +6476,26 @@ const checkAnswer = async (option) => {
 .mindmap-preview-shell {
   border: 1px solid #d5e4dc;
   border-radius: 12px;
-  min-height: min(72vh, 680px);
-  height: 100%;
+  width: min(100%, 520px);
+  min-width: 280px;
+  min-height: 260px;
+  height: min(72vh, 680px);
+  max-height: calc(100vh - 240px);
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: auto;
+  resize: both;
+  box-sizing: border-box;
+  padding: 6px;
 }
 
 .mindmap-preview-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .panel-body :deep(.course-card) {
@@ -6121,6 +6556,9 @@ const checkAnswer = async (option) => {
 
 .graph-body {
   padding: 8px 8px 4px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   overflow: auto;
 }
 
@@ -6499,7 +6937,10 @@ const checkAnswer = async (option) => {
   transform: translateX(-50%);
   bottom: 96px;
   z-index: 4;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
   border-radius: 12px;
   border: 1px solid rgba(22, 101, 52, 0.32);
   background: linear-gradient(180deg, rgba(246, 255, 251, 0.96) 0%, rgba(231, 249, 241, 0.94) 100%);
@@ -6508,6 +6949,12 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.classroom-live-subtitle.dragging {
+  cursor: grabbing;
+  box-shadow: 0 16px 28px rgba(17, 94, 89, 0.22);
 }
 
 .classroom-live-subtitle.qa {
@@ -6767,6 +7214,11 @@ const checkAnswer = async (option) => {
   50% { transform: translateY(-10px) translateX(8px); }
 }
 
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -40% 0; }
+}
+
 @media (max-width: 1280px) {
   .main-layout {
     gap: 10px;
@@ -6804,8 +7256,9 @@ const checkAnswer = async (option) => {
     bottom: 88px;
   }
 
-  .classroom-outline-preview {
-    width: min(58%, 640px);
+  .classroom-outline-fullscreen {
+    border-radius: 14px;
+    margin: 8px;
   }
   
 }
@@ -6878,12 +7331,9 @@ const checkAnswer = async (option) => {
     flex-wrap: wrap;
   }
 
-  .classroom-outline-preview {
-    left: 10px;
-    right: 10px;
-    width: auto;
-    bottom: 10px;
-    top: 98px;
+  .classroom-outline-fullscreen {
+    border-radius: 12px;
+    margin: 6px;
   }
 
   .outline-preview-head {

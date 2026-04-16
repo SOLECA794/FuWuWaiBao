@@ -31,11 +31,6 @@
               @error="handleCourseImageError"
             />
             <div v-else class="no-courseware">当前页课件暂未返回，请稍后重试或切换页面。</div>
-            <div
-              v-if="tracePoint"
-              class="trace-highlight"
-              :style="{ top: traceTop + 'px', left: traceLeft + 'px' }"
-            ></div>
           </div>
         </template>
 

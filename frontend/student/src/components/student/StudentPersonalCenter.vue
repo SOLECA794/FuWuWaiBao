@@ -1,33 +1,20 @@
 <template>
   <div class="pc-shell">
+    <section class="pc-fixed-region">
     <header class="pc-top">
       <div class="pc-identity">
         <div class="avatar" :title="studentId">{{ avatarText }}</div>
         <div class="id-meta">
           <div class="title-row">
-            <h2>个人中心</h2>
-            <span class="pill" v-if="currentCourseName">正在学习：{{ currentCourseName }}</span>
+            <div class="title-main">
+              <h2>个人中心</h2>
+              <span class="pill" v-if="currentCourseName">正在学习：{{ currentCourseName }}</span>
+            </div>
+            <button type="button" class="stats-toggle-btn" @click="toggleStatsPanel">
+              {{ statsPanelVisible ? '收起数据统计' : '数据统计' }}
+            </button>
           </div>
           <p class="subtitle">把「学习 → 记录 → 练习 → 复习 → 任务 → 反馈」收拢到一个闭环里。</p>
-        </div>
-      </div>
-
-      <div class="pc-metrics">
-        <div class="metric">
-          <div class="metric-label">学习专注</div>
-          <div class="metric-value">{{ learningStatsSafe.focusScore }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">掌握率</div>
-          <div class="metric-value">{{ masteryRateClamped }}%</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">薄弱点</div>
-          <div class="metric-value">{{ weakPointTagsSafe.length }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">未读通知</div>
-          <div class="metric-value">{{ unreadNotificationCount }}</div>
         </div>
       </div>
 
@@ -63,6 +50,27 @@
           </div>
         </div>
       </div>
+
+      <transition name="stats-pop">
+        <div v-if="statsPanelVisible" class="pc-stats-popover">
+          <div class="metric">
+            <div class="metric-label">学习专注</div>
+            <div class="metric-value">{{ learningStatsSafe.focusScore }}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">掌握率</div>
+            <div class="metric-value">{{ masteryRateClamped }}%</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">薄弱点</div>
+            <div class="metric-value">{{ weakPointTagsSafe.length }}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">未读通知</div>
+            <div class="metric-value">{{ unreadNotificationCount }}</div>
+          </div>
+        </div>
+      </transition>
     </header>
 
     <div v-if="dueReminders.length" class="pc-banner">
@@ -72,7 +80,7 @@
       </div>
     </div>
 
-    <div class="pc-tabs sticky">
+    <div class="pc-tabs">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -84,6 +92,7 @@
         <span class="tab-count" v-if="tabCount(tab.key) !== null">{{ tabCount(tab.key) }}</span>
       </button>
     </div>
+    </section>
 
     <main class="pc-body" ref="bodyEl" @dragover.prevent>
       <transition name="pc-fade-slide" mode="out-in">
@@ -586,8 +595,8 @@ export default {
       showTaskEditor: false,
       editingTaskId: '',
       taskForm: { title: '', detail: '', dueAt: '' },
-      tabScrollTops: {},
       noteTitleMap: {},
+      statsPanelVisible: false,
     }
   },
   computed: {
@@ -672,22 +681,19 @@ export default {
       this.activeTab = safe
     },
     switchTab(key) {
-      this.persistActiveTabScroll()
+      if (this.activeTab === key) return
       this.activeTab = key
       this.dragOverCol = ''
       this.editingFavorite = null
-      this.$nextTick(() => this.restoreActiveTabScroll())
+      this.statsPanelVisible = false
+      this.$nextTick(() => {
+        const el = this.$refs.bodyEl
+        if (!el) return
+        el.scrollTop = 0
+      })
     },
-    persistActiveTabScroll() {
-      const el = this.$refs.bodyEl
-      if (!el) return
-      this.tabScrollTops = { ...(this.tabScrollTops || {}), [this.activeTab]: el.scrollTop || 0 }
-    },
-    restoreActiveTabScroll() {
-      const el = this.$refs.bodyEl
-      if (!el) return
-      const next = (this.tabScrollTops && this.tabScrollTops[this.activeTab]) || 0
-      el.scrollTop = next
+    toggleStatsPanel() {
+      this.statsPanelVisible = !this.statsPanelVisible
     },
     tabCount(key) {
       if (key === 'notes') return (this.notes || []).length
@@ -1120,18 +1126,61 @@ export default {
 </script>
 
 <style scoped>
-.pc-shell { display: grid; gap: 16px; padding: 16px; color: #1E293B; background: #F5F7FA; }
-.pc-top { background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; }
+.pc-shell { display: grid; gap: 14px; padding: 16px; color: #1E293B; background: #F5F7FA; }
+.pc-fixed-region {
+  position: sticky;
+  top: 8px;
+  z-index: 12;
+  display: grid;
+  gap: 10px;
+  background: #F5F7FA;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+.pc-top { min-height: 176px; background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; overflow: visible; }
 .pc-identity { display: flex; gap: 12px; align-items: center; }
 .avatar { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #2f605a 0%, #4d8a80 100%); color: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 800; box-shadow: 0 8px 30px rgba(47, 96, 90, 0.18); }
 .id-meta { min-width: 0; }
-.title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.title-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .title-row h2 { margin: 0; font-size: 20px; }
 .subtitle { margin: 6px 0 0; color: #64748B; font-size: 13px; }
-.pc-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stats-toggle-btn {
+  border: 1px solid rgba(226,232,240,0.95);
+  background: #FFFFFF;
+  color: #334155;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease-out, border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.stats-toggle-btn:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 6px 18px rgba(47, 96, 90, 0.08); }
+.stats-toggle-btn:active { transform: scale(0.97); }
+.pc-stats-popover {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  width: min(420px, calc(100% - 32px));
+  border: 1px solid rgba(226,232,240,0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
 .metric { border: 1px solid rgba(226,232,240,0.9); background: #F8FAFC; border-radius: 12px; padding: 10px 12px; }
 .metric-label { font-size: 12px; color: #64748B; font-weight: 600; letter-spacing: 0.02em; }
 .metric-value { margin-top: 4px; font-size: 18px; font-weight: 800; color: #1E293B; }
+
+.stats-pop-enter-active,
+.stats-pop-leave-active { transition: all 0.2s ease-out; }
+.stats-pop-enter-from,
+.stats-pop-leave-to { opacity: 0; transform: translateY(-6px); }
 
 .pc-learning-viz {
   display: grid;
@@ -1204,17 +1253,16 @@ export default {
 .banner-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .banner-text { color: #334155; font-weight: 600; }
 
-.pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-.pc-tabs.sticky { position: sticky; top: 0; z-index: 3; padding: 8px 0; background: rgba(245,247,250,0.9); backdrop-filter: blur(8px); box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
-.tab { border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 999px; padding: 6px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; font-size: 12px; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out, background 0.2s ease-out; }
-.tab:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 6px 18px rgba(47, 96, 90, 0.08); }
+.pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 2px; }
+.tab { width: 96px; height: 32px; border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 11px; padding: 0 8px; cursor: pointer; display: inline-flex; justify-content: center; gap: 5px; align-items: center; font-size: 11px; font-weight: 600; transition: transform 0.16s ease-out, box-shadow 0.18s ease-out, border-color 0.18s ease-out, background 0.18s ease-out; }
+.tab:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.32); box-shadow: 0 4px 12px rgba(47, 96, 90, 0.08); }
 .tab:active { transform: translateY(0) scale(0.97); }
-.tab.active { background: #2f605a; color: #fff; border-color: #2f605a; box-shadow: 0 8px 30px rgba(47, 96, 90, 0.14); }
+.tab.active { background: #2f605a; color: #fff; border-color: #2f605a; box-shadow: 0 4px 12px rgba(47, 96, 90, 0.14); }
 .tab-label { line-height: 1; }
-.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 1px 6px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 1px 5px; border-radius: 999px; font-size: 10px; font-weight: 800; }
 .tab:not(.active) .tab-count { background: #F8FAFC; border-color: rgba(226,232,240,0.95); color: #334155; }
 
-.pc-body { min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; padding-bottom: 2px; }
+.pc-body { min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; scroll-behavior: auto; padding-bottom: 2px; }
 .panel { background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; }
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .head-left h3 { margin: 0; font-size: 16px; color: #1E293B; }
@@ -1291,17 +1339,19 @@ export default {
 .drawer-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .drawer-tip { color: #6b7f75; font-size: 12px; }
 
-.pc-fade-slide-enter-active, .pc-fade-slide-leave-active { transition: all 0.25s ease-out; }
-.pc-fade-slide-enter-from, .pc-fade-slide-leave-to { opacity: 0; transform: translateY(8px) scale(0.995); }
+.pc-fade-slide-enter-active, .pc-fade-slide-leave-active { transition: opacity 0.18s ease-out; }
+.pc-fade-slide-enter-from, .pc-fade-slide-leave-to { opacity: 0; }
 
 .drawer-fade-enter-active, .drawer-fade-leave-active { transition: opacity 0.22s ease; }
 .drawer-fade-enter-from, .drawer-fade-leave-to { opacity: 0; }
 
 @media (max-width: 1100px) {
-  .pc-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pc-fixed-region { top: 6px; }
+  .pc-stats-popover { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(360px, calc(100% - 20px)); right: 10px; top: 58px; }
   .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
+  .pc-stats-popover { grid-template-columns: 1fr; width: calc(100% - 16px); right: 8px; }
   .board { grid-template-columns: 1fr; }
   .editor .grid { grid-template-columns: 1fr; }
   .banner-item { flex-direction: column; align-items: flex-start; }

@@ -17,12 +17,12 @@
       <div v-if="loading" class="loading-tip">正在生成本页练习题...</div>
       <div class="demo-guide-row">
         <div class="guide-copy">
-          <strong>演示快捷模式</strong>
-          <span>可一键填充答案并提交，快速展示批改与错题解析效果。</span>
+          <strong>快捷填充模式</strong>
+          <span>可一键填充答案并提交，快速完成批改并查看错题解析。</span>
         </div>
         <div class="guide-actions">
           <button class="btn ghost" :disabled="loading" @click="fillDemoAnswers">一键填充</button>
-          <button class="btn primary" :disabled="loading" @click="autoDemoSubmit">自动演示批改</button>
+          <button class="btn primary" :disabled="loading" @click="autoDemoSubmit">自动提交批改</button>
         </div>
       </div>
 
@@ -331,7 +331,7 @@ const fillDemoAnswers = () => {
     ...answers.value,
     ...nextAnswers
   }
-  ElMessage.success('已填充演示答案，可直接提交批改')
+  ElMessage.success('已填充参考答案，可直接提交批改')
 }
 
 const autoDemoSubmit = async () => {
@@ -378,7 +378,7 @@ const addWrongSet = () => {
     ElMessage.success('错题已进入系统错题本，可在个人中心-练习记录查看')
     return
   }
-  ElMessage.success(`已加入错题本（演示模式 ${result.value.wrongs.length}题）`)
+  ElMessage.success(`已加入错题本（本轮共 ${result.value.wrongs.length} 题）`)
 }
 
 const goToWrongSet = () => {
@@ -419,7 +419,7 @@ const loadPracticeTask = async () => {
     const remoteQuestions = Array.isArray(data.questions) ? data.questions : []
     if (!remoteQuestions.length) {
       useRemoteData.value = false
-      ElMessage.warning('后端暂未返回题目，已使用演示题目')
+      ElMessage.warning('后端暂未返回题目，已使用内置题目')
       return
     }
     taskId.value = String(data.taskId || '')
@@ -427,7 +427,7 @@ const loadPracticeTask = async () => {
     useRemoteData.value = taskId.value !== ''
   } catch (error) {
     useRemoteData.value = false
-    ElMessage.warning(`练习题加载失败，已使用演示题目：${error.message}`)
+    ElMessage.warning(`练习题加载失败，已使用内置题目：${error.message}`)
   } finally {
     loading.value = false
   }

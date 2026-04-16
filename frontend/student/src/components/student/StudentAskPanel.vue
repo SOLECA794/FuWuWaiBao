@@ -1,6 +1,19 @@
 <template>
-  <div class="chat-shell">
-    <aside class="session-sidebar">
+  <div class="chat-shell" :class="{ 'sidebar-collapsed': sessionSidebarCollapsed }">
+    <aside class="session-sidebar" :class="{ collapsed: sessionSidebarCollapsed }">
+      <button
+        class="session-toggle-btn"
+        :class="{ compact: sessionSidebarCollapsed }"
+        type="button"
+        @click="toggleSessionSidebar"
+        :aria-expanded="sessionSidebarCollapsed ? 'false' : 'true'"
+        :title="sessionSidebarCollapsed ? '展开会话列表' : '收起会话列表'"
+      >
+        <span class="session-toggle-icon" aria-hidden="true">{{ sessionSidebarCollapsed ? '»' : '«' }}</span>
+        <span class="session-toggle-text">{{ sessionSidebarCollapsed ? '展开会话' : '收起会话' }}</span>
+      </button>
+
+      <template v-if="!sessionSidebarCollapsed">
       <button class="new-session-btn" type="button" @click="createNewSession" :disabled="askLoading">
         + 新建对话
       </button>
@@ -33,6 +46,18 @@
           </div>
         </div>
       </div>
+      </template>
+
+      <button
+        v-else
+        class="new-session-mini-btn"
+        type="button"
+        @click="createNewSession"
+        :disabled="askLoading"
+        title="新建对话"
+      >
+        +
+      </button>
     </aside>
 
     <section class="chat-main">
@@ -117,42 +142,6 @@
           </div>
         </article>
       </main>
-
-      <div class="explain-profile-row">
-        <div class="profile-group">
-          <span class="profile-label">讲解模式</span>
-          <div class="profile-options">
-            <button
-              v-for="option in explainModeOptions"
-              :key="option.value"
-              class="profile-option-btn"
-              type="button"
-              :class="{ active: explainMode === option.value }"
-              :disabled="askLoading"
-              @click="setExplainMode(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
-
-        <div class="profile-group">
-          <span class="profile-label">表达风格</span>
-          <div class="profile-options">
-            <button
-              v-for="option in explainStyleOptions"
-              :key="option.value"
-              class="profile-option-btn"
-              type="button"
-              :class="{ active: explainStyle === option.value }"
-              :disabled="askLoading"
-              @click="setExplainStyle(option.value)"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div class="assistant-tool-row">
         <button
@@ -265,6 +254,42 @@
             发送
           </el-button>
         </div>
+
+        <div class="explain-profile-row composer-profile-row">
+          <div class="profile-group">
+            <span class="profile-label">讲解模式</span>
+            <div class="profile-options">
+              <button
+                v-for="option in explainModeOptions"
+                :key="option.value"
+                class="profile-option-btn"
+                type="button"
+                :class="{ active: explainMode === option.value }"
+                :disabled="askLoading"
+                @click="setExplainMode(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="profile-group">
+            <span class="profile-label">标答风格</span>
+            <div class="profile-options">
+              <button
+                v-for="option in explainStyleOptions"
+                :key="option.value"
+                class="profile-option-btn"
+                type="button"
+                :class="{ active: explainStyle === option.value }"
+                :disabled="askLoading"
+                @click="setExplainStyle(option.value)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
       </footer>
     </section>
   </div>
@@ -279,6 +304,7 @@ import markdownItKatex from 'markdown-it-katex'
 
 const STORAGE_KEY = 'fuww_student_qa_sessions_v2'
 const ACTIVE_STORAGE_KEY = 'fuww_student_qa_active_session_v2'
+const SESSION_SIDEBAR_COLLAPSED_KEY = 'fuww_student_qa_session_sidebar_collapsed_v1'
 const DEFAULT_SESSION_TITLE = '新的聊天'
 const MAX_SESSIONS = 40
 const MAX_MESSAGES = 300
@@ -405,6 +431,7 @@ const activeSessionId = ref('')
 const pendingSessionId = ref('')
 const pendingAssistantMessageId = ref('')
 const presetExpanded = ref(false)
+const sessionSidebarCollapsed = ref(true)
 
 let persistTimer = null
 
@@ -742,6 +769,10 @@ function createNewSession() {
   })
 }
 
+function toggleSessionSidebar() {
+  sessionSidebarCollapsed.value = !sessionSidebarCollapsed.value
+}
+
 function switchSession(sessionId) {
   if (!sessionId || sessionId === activeSessionId.value) return
   const exists = sessions.value.some((item) => item.id === sessionId)
@@ -1025,8 +1056,18 @@ watch(
 
 watch(sessions, () => schedulePersist(), { deep: true })
 watch(activeSessionId, () => schedulePersist())
+watch(sessionSidebarCollapsed, (collapsed) => {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(SESSION_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+})
 
 onMounted(() => {
+  if (typeof window !== 'undefined') {
+    const raw = String(window.localStorage.getItem(SESSION_SIDEBAR_COLLAPSED_KEY) || '').trim()
+    if (raw) {
+      sessionSidebarCollapsed.value = ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase())
+    }
+  }
   loadSessions()
   ensureActiveSession()
   nextTick(() => scrollToBottom(false))
@@ -1057,6 +1098,10 @@ onUnmounted(() => {
   border: 1px solid #d8e9e1;
 }
 
+.chat-shell.sidebar-collapsed {
+  grid-template-columns: 64px minmax(0, 1fr);
+}
+
 .session-sidebar {
   display: flex;
   flex-direction: column;
@@ -1066,6 +1111,79 @@ onUnmounted(() => {
   background:
     linear-gradient(180deg, rgba(31, 83, 69, 0.96) 0%, rgba(35, 103, 82, 0.92) 100%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0));
+}
+
+.session-sidebar.collapsed {
+  align-items: center;
+  padding: 10px 8px;
+}
+
+.session-toggle-btn {
+  width: 100%;
+  border: 1px solid rgba(157, 208, 188, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  color: #eaf7f1;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.session-toggle-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.session-toggle-text {
+  line-height: 1;
+}
+
+.session-toggle-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(192, 228, 212, 0.8);
+}
+
+.session-toggle-btn.compact {
+  width: 44px;
+  min-height: 44px;
+  border-radius: 12px;
+  padding: 10px 0;
+}
+
+.session-toggle-btn.compact .session-toggle-text {
+  display: none;
+}
+
+.new-session-mini-btn {
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(157, 208, 188, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+  color: #eaf7f1;
+  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.new-session-mini-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(192, 228, 212, 0.8);
+}
+
+.new-session-mini-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .new-session-btn {
@@ -1463,6 +1581,10 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.composer-profile-row {
+  margin-top: 10px;
+}
+
 .profile-group {
   border: 1px solid #d4e6dc;
   border-radius: 10px;
@@ -1769,6 +1891,10 @@ onUnmounted(() => {
     grid-template-columns: 220px minmax(0, 1fr);
   }
 
+  .chat-shell.sidebar-collapsed {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
   .message-bubble {
     max-width: min(100%, 86%);
   }
@@ -1779,10 +1905,39 @@ onUnmounted(() => {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .chat-shell.sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .session-sidebar {
     border-right: none;
     border-bottom: 1px solid #d7e7de;
     max-height: 240px;
+  }
+
+  .session-sidebar.collapsed {
+    max-height: none;
+    align-items: flex-start;
+  }
+
+  .session-sidebar.collapsed .session-toggle-btn.compact {
+    width: auto;
+    min-height: 36px;
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    letter-spacing: normal;
+    padding: 8px 12px;
+  }
+
+  .session-sidebar.collapsed .session-toggle-btn.compact .session-toggle-text {
+    display: inline;
+  }
+
+  .session-sidebar.collapsed .new-session-mini-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
   }
 
   .session-list {
