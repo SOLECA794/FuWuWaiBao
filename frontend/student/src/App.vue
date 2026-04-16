@@ -155,6 +155,15 @@
                       >
                         {{ isLowerWorkbenchExpanded ? '收起下方面板' : '展开下方面板' }}
                       </el-button>
+                      <el-button
+                        size="small"
+                        class="outline-toggle-btn"
+                        type="success"
+                        plain
+                        @click="toggleKnowledgeOutline"
+                      >
+                        {{ isKnowledgeOutlineVisible ? '收起知识大纲' : '知识大纲' }}
+                      </el-button>
                     </div>
                     <StudentCoursePanel
                       v-if="!isLowerWorkbenchExpanded"
@@ -198,6 +207,27 @@
                       @update:playback-rate="updatePlaybackRate"
                       @next-page="nextPage"
                     />
+                    <aside v-if="isKnowledgeOutlineVisible" class="classroom-outline-preview">
+                      <header class="outline-preview-head">
+                        <div>
+                          <p class="outline-preview-kicker">Knowledge Outline</p>
+                          <h4>遗传算法知识大纲</h4>
+                        </div>
+                        <div class="outline-preview-actions">
+                          <span class="outline-preview-status">{{ knowledgeOutlineStatusText }}</span>
+                          <el-button text size="small" @click="restartKnowledgeOutlineStream">重播</el-button>
+                          <el-button text size="small" @click="closeKnowledgeOutline">关闭</el-button>
+                        </div>
+                      </header>
+                      <div class="outline-preview-body" v-loading="knowledgeOutlineLoading">
+                        <article
+                          v-if="knowledgeOutlineHtml"
+                          class="outline-markdown-content"
+                          v-html="knowledgeOutlineHtml"
+                        ></article>
+                        <div v-else class="outline-preview-empty">正在准备大纲内容...</div>
+                      </div>
+                    </aside>
                     <div v-if="!isLowerWorkbenchExpanded && hasClassroomSubtitle" class="classroom-live-subtitle" :class="{ qa: classroomSubtitleSource === 'qa' }">
                       <div class="subtitle-label">{{ classroomSubtitleSource === 'qa' ? 'AI 回答字幕' : '课堂字幕' }}</div>
                       <p class="subtitle-text">{{ classroomSubtitleText }}</p>
@@ -532,9 +562,14 @@
                     <p class="qa-kicker">AI课堂助手</p>
                     <h4>课程联动问答面板</h4>
                   </div>
-                  <el-tag size="small" :type="qaContextBinding ? 'success' : 'info'">
-                    {{ qaContextBinding ? '已绑定当前知识点' : '未绑定上下文' }}
-                  </el-tag>
+                  <div class="qa-head-tags">
+                    <el-tag size="small" :type="qaContextBinding ? 'success' : 'info'">
+                      {{ qaContextBinding ? '已绑定当前知识点' : '未绑定上下文' }}
+                    </el-tag>
+                    <el-tag size="small" effect="plain" type="warning">
+                      {{ currentExplainModeLabel }} · {{ currentExplainStyleLabel }}
+                    </el-tag>
+                  </div>
                 </div>
                 <StudentAskPanel
                   :question="question"
@@ -548,6 +583,8 @@
                   :context-binding="qaContextBinding"
                   :deep-reasoning="qaDeepReasoning"
                   :web-search="qaWebSearch"
+                  :explain-mode="aiExplainMode"
+                  :explain-style="aiExplainStyle"
                   :auto-speak-answer="qaAutoSpeakAnswer"
                   :preset-lecture-script="presetLectureScriptOnPlay"
                   :can-ask="true"
@@ -557,6 +594,8 @@
                   @update:context-binding="qaContextBinding = $event"
                   @update:deep-reasoning="qaDeepReasoning = $event"
                   @update:web-search="qaWebSearch = $event"
+                  @update:explain-mode="aiExplainMode = $event"
+                  @update:explain-style="aiExplainStyle = $event"
                   @update:auto-speak-answer="qaAutoSpeakAnswer = $event"
                   @update:preset-lecture-script="presetLectureScriptOnPlay = $event"
                   @open-upload="openUpload"
@@ -742,6 +781,7 @@
 /* eslint-disable no-unused-vars */
 import { ref, reactive, onMounted, onBeforeUnmount, onUnmounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import MarkdownIt from 'markdown-it'
 import { studentV1Api } from './services/v1'
 import { API_BASE, AI_API_BASE } from './config/api'
 import StudentCoursePanel from './components/student/StudentCoursePanel.vue'
@@ -965,31 +1005,101 @@ const TTS_DEFAULT_VOICE = 'alloy'
 const TTS_DEFAULT_FORMAT = 'mp3'
 const QA_AUTO_SPEAK_PREF_KEY = 'fuww_student_qa_auto_speak_answer_v1'
 const PRESET_LECTURE_SPEAK_PREF_KEY = 'fuww_student_preset_lecture_speak_v1'
+const AI_EXPLAIN_MODE_PREF_KEY = 'fuww_student_ai_explain_mode_v1'
+const AI_EXPLAIN_STYLE_PREF_KEY = 'fuww_student_ai_explain_style_v1'
 const STATIC_ASSET_BASE = (typeof process !== 'undefined' && process.env && process.env.BASE_URL)
   ? process.env.BASE_URL
   : '/'
 const PRESET_MINDMAP_SRC = `${STATIC_ASSET_BASE}mindmap-preset.svg`
 const COURSE_PREVIEW_FALLBACK_SRC = `${STATIC_ASSET_BASE}course-preview-fallback.png`
-const PRESET_LECTURE_SCRIPT_TEXT = `同学们，我们开始今天的核心主题：遗传算法。
-这节内容请抓住一个主线：我们不做穷举，而是通过“种群进化”逐代逼近最优解。
+const LOCAL_GENETIC_PAGE_IMAGES = [
+  `${STATIC_ASSET_BASE}example/yichuan_1.png`,
+  `${STATIC_ASSET_BASE}example/yichuan_2.png`
+]
+const LOCAL_TEST_SAMPLE_PAGE_IMAGES = [
+  `${STATIC_ASSET_BASE}example/ceshi.png`
+]
+const KNOWLEDGE_OUTLINE_MARKDOWN_PATH = encodeURI(`${STATIC_ASSET_BASE}example/预制大纲.md`)
+const KNOWLEDGE_OUTLINE_STREAM_INTERVAL_MS = 12
+const KNOWLEDGE_OUTLINE_FALLBACK_MARKDOWN = `# 遗传算法知识大纲
 
-先看第一步，编码。我们要把一个候选解表示成染色体，染色体上的每个位置就是基因。
-根据问题类型不同，编码可以是二进制编码、实数编码，或者排列编码。
+## 一、课程定位
 
-第二步，适应度评估。适应度函数只回答一个问题：这个解到底有多好。
-适应度越高，个体在后续选择中被保留的概率越大。
+- 主题：遗传算法基础与应用
+- 目标：理解“编码-选择-交叉-变异”的完整流程
+- 输出：能够完成参数判定与典型题型求解
 
-第三步，进入进化循环，每一代都做三件事：
-第一，选择：从当前种群选出父代，常见方法是轮盘赌和锦标赛选择；
-第二，交叉：让父代交换部分基因，组合出更优的后代；
-第三，变异：以较低概率随机修改基因，避免算法过早陷入局部最优。
+## 二、核心模块
 
-参数设置上，我们重点关注三项：种群规模、交叉概率、变异概率。
-一般来说，种群太小会导致多样性不足；交叉概率通常高于变异概率；
-终止条件可以设为达到最大代数，或若干代最优值不再提升。
+1. 编码与种群初始化
+2. 适应度函数与选择机制
+3. 交叉与变异策略
+4. 收敛分析与参数调优
 
-最后总结：遗传算法的本质是“保留好解、探索新解、逐代改进”。
-请带着这个流程去看本页节点：编码、适应度、选择、交叉、变异，你会更容易理解每一步在整体优化中的作用。`
+## 三、学习建议
+
+- 先构建概念图，再做步骤推演
+- 每学完一个模块立即做2道小题
+- 错题按“错因-修正-复盘”闭环整理
+`
+
+const outlineMarkdownRenderer = new MarkdownIt({
+  html: false,
+  breaks: true,
+  linkify: true
+})
+
+const resolveLocalCoursewareImages = (coursewareName = '') => {
+  const normalized = String(coursewareName || '').trim().toLowerCase()
+  if (!normalized) return null
+
+  if (normalized.includes('第四讲_遗传算法') || normalized.includes('遗传算法') || normalized.includes('yichuan')) {
+    return {
+      key: 'yichuan',
+      pages: LOCAL_GENETIC_PAGE_IMAGES
+    }
+  }
+
+  if (normalized.includes('测试样例') || normalized.includes('ceshi')) {
+    return {
+      key: 'ceshi',
+      pages: LOCAL_TEST_SAMPLE_PAGE_IMAGES
+    }
+  }
+
+  return null
+}
+
+const resolveLocalCoursewarePageImage = (courseware, pageNo = 1) => {
+  const pages = Array.isArray(courseware?.localPageImages) ? courseware.localPageImages : []
+  if (!pages.length) return ''
+  const index = Math.min(Math.max(0, Number(pageNo || 1) - 1), pages.length - 1)
+  return String(pages[index] || '').trim()
+}
+
+const resolveActiveCourseware = () => {
+  const activeId = String(selectedCoursewareId.value || courseId.value || '').trim()
+  if (!activeId) return null
+  return selectionCoursewares.value.find((item) => String(item?.id || '').trim() === activeId) || null
+}
+
+const resolveActiveCoursewarePageImages = () => {
+  const activeCourseware = resolveActiveCourseware()
+  const directPages = Array.isArray(activeCourseware?.localPageImages)
+    ? activeCourseware.localPageImages.map((src) => String(src || '').trim()).filter(Boolean)
+    : []
+  if (directPages.length > 0) {
+    return directPages
+  }
+
+  const fallbackPreset = resolveLocalCoursewareImages(activeCourseware?.name || currentCourseName.value || '')
+  const presetPages = Array.isArray(fallbackPreset?.pages)
+    ? fallbackPreset.pages.map((src) => String(src || '').trim()).filter(Boolean)
+    : []
+  return presetPages
+}
+
+const PRESET_LECTURE_SCRIPT_TEXT = '同学们好，欢迎来到第四讲的课堂。今天我们要学习的遗传算法，是进化算法中最经典、应用最广泛的代表之一。它的核心思想，来自达尔文的生物进化论，模拟自然界中“物竞天择、适者生存”的进化过程，来解决传统算法难以处理的复杂优化问题。'
 
 const isImageFileType = (value) => {
   const normalized = String(value || '').trim().toLowerCase()
@@ -1023,6 +1133,13 @@ const loadBooleanPreference = (storageKey, fallbackValue) => {
   if (['1', 'true', 'yes', 'on'].includes(raw)) return true
   if (['0', 'false', 'no', 'off'].includes(raw)) return false
   return fallbackValue
+}
+
+const loadEnumPreference = (storageKey, allowedValues, fallbackValue) => {
+  if (typeof window === 'undefined') return fallbackValue
+  const raw = String(window.localStorage.getItem(storageKey) || '').trim().toLowerCase()
+  if (!raw) return fallbackValue
+  return allowedValues.includes(raw) ? raw : fallbackValue
 }
 
 const normalizeTextForSpeech = (value, maxLength = 900) => {
@@ -1100,16 +1217,72 @@ const FIXED_QA_MARKDOWN_REPLY = `## 一、核心概念
 
 锦标赛选择算子是驱动种群向最优解进化的关键环节，能够有效保留优良个体、淘汰劣质个体，同时维持种群多样性，为交叉和变异操作奠定基础，保障算法持续迭代优化。`
 
+const QA_EXPLAIN_MODE_PROFILE = Object.freeze({
+  deep: {
+    label: '深度讲解',
+    intro: '以下内容将按“定义 -> 原理 -> 步骤 -> 易错点”四层结构展开。',
+    outro: '如果你需要，我还可以继续补充推导细节和典型变式题。'
+  },
+  assist: {
+    label: '辅助理解',
+    intro: '以下先给出直观理解与最小步骤，再配一条可直接套用的解题思路。',
+    outro: '如果你愿意，可以继续切回深度讲解模式完成完整推导。'
+  }
+})
+
+const QA_EXPLAIN_STYLE_PROFILE = Object.freeze({
+  gentle: {
+    label: '温柔活泼',
+    prefix: '好的呀，我们一步一步来，先把关键点理顺。',
+    suffix: '你已经抓到重点啦，继续保持这个节奏就很好。'
+  },
+  rigorous: {
+    label: '客观严谨',
+    prefix: '下面给出结构化说明，并保持术语与逻辑一致。',
+    suffix: '如需验证，可继续提供具体题目进行逐步推导。'
+  }
+})
+
+const escapeHtmlForMarkdown = (text) => String(text || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+
+const resolveExplainModeProfile = (mode) => QA_EXPLAIN_MODE_PROFILE[String(mode || '').trim()] || QA_EXPLAIN_MODE_PROFILE.deep
+
+const resolveExplainStyleProfile = (style) => QA_EXPLAIN_STYLE_PROFILE[String(style || '').trim()] || QA_EXPLAIN_STYLE_PROFILE.rigorous
+
+const buildProfiledQaReply = (baseMarkdown) => {
+  const modeProfile = resolveExplainModeProfile(aiExplainMode.value)
+  const styleProfile = resolveExplainStyleProfile(aiExplainStyle.value)
+  const core = String(baseMarkdown || '').trim()
+  return [
+    `> 讲解模式：${modeProfile.label} · 表达风格：${styleProfile.label}`,
+    styleProfile.prefix,
+    modeProfile.intro,
+    core,
+    `${modeProfile.outro} ${styleProfile.suffix}`
+  ].filter(Boolean).join('\n\n')
+}
+
 const tracePoint = ref(false)
 const traceTop = ref(0)
 const traceLeft = ref(0)
 const outlineFilter = ref('all')
 const activeWorkbenchTab = ref('tree')
 const isLowerWorkbenchExpanded = ref(false)
+const isKnowledgeOutlineVisible = ref(false)
+const knowledgeOutlineLoading = ref(false)
+const knowledgeOutlineMarkdown = ref('')
+const knowledgeOutlineStreamText = ref('')
+const knowledgeOutlineStreaming = ref(false)
+let knowledgeOutlineStreamTimer = null
 const activeRightPanel = ref('')
 const qaContextBinding = ref(true)
 const qaDeepReasoning = ref(false)
 const qaWebSearch = ref(false)
+const aiExplainMode = ref('deep')
+const aiExplainStyle = ref('rigorous')
 const qaAutoSpeakAnswer = ref(true)
 const presetLectureScriptOnPlay = ref(true)
 const isPresetLectureSpeaking = ref(false)
@@ -1176,6 +1349,26 @@ const learningStats = ref({
   totalQuestions: 0,
   weakPointCount: 0,
   masteryRate: 100
+})
+
+const currentExplainModeLabel = computed(() => resolveExplainModeProfile(aiExplainMode.value).label)
+const currentExplainStyleLabel = computed(() => resolveExplainStyleProfile(aiExplainStyle.value).label)
+
+const knowledgeOutlineStatusText = computed(() => {
+  if (knowledgeOutlineLoading.value) return '加载中...'
+  if (knowledgeOutlineStreaming.value) return '流式打印中'
+  if (knowledgeOutlineMarkdown.value.trim()) return '已加载完成'
+  return '等待加载'
+})
+
+const knowledgeOutlineHtml = computed(() => {
+  const source = String(knowledgeOutlineStreamText.value || '').trim()
+  if (!source) return ''
+  try {
+    return outlineMarkdownRenderer.render(source)
+  } catch (error) {
+    return `<pre>${escapeHtmlForMarkdown(source)}</pre>`
+  }
 })
 
 const practiceChoiceQuestions = [
@@ -1507,10 +1700,13 @@ const classroomCoursewareList = computed(() => {
   return selectionCoursewares.value
 })
 const classroomCourseImageSrc = computed(() => {
+  const selectedCourseware = selectionCoursewares.value.find((item) => item.id === selectedCoursewareId.value || item.id === courseId.value)
+  const localPageImage = resolveLocalCoursewarePageImage(selectedCourseware, currentPage.value)
+  if (localPageImage) return localPageImage
+
   const preferred = String(selectedCoursePreviewImageUrl.value || '').trim()
   if (preferred) return preferred
 
-  const selectedCourseware = selectionCoursewares.value.find((item) => item.id === selectedCoursewareId.value)
   const imageFileFallback = String(selectedCourseware?.imageFileUrl || '').trim()
   if (imageFileFallback) return imageFileFallback
 
@@ -1661,6 +1857,95 @@ const toggleLowerWorkbench = () => {
   if (isLowerWorkbenchExpanded.value && !activeWorkbenchTab.value) {
     activeWorkbenchTab.value = 'tree'
   }
+}
+
+const stopKnowledgeOutlineStream = () => {
+  if (knowledgeOutlineStreamTimer) {
+    window.clearInterval(knowledgeOutlineStreamTimer)
+    knowledgeOutlineStreamTimer = null
+  }
+  knowledgeOutlineStreaming.value = false
+}
+
+const startKnowledgeOutlineStream = ({ restart = true } = {}) => {
+  const source = String(knowledgeOutlineMarkdown.value || '')
+  if (!source) {
+    knowledgeOutlineStreamText.value = ''
+    knowledgeOutlineStreaming.value = false
+    return
+  }
+
+  stopKnowledgeOutlineStream()
+
+  if (restart) {
+    knowledgeOutlineStreamText.value = ''
+  }
+
+  let cursor = restart ? 0 : knowledgeOutlineStreamText.value.length
+  if (cursor >= source.length) {
+    knowledgeOutlineStreamText.value = source
+    knowledgeOutlineStreaming.value = false
+    return
+  }
+
+  knowledgeOutlineStreaming.value = true
+  knowledgeOutlineStreamTimer = window.setInterval(() => {
+    const step = 2
+    cursor = Math.min(source.length, cursor + step)
+    knowledgeOutlineStreamText.value = source.slice(0, cursor)
+    if (cursor >= source.length) {
+      stopKnowledgeOutlineStream()
+    }
+  }, KNOWLEDGE_OUTLINE_STREAM_INTERVAL_MS)
+}
+
+const loadKnowledgeOutlineMarkdown = async () => {
+  if (String(knowledgeOutlineMarkdown.value || '').trim()) {
+    return knowledgeOutlineMarkdown.value
+  }
+
+  knowledgeOutlineLoading.value = true
+  try {
+    const response = await fetch(KNOWLEDGE_OUTLINE_MARKDOWN_PATH, {
+      cache: 'no-store'
+    })
+    if (!response.ok) {
+      throw new Error(`读取大纲失败: ${response.status}`)
+    }
+    const content = await response.text()
+    knowledgeOutlineMarkdown.value = String(content || '').trim() || KNOWLEDGE_OUTLINE_FALLBACK_MARKDOWN
+  } catch (error) {
+    knowledgeOutlineMarkdown.value = KNOWLEDGE_OUTLINE_FALLBACK_MARKDOWN
+    console.warn('加载知识大纲失败，已使用兜底文案', error)
+  } finally {
+    knowledgeOutlineLoading.value = false
+  }
+
+  return knowledgeOutlineMarkdown.value
+}
+
+const toggleKnowledgeOutline = async () => {
+  if (isKnowledgeOutlineVisible.value) {
+    closeKnowledgeOutline()
+    return
+  }
+
+  isKnowledgeOutlineVisible.value = true
+  await loadKnowledgeOutlineMarkdown()
+  startKnowledgeOutlineStream({ restart: true })
+}
+
+const closeKnowledgeOutline = () => {
+  isKnowledgeOutlineVisible.value = false
+  stopKnowledgeOutlineStream()
+}
+
+const restartKnowledgeOutlineStream = async () => {
+  if (!isKnowledgeOutlineVisible.value) {
+    isKnowledgeOutlineVisible.value = true
+  }
+  await loadKnowledgeOutlineMarkdown()
+  startKnowledgeOutlineStream({ restart: true })
 }
 
 const getNodeNoteTitleStoreKey = () => `fuww_student_note_title_map:${String(studentId.value || '').trim().toLowerCase()}`
@@ -3044,6 +3329,12 @@ const updateCourseContent = () => {
     courseImg.value = ''
     return
   }
+  const localPageImages = resolveActiveCoursewarePageImages()
+  if (localPageImages.length > 0) {
+    const index = Math.min(Math.max(0, Number(currentPage.value || 1) - 1), localPageImages.length - 1)
+    courseImg.value = String(localPageImages[index] || '').trim()
+    return
+  }
   courseImg.value = `${API_BASE}/api/courseware/${courseId.value}/page/${currentPage.value}`
 }
 
@@ -3064,8 +3355,12 @@ const loadStudentScript = async () => {
     const data = await studentV1Api.coursewares.getPlaybackScript(courseId.value, currentPage.value)
     const payload = data?.data || {}
     const payloadTotalPage = Number(payload.total_page || payload.totalPage || payload.page_total || 0)
-    if (payloadTotalPage > 0) {
-      totalPage.value = payloadTotalPage
+    const activeCourseware = resolveActiveCourseware()
+    const localPageImages = resolveActiveCoursewarePageImages()
+    const selectedTotalPage = Number(activeCourseware?.totalPage || 0)
+    const resolvedTotalPage = Math.max(payloadTotalPage, selectedTotalPage, localPageImages.length)
+    if (resolvedTotalPage > 0) {
+      totalPage.value = resolvedTotalPage
     }
     const nodes = data?.data?.nodes || []
     playbackNodes.value = nodes
@@ -3382,6 +3677,7 @@ const sendMultiModalQuestion = async () => {
   stopStreamTypewriter()
   question.value = ''
   try {
+    const profiledReply = buildProfiledQaReply(FIXED_QA_MARKDOWN_REPLY)
     aiReply.value = ''
     latestAnswerMeta.value = {
       sourcePage: 0,
@@ -3391,7 +3687,7 @@ const sendMultiModalQuestion = async () => {
       sessionId: sessionId.value
     }
     await new Promise(resolve => window.setTimeout(resolve, THINKING_DELAY_MS))
-    pushTypewriterText(FIXED_QA_MARKDOWN_REPLY)
+    pushTypewriterText(profiledReply)
     await waitTypewriterReadyForResume()
     latestAnswerMeta.value = {
       sourcePage: currentPage.value,
@@ -3403,7 +3699,7 @@ const sendMultiModalQuestion = async () => {
 
     qaHistory.value.unshift({
       question: currentQuestion,
-      answer: FIXED_QA_MARKDOWN_REPLY,
+      answer: profiledReply,
       sourcePage: latestAnswerMeta.value.sourcePage,
       sourceNodeId: latestAnswerMeta.value.sourceNodeId
     })
@@ -3414,7 +3710,7 @@ const sendMultiModalQuestion = async () => {
 
     if (qaAutoSpeakAnswer.value && ttsEnabled.value) {
       await Promise.race([
-        speakTextAndWait(aiReply.value || FIXED_QA_MARKDOWN_REPLY, {
+        speakTextAndWait(aiReply.value || profiledReply, {
           mark: `qa-answer:${sessionId.value || 'default'}:${Date.now()}`,
           rate: Math.min(1.2, Math.max(0.9, Number(playbackRate.value || 1))),
           maxLength: 720,
@@ -3503,24 +3799,29 @@ const loadCourseSelectionData = async () => {
 
     selectionCoursewares.value = coursewareList.map((item) => {
       const fileType = String(item.file_type || item.fileType || '')
+      const localImagePreset = resolveLocalCoursewareImages(item.title || '')
+      const localPageImages = Array.isArray(localImagePreset?.pages) ? localImagePreset.pages : []
+      const localPreviewImage = String(localPageImages[0] || '').trim()
       const rawPreview = item.cover_url || item.coverUrl || item.image_url || item.imageUrl || item.preview_url || item.previewUrl || ''
       const rawFileUrl = item.file_url || item.fileUrl || ''
       const normalizedPreview = normalizePreviewImageUrl(rawPreview, { force: true })
       const normalizedFileUrl = normalizePreviewImageUrl(rawFileUrl, { force: true })
       const imageFileUrl = (isImageFileType(fileType) || isLikelyImageUrl(rawFileUrl)) ? normalizedFileUrl : ''
+      const resolvedTotalPage = Math.max(Number(item.total_page || 1), localPageImages.length || 1)
 
       return {
         id: String(item.id || item.courseId || ''),
         name: item.title || '未命名课件',
-        totalPage: Number(item.total_page || 1),
+        totalPage: resolvedTotalPage,
         teachingCourseId: String(item.teaching_course_id || ''),
         courseName: String(item.teaching_course_title || ''),
         courseClassId: String(item.course_class_id || ''),
         className: String(item.course_class_name || ''),
         fileType,
         fileUrl: normalizedFileUrl,
-        imageFileUrl,
-        previewImageUrl: normalizedPreview || imageFileUrl,
+        imageFileUrl: localPreviewImage || imageFileUrl,
+        previewImageUrl: localPreviewImage || normalizedPreview || imageFileUrl,
+        localPageImages,
         desc: item.is_published ? '已发布，可进入学习' : '未发布，暂为教师侧预览资源',
         published: Boolean(item.is_published)
       }
@@ -3659,6 +3960,8 @@ onMounted(() => {
     loadClassroomLayout()
     qaAutoSpeakAnswer.value = loadBooleanPreference(QA_AUTO_SPEAK_PREF_KEY, true)
     presetLectureScriptOnPlay.value = loadBooleanPreference(PRESET_LECTURE_SPEAK_PREF_KEY, true)
+    aiExplainMode.value = loadEnumPreference(AI_EXPLAIN_MODE_PREF_KEY, ['deep', 'assist'], 'deep')
+    aiExplainStyle.value = loadEnumPreference(AI_EXPLAIN_STYLE_PREF_KEY, ['gentle', 'rigorous'], 'rigorous')
     loadNodeNotes()
     loadNodeNoteTitles()
     updateViewportMode()
@@ -3717,6 +4020,7 @@ onUnmounted(() => {
   stopSpeechNarration()
   clearClassroomSubtitle()
   stopStreamTypewriter()
+  stopKnowledgeOutlineStream()
   stopAskWorkspaceInteraction()
   stopClassroomResize()
 })
@@ -3785,6 +4089,12 @@ watch(currentNodeId, () => {
   }
 })
 
+watch(activeSection, (nextSection) => {
+  if (nextSection !== 'classroom') {
+    closeKnowledgeOutline()
+  }
+})
+
 watch(courseId, (nextCourseId) => {
   if (!nextCourseId && activeRightPanel.value === 'graph') {
     activeRightPanel.value = 'courseware'
@@ -3816,6 +4126,26 @@ watch(qaAutoSpeakAnswer, (nextValue) => {
 watch(presetLectureScriptOnPlay, (nextValue) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(PRESET_LECTURE_SPEAK_PREF_KEY, nextValue ? '1' : '0')
+})
+
+watch(aiExplainMode, (nextValue) => {
+  const normalized = String(nextValue || '').trim().toLowerCase()
+  if (!['deep', 'assist'].includes(normalized)) {
+    aiExplainMode.value = 'deep'
+    return
+  }
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AI_EXPLAIN_MODE_PREF_KEY, normalized)
+})
+
+watch(aiExplainStyle, (nextValue) => {
+  const normalized = String(nextValue || '').trim().toLowerCase()
+  if (!['gentle', 'rigorous'].includes(normalized)) {
+    aiExplainStyle.value = 'rigorous'
+    return
+  }
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(AI_EXPLAIN_STYLE_PREF_KEY, normalized)
 })
 
 const initializeCourseContext = async () => {
@@ -4638,11 +4968,20 @@ const checkAnswer = async (option) => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+  border: 1px solid #d8e5de;
+  border-radius: 20px;
+  padding: 8px;
+  background:
+    radial-gradient(circle at 94% 8%, rgba(112, 167, 144, 0.15) 0%, rgba(112, 167, 144, 0) 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 251, 248, 0.98) 100%);
+  box-shadow: 0 10px 24px rgba(34, 64, 57, 0.06);
 }
 
 .page-layout.single-col > * {
   flex: 1;
   min-height: 0;
+  animation: singleColReveal 0.22s ease-out;
 }
 
 .left-stage {
@@ -4790,11 +5129,138 @@ const checkAnswer = async (option) => {
   top: 10px;
   left: 10px;
   z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .expand-toggle-btn {
   border-radius: 999px;
   font-weight: 600;
+}
+
+.outline-toggle-btn {
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.classroom-outline-preview {
+  position: absolute;
+  top: 56px;
+  left: 12px;
+  bottom: 12px;
+  width: min(52%, 760px);
+  z-index: 6;
+  border: 1px solid #d4e4dc;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 30px rgba(35, 70, 59, 0.14);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.outline-preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #d9e7df;
+  background: linear-gradient(180deg, #f8fcfa 0%, #eef7f2 100%);
+  padding: 10px 12px;
+}
+
+.outline-preview-kicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #5f786f;
+  font-weight: 700;
+}
+
+.outline-preview-head h4 {
+  margin: 3px 0 0;
+  font-size: 15px;
+  color: #1f473d;
+}
+
+.outline-preview-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.outline-preview-status {
+  border-radius: 999px;
+  border: 1px solid #cee1d7;
+  background: #f2f8f5;
+  color: #3d6258;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.outline-preview-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+}
+
+.outline-preview-empty {
+  border: 1px dashed #cfe0d8;
+  border-radius: 12px;
+  padding: 12px;
+  color: #688177;
+  font-size: 12px;
+}
+
+.outline-markdown-content {
+  color: #274b43;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.outline-markdown-content :deep(h1),
+.outline-markdown-content :deep(h2),
+.outline-markdown-content :deep(h3) {
+  margin: 0.65em 0 0.35em;
+  color: #1f473d;
+}
+
+.outline-markdown-content :deep(p) {
+  margin: 0.45em 0;
+}
+
+.outline-markdown-content :deep(ul),
+.outline-markdown-content :deep(ol) {
+  margin: 0.4em 0;
+  padding-left: 1.3em;
+}
+
+.outline-markdown-content :deep(li + li) {
+  margin-top: 0.2em;
+}
+
+.outline-markdown-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.6em 0;
+  font-size: 12px;
+}
+
+.outline-markdown-content :deep(th),
+.outline-markdown-content :deep(td) {
+  border: 1px solid #d5e5dd;
+  padding: 6px 8px;
+}
+
+.outline-markdown-content :deep(th) {
+  background: #edf6f1;
+  color: #315b50;
+  text-align: left;
 }
 
 .left-main-tabs :deep(.el-tabs__item) {
@@ -4869,6 +5335,14 @@ const checkAnswer = async (option) => {
   margin: 3px 0 0;
   font-size: 14px;
   color: #1f473d;
+}
+
+.qa-head-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .classroom-qa-pane :deep(.chat-shell) {
@@ -6127,6 +6601,17 @@ const checkAnswer = async (option) => {
   }
 }
 
+@keyframes singleColReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .qa-flyout-backdrop {
   position: fixed;
   inset: 56px 0 0 0;
@@ -6318,6 +6803,10 @@ const checkAnswer = async (option) => {
     transform: translateX(-50%);
     bottom: 88px;
   }
+
+  .classroom-outline-preview {
+    width: min(58%, 640px);
+  }
   
 }
 
@@ -6375,6 +6864,36 @@ const checkAnswer = async (option) => {
 
   .classroom-qa-head {
     flex-wrap: wrap;
+  }
+
+  .qa-head-tags {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .center-stage-toolbar {
+    right: 10px;
+    left: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .classroom-outline-preview {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: 10px;
+    top: 98px;
+  }
+
+  .outline-preview-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .outline-preview-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .classroom-live-subtitle {

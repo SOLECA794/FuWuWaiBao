@@ -118,6 +118,42 @@
         </article>
       </main>
 
+      <div class="explain-profile-row">
+        <div class="profile-group">
+          <span class="profile-label">讲解模式</span>
+          <div class="profile-options">
+            <button
+              v-for="option in explainModeOptions"
+              :key="option.value"
+              class="profile-option-btn"
+              type="button"
+              :class="{ active: explainMode === option.value }"
+              :disabled="askLoading"
+              @click="setExplainMode(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="profile-group">
+          <span class="profile-label">表达风格</span>
+          <div class="profile-options">
+            <button
+              v-for="option in explainStyleOptions"
+              :key="option.value"
+              class="profile-option-btn"
+              type="button"
+              :class="{ active: explainStyle === option.value }"
+              :disabled="askLoading"
+              @click="setExplainStyle(option.value)"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="assistant-tool-row">
         <button
           class="preset-toggle-btn tool-btn"
@@ -255,6 +291,16 @@ const promptPresets = [
   { id: 'compare', label: '🔍 对比分析', desc: '区分相似概念' }
 ]
 
+const explainModeOptions = [
+  { value: 'deep', label: '深度讲解' },
+  { value: 'assist', label: '辅助理解' }
+]
+
+const explainStyleOptions = [
+  { value: 'gentle', label: '温柔活泼' },
+  { value: 'rigorous', label: '客观严谨' }
+]
+
 const keywordMap = {
   js: ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'new', 'class', 'import', 'from', 'export', 'async', 'await'],
   ts: ['const', 'let', 'var', 'function', 'return', 'if', 'else', 'for', 'while', 'new', 'class', 'import', 'from', 'export', 'type', 'interface', 'extends', 'implements', 'async', 'await'],
@@ -308,6 +354,14 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  explainMode: {
+    type: String,
+    default: 'deep'
+  },
+  explainStyle: {
+    type: String,
+    default: 'rigorous'
+  },
   autoSpeakAnswer: {
     type: Boolean,
     default: true
@@ -334,6 +388,8 @@ const emit = defineEmits([
   'update:context-binding',
   'update:deep-reasoning',
   'update:web-search',
+  'update:explain-mode',
+  'update:explain-style',
   'update:auto-speak-answer',
   'update:preset-lecture-script',
   'play-answer-audio',
@@ -763,6 +819,18 @@ function toggleDeepReasoning() {
 
 function toggleWebSearch() {
   emit('update:web-search', !props.webSearch)
+}
+
+function setExplainMode(mode) {
+  const normalized = String(mode || '').trim()
+  if (!['deep', 'assist'].includes(normalized)) return
+  emit('update:explain-mode', normalized)
+}
+
+function setExplainStyle(style) {
+  const normalized = String(style || '').trim()
+  if (!['gentle', 'rigorous'].includes(normalized)) return
+  emit('update:explain-style', normalized)
 }
 
 function toggleAutoSpeakAnswer() {
@@ -1389,6 +1457,63 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.explain-profile-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profile-group {
+  border: 1px solid #d4e6dc;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fbfefc 0%, #f2f9f5 100%);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.profile-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #57786a;
+  letter-spacing: 0.06em;
+}
+
+.profile-options {
+  display: flex;
+  gap: 6px;
+}
+
+.profile-option-btn {
+  flex: 1;
+  border: 1px solid #c8ded3;
+  border-radius: 999px;
+  background: #f8fcfa;
+  color: #2f6758;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-option-btn:hover:not(:disabled) {
+  border-color: #9cc7b5;
+  background: #edf8f2;
+}
+
+.profile-option-btn.active {
+  background: linear-gradient(180deg, #71b99f 0%, #4f9a7e 100%);
+  border-color: #4f9a7e;
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(79, 154, 126, 0.2);
+}
+
+.profile-option-btn:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .tool-btn {
   flex: 1 1 160px;
   min-width: 142px;
@@ -1677,6 +1802,10 @@ onUnmounted(() => {
   .tool-btn,
   .mode-toggle-btn {
     flex: 1 1 calc(50% - 4px);
+  }
+
+  .explain-profile-row {
+    grid-template-columns: 1fr;
   }
 }
 </style>

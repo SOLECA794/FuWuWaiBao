@@ -4,10 +4,15 @@
       <div>
         <div class="recommend-kicker">学习推荐</div>
         <h3>遗传算法课件配套推荐中心</h3>
-        <p>已切换为前端演示模式：全流程可跑通，无需后端返回结果。</p>
+        <p>{{ recommendModeDesc }}</p>
       </div>
       <el-button type="primary" plain @click="openPlanDialog">查看今日学习单</el-button>
     </header>
+
+    <div class="status-pills">
+      <span class="status-pill" :class="{ live: resourceMode === 'live', demo: resourceMode !== 'live' }">{{ recommendModeLabel }}</span>
+      <span class="status-pill neutral">{{ recommendRefreshLabel }}</span>
+    </div>
 
     <div class="demo-director-strip">
       <div>
@@ -29,7 +34,9 @@
             placeholder="输入关键词，如：遗传算法 选择复制"
             @keyup.enter="searchResources"
           />
-          <el-button type="primary" @click="searchResources">筛选资源</el-button>
+          <el-button type="primary" :loading="resourceLoading" @click="searchResources">
+            {{ resourceLoading ? '推荐中' : '筛选资源' }}
+          </el-button>
         </div>
 
         <div class="hint-row" v-if="defaultKeyword">
@@ -56,6 +63,7 @@
           <el-button size="small" plain @click="openFlowDialog('导学')">导学流程</el-button>
           <el-button size="small" plain @click="openFlowDialog('练习')">练习流程</el-button>
           <el-button size="small" plain @click="openFlowDialog('冲刺')">冲刺流程</el-button>
+          <el-button size="small" type="primary" plain :loading="resourceLoading" @click="refreshRecommendations">智能刷新</el-button>
         </div>
 
         <div class="queue-card">
@@ -71,9 +79,28 @@
       </aside>
 
       <section class="recommend-right-pane">
-        <div class="recommend-count">共 {{ filteredResources.length }} 条推荐资源</div>
-        <div v-if="filteredResources.length" class="recommend-grid">
-          <article class="recommend-item" v-for="item in filteredResources" :key="item.id">
+        <div class="recommend-count">{{ recommendCountText }}</div>
+        <div v-if="isFilterFallbackActive" class="recommend-fallback-tip">
+          {{ filterFallbackTipText }}
+          <el-button text size="small" @click="resetFilters">恢复默认筛选</el-button>
+        </div>
+
+        <div v-if="resourceLoading" class="recommend-skeleton-grid" aria-live="polite">
+          <article v-for="index in 4" :key="`skeleton-${index}`" class="recommend-skeleton-item">
+            <div class="skeleton-line w-70"></div>
+            <div class="skeleton-line w-35"></div>
+            <div class="skeleton-line w-100"></div>
+            <div class="skeleton-line w-85"></div>
+            <div class="skeleton-row">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="displayResources.length" class="recommend-grid">
+          <article class="recommend-item" :class="{ 'is-active': selectedResourceId === item.id }" v-for="item in displayResources" :key="item.id">
             <header>
               <h4>{{ item.title }}</h4>
               <span class="source-tag">{{ item.source }}</span>
@@ -92,7 +119,7 @@
             </div>
           </article>
         </div>
-        <div v-else class="recommend-empty">当前筛选条件下暂无资源，建议切换关键词或难度。</div>
+        <div v-else class="recommend-empty">{{ recommendEmptyText }}</div>
       </section>
     </div>
 
@@ -134,6 +161,7 @@
 /* eslint-disable no-undef */
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { studentV1Api } from '../../services/v1'
 
 const props = defineProps({
   courseName: {
@@ -155,6 +183,11 @@ const keyword = ref('')
 const selectedSource = ref('all')
 const selectedDifficulty = ref('all')
 const querySnapshot = ref('')
+const resourceLoading = ref(false)
+const resourceMode = ref('demo')
+const resourceUpdatedAt = ref('')
+const selectedResourceId = ref('')
+const remoteResources = ref([])
 const activeResource = ref(null)
 const detailDialogVisible = ref(false)
 const planDialogVisible = ref(false)
@@ -162,6 +195,14 @@ const flowDialogVisible = ref(false)
 const flowDialogTitle = ref('')
 const flowDialogLines = ref([])
 const studyQueue = ref([])
+const isBootstrapped = ref(false)
+let activeSearchRequestId = 0
+
+const DIFFICULTY_WEIGHT_MAP = Object.freeze({
+  入门: 0.35,
+  进阶: 0.65,
+  强化: 0.9
+})
 
 const mockResources = ref([
   {
@@ -216,11 +257,84 @@ const mockResources = ref([
   }
 ])
 
+const formatRefreshTime = (value = new Date()) => {
+  const d = value instanceof Date ? value : new Date(value)
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
+const pickText = (...candidates) => {
+  for (const value of candidates) {
+    const text = String(value || '').trim()
+    if (text) return text
+  }
+  return ''
+}
+
+const normalizeDifficultyLabel = (value) => {
+  const text = String(value || '').trim()
+  if (['入门', '进阶', '强化'].includes(text)) return text
+  const score = Number(value)
+  if (Number.isFinite(score)) {
+    if (score >= 0.8) return '强化'
+    if (score >= 0.55) return '进阶'
+    return '入门'
+  }
+  return '进阶'
+}
+
+const normalizeDurationLabel = (value) => {
+  const text = String(value || '').trim()
+  if (!text) return '20分钟'
+  if (/[分时钟钟]/.test(text)) return text
+  const minutes = Number(text)
+  if (Number.isFinite(minutes) && minutes > 0) {
+    return `${Math.round(minutes)}分钟`
+  }
+  return text
+}
+
+const normalizeRecommendItem = (item, index = 0) => {
+  const id = pickText(item?.id, item?.resource_id, item?.resourceId, item?.url, `remote-${index + 1}`)
+  return {
+    id,
+    title: pickText(item?.title, item?.name, item?.resource_name, `推荐资源 ${index + 1}`),
+    source: pickText(item?.source, item?.platform, item?.provider, '综合来源'),
+    duration: normalizeDurationLabel(pickText(item?.duration, item?.length, item?.time_cost, item?.estimate_duration)),
+    difficulty: normalizeDifficultyLabel(pickText(item?.difficulty_label, item?.difficulty, item?.level)),
+    fitNode: pickText(item?.fit_node, item?.fitNode, item?.node, item?.focus, props.currentNodeTitle, '当前节点'),
+    strategy: pickText(item?.strategy, item?.study_strategy, item?.plan, '先理解核心概念，再完成对应练习。'),
+    reason: pickText(item?.reason, item?.recommend_reason, item?.summary, '该资源与当前知识点和学习进度匹配度较高。')
+  }
+}
+
+const activeResources = computed(() => {
+  if (remoteResources.value.length > 0) return remoteResources.value
+  return mockResources.value
+})
+
 const addResourceToQueue = (item) => {
-  const exists = studyQueue.value.some((record) => record.id === item.id)
+  const exists = studyQueue.value.some((record) => {
+    const sameId = String(record.id || '') && String(record.id || '') === String(item.id || '')
+    const sameTitleAndSource = record.title === item.title && record.source === item.source
+    return sameId || sameTitleAndSource
+  })
   if (exists) return false
   studyQueue.value = [...studyQueue.value, item]
   return true
+}
+
+const resolveErrorText = (error) => {
+  if (!error) return '未知错误'
+  if (typeof error === 'string') return error
+  if (typeof error?.message === 'string' && error.message.trim()) return error.message.trim()
+  try {
+    return JSON.stringify(error)
+  } catch (_) {
+    return String(error)
+  }
 }
 
 const defaultKeyword = computed(() => {
@@ -232,41 +346,217 @@ const defaultKeyword = computed(() => {
   return parts.join(' ')
 })
 
-const filteredResources = computed(() => {
-  const query = String(querySnapshot.value || keyword.value || '').trim().toLowerCase()
-  return mockResources.value.filter((item) => {
-    const sourceMatch = selectedSource.value === 'all' || item.source === selectedSource.value
-    const diffMatch = selectedDifficulty.value === 'all' || item.difficulty === selectedDifficulty.value
+const recommendModeLabel = computed(() => (resourceMode.value === 'live' ? '智能推荐在线' : '预制推荐模式'))
+
+const recommendModeDesc = computed(() => {
+  if (resourceMode.value === 'live') {
+    return '已连接推荐接口：可按关键词与难度实时刷新资源结果。'
+  }
+  return '推荐接口异常时自动回退到预制资源，保证演示与课堂流程不中断。'
+})
+
+const recommendRefreshLabel = computed(() => {
+  if (!resourceUpdatedAt.value) return '等待首次推荐'
+  return `最近刷新：${resourceUpdatedAt.value}`
+})
+
+const queryText = computed(() => String(querySnapshot.value || keyword.value || '').trim().toLowerCase())
+
+const filterResources = (resources, { allowSource = true, allowDifficulty = true, allowQuery = true } = {}) => {
+  const query = allowQuery ? queryText.value : ''
+  return resources.filter((item) => {
+    const sourceMatch = !allowSource || selectedSource.value === 'all' || item.source === selectedSource.value
+    const diffMatch = !allowDifficulty || selectedDifficulty.value === 'all' || item.difficulty === selectedDifficulty.value
     const queryMatch = !query || [item.title, item.reason, item.fitNode, item.strategy].join(' ').toLowerCase().includes(query)
     return sourceMatch && diffMatch && queryMatch
   })
-})
-
-const useDefaultKeyword = () => {
-  if (!defaultKeyword.value) return
-  keyword.value = defaultKeyword.value
 }
 
-const searchResources = () => {
-  querySnapshot.value = String(keyword.value || '').trim() || defaultKeyword.value
-  if (!querySnapshot.value) {
-    ElMessage.warning('请输入关键词后再筛选')
+const filteredResources = computed(() => {
+  return filterResources(activeResources.value, {
+    allowSource: true,
+    allowDifficulty: true,
+    allowQuery: true
+  })
+})
+
+const fallbackDisplayState = computed(() => {
+  if (!activeResources.value.length) {
+    return {
+      items: [],
+      reason: ''
+    }
+  }
+
+  if (filteredResources.value.length > 0) {
+    return {
+      items: filteredResources.value,
+      reason: ''
+    }
+  }
+
+  if (queryText.value) {
+    const noQuery = filterResources(activeResources.value, {
+      allowSource: true,
+      allowDifficulty: true,
+      allowQuery: false
+    })
+    if (noQuery.length > 0) {
+      return {
+        items: noQuery,
+        reason: '关键词暂未命中，已先展示同筛选条件下的推荐资源。'
+      }
+    }
+  }
+
+  if (selectedDifficulty.value !== 'all') {
+    const noDifficulty = filterResources(activeResources.value, {
+      allowSource: true,
+      allowDifficulty: false,
+      allowQuery: false
+    })
+    if (noDifficulty.length > 0) {
+      return {
+        items: noDifficulty,
+        reason: '已放宽难度筛选，优先保证你能看到可用推荐。'
+      }
+    }
+  }
+
+  return {
+    items: activeResources.value,
+    reason: '当前筛选过严，已展示全部可用推荐。'
+  }
+})
+
+const displayResources = computed(() => {
+  return fallbackDisplayState.value.items
+})
+
+const isFilterFallbackActive = computed(() => {
+  if (resourceLoading.value) return false
+  return Boolean(fallbackDisplayState.value.reason)
+})
+
+const filterFallbackTipText = computed(() => {
+  return fallbackDisplayState.value.reason || '当前筛选条件未命中，已自动展示可用推荐。'
+})
+
+const recommendCountText = computed(() => {
+  const modePrefix = resourceMode.value === 'live' ? '实时' : '预制'
+  const fallbackSuffix = isFilterFallbackActive.value ? '（已自动放宽筛选）' : ''
+  return `${modePrefix}推荐共 ${displayResources.value.length} 条${fallbackSuffix}`
+})
+
+const recommendEmptyText = computed(() => {
+  if (resourceLoading.value) return '正在加载推荐资源...'
+  if (!activeResources.value.length) return '当前暂无可展示推荐，请点击“智能刷新”重试。'
+  return '当前筛选条件下暂无资源，建议切换关键词或难度。'
+})
+
+const buildRecommendRequestPayload = (targetKeyword) => {
+  const sourcePreference = selectedSource.value === 'all' ? [] : [selectedSource.value]
+  return {
+    keyword: targetKeyword,
+    type: '网课',
+    difficulty: DIFFICULTY_WEIGHT_MAP[selectedDifficulty.value] || 0.6,
+    duration: 30,
+    source_preference: sourcePreference,
+    subject: String(props.courseName || '遗传算法').trim(),
+    stage: String(props.currentPage || 1)
+  }
+}
+
+const searchResources = async (options = {}) => {
+  const forceKeyword = String(options?.forceKeyword || '').trim()
+  const silent = Boolean(options?.silent)
+  const targetKeyword = forceKeyword || String(keyword.value || '').trim() || defaultKeyword.value
+  if (!targetKeyword) {
+    if (!silent) {
+      ElMessage.warning('请输入关键词后再筛选')
+    }
     return
   }
-  ElMessage.success('已按当前条件更新推荐列表（演示模式）')
+
+  querySnapshot.value = targetKeyword
+  keyword.value = targetKeyword
+  resourceLoading.value = true
+  const requestId = ++activeSearchRequestId
+
+  try {
+    const response = await studentV1Api.recommend.fetchRecommendedResources(
+      buildRecommendRequestPayload(targetKeyword)
+    )
+    if (requestId !== activeSearchRequestId) return
+    const list = Array.isArray(response?.list) ? response.list : []
+    const normalized = list.map((item, index) => normalizeRecommendItem(item, index)).filter((item) => item.title)
+    if (normalized.length > 0) {
+      remoteResources.value = normalized
+      resourceMode.value = 'live'
+      if (!silent) {
+        ElMessage.success(`已更新 ${normalized.length} 条智能推荐`) 
+      }
+    } else {
+      remoteResources.value = []
+      resourceMode.value = 'demo'
+      if (!silent) {
+        ElMessage.warning('接口已响应但暂无结果，已切换预制推荐')
+      }
+    }
+  } catch (error) {
+    if (requestId !== activeSearchRequestId) return
+    remoteResources.value = []
+    resourceMode.value = 'demo'
+    const errorText = resolveErrorText(error)
+    if (!silent) {
+      ElMessage.warning(`智能推荐暂不可用（${errorText}），已回退预制资源`)
+    }
+  } finally {
+    if (requestId === activeSearchRequestId) {
+      resourceUpdatedAt.value = formatRefreshTime(new Date())
+      resourceLoading.value = false
+    }
+  }
+}
+
+const refreshRecommendations = async () => {
+  await searchResources({ forceKeyword: querySnapshot.value || keyword.value || defaultKeyword.value })
+}
+
+const resetFilters = () => {
+  selectedSource.value = 'all'
+  selectedDifficulty.value = 'all'
+  querySnapshot.value = ''
+  keyword.value = ''
+}
+
+const useDefaultKeyword = async () => {
+  if (!defaultKeyword.value) return
+  keyword.value = defaultKeyword.value
+  await searchResources({ forceKeyword: defaultKeyword.value })
 }
 
 const openDetail = (item) => {
-  activeResource.value = item
+  selectedResourceId.value = String(item?.id || '')
+  activeResource.value = {
+    ...item
+  }
   detailDialogVisible.value = true
 }
 
 const enqueueResource = (item) => {
-  addResourceToQueue(item)
+  selectedResourceId.value = String(item?.id || '')
+  const inserted = addResourceToQueue(item)
+  if (inserted) {
+    ElMessage.success(`已加入学习单：${item.title}`)
+  } else {
+    ElMessage.info('该资源已在学习单中，可直接进入随堂练习')
+  }
   planDialogVisible.value = true
 }
 
 const simulateLearning = (item) => {
+  selectedResourceId.value = String(item?.id || '')
   flowDialogTitle.value = `模拟学习流程：${item.title}`
   flowDialogLines.value = [
     '1. 进入资源并完成导学预览（约 3 分钟）',
@@ -278,6 +568,7 @@ const simulateLearning = (item) => {
 }
 
 const runDemoFlow = (item) => {
+  selectedResourceId.value = String(item?.id || '')
   const inserted = addResourceToQueue(item)
   if (inserted) {
     ElMessage.success('资源已加入学习单，正在进入随堂练习')
@@ -316,6 +607,10 @@ watch(defaultKeyword, (next) => {
     keyword.value = next
     querySnapshot.value = next
   }
+  if (!isBootstrapped.value && next) {
+    isBootstrapped.value = true
+    void searchResources({ silent: true, forceKeyword: next })
+  }
 }, { immediate: true })
 </script>
 
@@ -325,12 +620,47 @@ watch(defaultKeyword, (next) => {
   min-height: 0;
   border: 1px solid #d8e5de;
   border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
+  background:
+    radial-gradient(circle at 92% 4%, rgba(91, 165, 131, 0.16) 0%, rgba(91, 165, 131, 0) 42%),
+    linear-gradient(180deg, #ffffff 0%, #f6faf8 100%);
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow: hidden;
+}
+
+.status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.status-pill {
+  font-size: 11px;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+
+.status-pill.live {
+  background: #eaf7f1;
+  border-color: #b8ddcb;
+  color: #1e6048;
+}
+
+.status-pill.demo {
+  background: #f8f3e5;
+  border-color: #e6d8a9;
+  color: #715e22;
+}
+
+.status-pill.neutral {
+  background: #eff3f1;
+  border-color: #d4dfd9;
+  color: #4a6359;
 }
 
 .recommend-header {
@@ -491,6 +821,19 @@ watch(defaultKeyword, (next) => {
   color: #58746a;
 }
 
+.recommend-fallback-tip {
+  border: 1px dashed #c5ddd1;
+  border-radius: 10px;
+  background: #f6fbf8;
+  color: #4f6f63;
+  font-size: 12px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .recommend-grid {
   flex: 1;
   min-height: 0;
@@ -501,6 +844,55 @@ watch(defaultKeyword, (next) => {
   padding-right: 2px;
 }
 
+.recommend-skeleton-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.recommend-skeleton-item {
+  border: 1px solid #d9e6df;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #e8f0eb 25%, #dce9e2 40%, #e8f0eb 65%);
+  background-size: 240% 100%;
+  animation: skeleton-shimmer 1.2s linear infinite;
+}
+
+.skeleton-line.w-35 { width: 35%; }
+.skeleton-line.w-70 { width: 70%; }
+.skeleton-line.w-85 { width: 85%; }
+.skeleton-line.w-100 { width: 100%; }
+
+.skeleton-row {
+  display: flex;
+  gap: 6px;
+}
+
+.skeleton-row span {
+  width: 56px;
+  height: 18px;
+  border-radius: 999px;
+  background: #ebf2ee;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -40% 0; }
+}
+
 .recommend-item {
   border: 1px solid #d7e5dd;
   border-radius: 12px;
@@ -509,6 +901,18 @@ watch(defaultKeyword, (next) => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.recommend-item:hover {
+  transform: translateY(-2px);
+  border-color: #bfd8cb;
+  box-shadow: 0 10px 24px rgba(74, 115, 95, 0.12);
+}
+
+.recommend-item.is-active {
+  border-color: #8fc2a8;
+  box-shadow: 0 0 0 2px rgba(143, 194, 168, 0.24);
 }
 
 .recommend-item header {
@@ -553,6 +957,10 @@ watch(defaultKeyword, (next) => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.actions :deep(.el-button) {
+  border-radius: 999px;
 }
 
 .recommend-empty {
@@ -635,7 +1043,8 @@ watch(defaultKeyword, (next) => {
     grid-template-columns: 1fr;
   }
 
-  .recommend-grid {
+  .recommend-grid,
+  .recommend-skeleton-grid {
     grid-template-columns: 1fr;
   }
 }
