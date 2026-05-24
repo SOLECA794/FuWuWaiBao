@@ -5,6 +5,8 @@
       <TeacherTopBar
         :backend-status-class="backendStatusClass"
         :backend-status-text="backendStatusText"
+        :platform-status-class="platformConnectionClass"
+        :platform-status-text="platformConnectionText"
         :username="loggedInUsername"
         @logout="handleLogout"
       />
@@ -750,6 +752,15 @@ const backendStatusText = computed(() => {
 
 const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
+})
+
+const platformConnectionText = computed(() => {
+  const counts = platformOverviewData.value?.counts || { users: 0, courses: 0, classes: 0 }
+  return `泛雅开放平台已接通 · ${counts.users} 用户 / ${counts.courses} 课程 / ${counts.classes} 班级`
+})
+
+const platformConnectionClass = computed(() => {
+  return platformOverviewLoading.value ? 'checking' : 'online'
 })
 
 const realPreviewUrl = computed(() => {

@@ -9,6 +9,10 @@
         <span class="status-dot"></span>
         {{ backendStatusText }}
       </div>
+      <div class="platform-status" :class="platformStatusClass">
+        <span class="status-dot"></span>
+        {{ platformStatusText }}
+      </div>
       <div class="teacher-info">
         <div class="avatar">
           <span>{{ (username || '教').slice(0, 1) }}</span>
@@ -31,6 +35,14 @@ defineProps({
   backendStatusText: {
     type: String,
     default: '检测中'
+  },
+  platformStatusClass: {
+    type: String,
+    default: 'checking'
+  },
+  platformStatusText: {
+    type: String,
+    default: '泛雅开放平台已接通'
   },
   username: {
     type: String,
@@ -108,6 +120,42 @@ defineEmits(['logout'])
   border-radius: 999px;
   background: rgba(248, 250, 252, 0.88);
   border: 0;
+}
+
+.platform-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(236, 248, 243, 0.95);
+  border: 0;
+  color: #2f6052;
+}
+
+.platform-status .status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #14b8a6;
+  animation: pulse-platform 2.2s ease-in-out infinite;
+}
+
+@keyframes pulse-platform {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.38); }
+  50% { box-shadow: 0 0 0 5px rgba(20, 184, 166, 0); }
+}
+
+.platform-status.checking {
+  color: #2f6052;
+}
+
+.platform-status.checking .status-dot {
+  background: #5ca68f;
+  animation: blink 1.4s ease-in-out infinite;
 }
 
 .status-dot {

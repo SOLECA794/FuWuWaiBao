@@ -77,6 +77,29 @@ npm install
 npm run serve
 ```
 
+## 测试环境
+
+如果你要在本地快速拉起一套隔离的测试环境，可以使用仓库根目录的测试 compose：
+
+```powershell
+Copy-Item .env.test.example .env.test
+.\scripts\test-env.ps1 -Action up
+```
+
+这套环境会启动 Postgres、Redis、MinIO、AI 引擎容器和后端容器。默认测试模式下 AI 引擎使用 `mock`，不依赖外部大模型网络。
+
+常用地址：
+
+- 后端健康检查：<http://localhost:28080/health>
+- AI 引擎健康检查：<http://localhost:28000/health>
+- MinIO 控制台：<http://localhost:29001>
+
+停止环境：
+
+```powershell
+.\scripts\test-env.ps1 -Action down
+```
+
 ## 文档
 
 详细接口与设计文档保存在 `docs/` 目录，请参考该目录下的 Markdown 文件以获取 API 说明、联调清单与系统架构等内容。
