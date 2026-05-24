@@ -1,0 +1,30 @@
+app:
+  port: 8194
+  debug: false
+  key: dify-sandbox
+max_workers: 4
+max_requests: 50
+worker_timeout: 60
+python_path: /opt/python/bin/python3
+python_lib_path:
+  - /usr/local/lib/python3.10
+  - /usr/lib/python3.10
+  - /usr/lib/python3
+  - /usr/lib/x86_64-linux-gnu
+  - /etc/ssl/certs/ca-certificates.crt
+  - /etc/nsswitch.conf
+  - /etc/hosts
+  - /etc/resolv.conf
+  - /run/systemd/resolve/stub-resolv.conf
+  - /run/resolvconf/resolv.conf
+  - /etc/localtime
+  - /usr/share/zoneinfo
+  - /etc/timezone
+python_pip_mirror_url: https://pypi.tuna.tsinghua.edu.cn/simple
+nodejs_path: /usr/local/bin/node
+enable_network: true
+allowed_syscalls: []
+proxy:
+  socks5: ''
+  http: ''
+  https: ''
