@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -78,7 +79,10 @@ func main() {
 
 	// CORS & Global Middlewares
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		p := c.Request.URL.Path
+		if !(strings.Contains(p, "/courseware/") && strings.Contains(p, "/page/")) {
+			c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")

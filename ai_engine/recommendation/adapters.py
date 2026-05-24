@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-﻿from __future__ import annotations
-=======
 from __future__ import annotations
->>>>>>> d17b116d297b507f8a5227ba4474640a7e13e8e0
 
 from abc import ABC, abstractmethod
 from typing import Iterable

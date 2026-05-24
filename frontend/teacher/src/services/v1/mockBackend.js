@@ -165,16 +165,23 @@ function createQuestionsForCourse(courseId, scriptsByPage, studentIds) {
     const page = Number(pageKey)
     const nodes = Array.isArray(scriptData?.nodes) ? scriptData.nodes : []
     nodes.forEach((node, idx) => {
-      result.push({
-        id: uid('q'),
-        user_id: studentIds[(page + idx) % studentIds.length] || 'student-001',
-        page_index: page,
-        nodeId: node.nodeId,
-        nodeTitle: node.title,
-        question: `关于“${node.title}”，如果换一种题型应该如何判断解题入口？`,
-        answer: `建议先定位题干关键词，再回到“${node.title}”对应的方法步骤进行判断。`,
-        created_at: isoDaysAgo((page + idx) % 6)
-      })
+      const extra = (page + idx * 2) % 3
+      const count = 1 + extra
+      for (let k = 0; k < count; k += 1) {
+        result.push({
+          id: uid('q'),
+          user_id: studentIds[(page + idx + k) % studentIds.length] || 'student-001',
+          page_index: page,
+          nodeId: node.nodeId,
+          nodeTitle: node.title,
+          question:
+            k === 0
+              ? `关于“${node.title}”，如果换一种题型应该如何判断解题入口？`
+              : `【第${page}页·追问${k}】“${node.title}”与上一页结论冲突时先检查哪一步？`,
+          answer: `建议先定位题干关键词，再回到“${node.title}”对应的方法步骤进行判断。`,
+          created_at: isoDaysAgo((page + idx + k) % 8)
+        })
+      }
     })
   })
   return result.map((item) => ({ ...item, courseId }))
@@ -551,19 +558,29 @@ function aggregateStats(store, courseId) {
 
   const masteryRadarPages = Object.values(byPage).sort((a, b) => a.page - b.page)
   const masteryIndicators = masteryRadarPages.map((item) => ({ name: `第${item.page}页`, max: 100 }))
-  const masteryValues = masteryRadarPages.map((item) => Math.round(item.mastery / Math.max(1, item.count)))
+  const jitter = [4, -11, 7, -6, 9, -3, 5]
+  const masteryValues = masteryRadarPages.map((item, idx) => {
+    const base = Math.round(item.mastery / Math.max(1, item.count))
+    const j = jitter[idx % jitter.length]
+    return Math.min(98, Math.max(22, base + j))
+  })
   const avgMastery = masteryValues.length
     ? Math.round(masteryValues.reduce((sum, value) => sum + value, 0) / masteryValues.length)
     : 0
 
   const trend = Array.from({ length: 7 }).map((_, idx) => {
     const day = new Date(Date.now() - (6 - idx) * ONE_DAY_MS)
-    const baseQuestion = Math.max(2, Math.round((questions.length / 7) + (idx % 3)))
-    const reteachCount = Math.max(0, Math.round(nodeStats.filter((item) => item.needReTeach).length / 3) + (idx % 2))
-    const errorRate = Math.min(0.9, 0.18 + reteachCount * 0.05)
+    const weekday = day.getDay()
+    const weekendDip = weekday === 0 || weekday === 6 ? -6 : 0
+    const baseQuestion = Math.max(4, Math.round(questions.length / 7 + idx * 2 + (idx % 3) * 3))
+    const questionCount = baseQuestion + (weekendDip === 0 ? 3 : -1)
+    const activeUsers = 19 + idx * 2 + (idx % 4) * 3 + weekendDip + ((idx + 2) % 5)
+    const reteachCount = Math.max(0, Math.round(nodeStats.filter((item) => item.needReTeach).length / 4) + (idx % 3) + (idx === 5 ? 1 : 0))
+    const errorRate = Math.min(0.52, 0.15 + reteachCount * 0.042 + (idx % 2) * 0.02)
     return {
       day: `${day.getMonth() + 1}/${day.getDate()}`,
-      questionCount: baseQuestion,
+      activeUsers,
+      questionCount,
       reteachCount,
       errorRate
     }

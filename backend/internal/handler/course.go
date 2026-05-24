@@ -7,12 +7,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	"smart-teaching-backend/pkg/apiresp"
 	"gorm.io/gorm"
 
 	"smart-teaching-backend/internal/model"
 	"smart-teaching-backend/internal/service"
+	"smart-teaching-backend/pkg/apiresp"
 	"smart-teaching-backend/pkg/logger"
 )
 
@@ -33,33 +32,25 @@ func (h *CourseHandler) GetPagePreview(c *gin.Context) {
 		return
 	}
 
-	// 优先使用预生成的图片预览
+	// 预生成切片（MinIO 等）可直接 302，浏览器 <img> 跟随跳转加载图片。
 	var coursePage model.CoursePage
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err == nil {
 		if url := strings.TrimSpace(coursePage.ImageURL); url != "" {
+			c.Header("Cache-Control", "public, max-age=300")
 			c.Redirect(http.StatusFound, url)
 			return
 		}
 	}
 
-	// 如果没有预览图，则回退到原始课件文件：
-	// - 对于 PDF：直接跳转到 PDF 文件并附带 #page=N，依赖浏览器内置 PDF 预览能力。
-	// - 其它类型（PPT/PPTX 等）：暂时仅返回 404，由前端自行兜底。
-	var course model.Course
-	if err := h.db.First(&course, "id = ?", courseID).Error; err == nil {
-		fileURL := strings.TrimSpace(course.FileURL)
-		if fileURL != "" && strings.EqualFold(course.FileType, "pdf") {
-			redirectURL := fileURL
-			// 附带页码信息，主流浏览器的 PDF 查看器支持 #page=N
-			if !strings.Contains(fileURL, "#") {
-				redirectURL = fileURL + "#page=" + strconv.Itoa(pageNum)
-			}
-			c.Redirect(http.StatusFound, redirectURL)
-			return
-		}
+	// 无预生成图：渲染为 PNG（PDF 优先 pdftoppm；否则内置占位），避免对 <img> 返回 PDF 重定向。
+	ctx := c.Request.Context()
+	pngBytes, err := h.courseService.RasterPagePreview(ctx, courseID, pageNum)
+	if err != nil {
+		apiresp.NotFound(c, "课件不存在或页码无效", "")
+		return
 	}
-
-	apiresp.NotFound(c, "预览图不存在", "")
+	c.Header("Cache-Control", "public, max-age=120")
+	c.Data(http.StatusOK, "image/png", pngBytes)
 }
 
 func (h *CourseHandler) UploadCourse(c *gin.Context) {

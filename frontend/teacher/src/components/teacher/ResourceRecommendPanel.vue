@@ -7,17 +7,17 @@
     <aside v-if="visible" class="rr-drawer" role="dialog" aria-modal="true" aria-label="智能资源推荐">
       <header class="rr-header">
         <div>
-          <h3>智能资源推荐</h3>
-          <p>根据当前课程上下文智能匹配网课与题库</p>
+          <h3>智能资源匹配 - 基于知识点与学情精准推荐</h3>
+          <p class="rr-sub">{{ resourceSubtitle }}</p>
         </div>
-        <button class="rr-close" @click="closePanel">关闭</button>
+        <button type="button" class="rr-close" @click="closePanel">关闭</button>
       </header>
 
       <section class="rr-config">
         <div class="rr-config-grid">
           <label>
             关键词
-            <input v-model.trim="searchForm.keyword" placeholder="如：快速排序 分区思想" />
+            <input v-model.trim="searchForm.keyword" placeholder="关键词自动填充自当前知识点 / 学情卡点" />
           </label>
           <label>
             学段
@@ -121,15 +121,16 @@
                 <span v-if="item.duration">{{ item.duration }}</span>
               </div>
 
-              <p class="rr-reason">推荐理由：{{ item.recommend_reason || '该资源与当前教学目标相关，适合作为补充材料。' }}</p>
+              <p class="rr-reason">{{ formatReason(item) }}</p>
 
               <div class="rr-card-actions">
-                <button class="btn btn-primary" :disabled="!item.url" @click="openResourceLink(item)">
+                <button type="button" class="btn btn-primary" :disabled="!item.url" @click="openResourceLink(item)">
                   去查看
                 </button>
-                <button class="btn btn-light" @click="toggleFavorite(item)">
+                <button type="button" class="btn btn-light" @click="toggleFavorite(item)">
                   {{ item.is_favorite ? '已收藏' : '收藏' }}
                 </button>
+                <button type="button" class="btn btn-outline" @click="insertIntoScript(item)">插入到讲稿</button>
               </div>
             </article>
           </div>
@@ -175,7 +176,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:visible'])
+const emit = defineEmits(['update:visible', 'insert-to-script', 'toast'])
 
 const store = useResourceStore()
 
@@ -214,6 +215,32 @@ const contextKeyword = computed(() => {
       || ''
   ).trim()
 })
+
+const resourceSubtitle = computed(() => {
+  const ctx = props.currentCourseContext || {}
+  const kw = String(ctx.nodeKeyword || ctx.keyword || '').trim()
+  const reason = String(ctx.matchReason || ctx.bottleneckHint || '').trim()
+  if (kw && reason) return `当前匹配知识点：${kw} | 匹配依据：${reason}`
+  if (kw) return `当前匹配知识点：${kw} | 匹配依据：结合班级学情与知识点语义相关度`
+  return '根据课程上下文与学情权重（语义匹配 + 学情修正）自动推荐'
+})
+
+function formatReason(item) {
+  const ctx = props.currentCourseContext || {}
+  const kw = String(ctx.nodeKeyword || ctx.keyword || '本课重点').trim()
+  const basis = String(ctx.matchReason || '').trim()
+  const src = item.source || '-'
+  const dur = item.duration || '-'
+  const extra = String(item.recommend_reason || item.reason || '').trim()
+  if (extra.length > 12) {
+    return `来源：${src} | 时长/题量：${dur} | ${extra}`
+  }
+  return `来源：${src} | 时长/题量：${dur} | 推荐理由：针对「${kw}」${basis ? `（${basis}）` : ''} 的专项补充，适合课堂穿插与课后巩固。`
+}
+
+function insertIntoScript(item) {
+  emit('insert-to-script', item)
+}
 
 const normalizedConfig = computed(() => ({
   keyword: searchForm.keyword,
@@ -401,7 +428,9 @@ async function loadMore() {
 
 function toggleFavorite(item) {
   item.is_favorite = !item.is_favorite
-  console.log('[ResourceFavorite]', item.id)
+  if (item.is_favorite) {
+    emit('toast', '已收藏至知识库，可在备课时一键引用')
+  }
 }
 
 function openResourceLink(item) {
@@ -430,9 +459,7 @@ watch(
     store.hydrate()
     Object.assign(searchForm, store.lastSearchConfig)
     applyContext()
-    if (!resourceList.value.length) {
-      searchResources(true)
-    }
+    searchResources(true)
   },
   { immediate: true }
 )
@@ -480,8 +507,18 @@ onMounted(() => {
 
 .rr-header h3 {
   margin: 0;
-  color: #1f4e49;
+  color: #333333;
   font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.rr-sub {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #666666;
+  line-height: 1.5;
+  max-width: 52ch;
 }
 
 .rr-header p {
@@ -499,6 +536,9 @@ onMounted(() => {
 }
 
 .rr-config {
+  flex: 0 0 20vh;
+  min-height: 140px;
+  overflow-y: auto;
   padding: 14px 16px;
   border-bottom: 1px solid #d7e7e3;
   background: #f5fbfa;
@@ -507,15 +547,15 @@ onMounted(() => {
 .rr-config-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
 }
 
 .rr-config-grid label {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 12px;
-  color: #2d5c56;
+  font-size: 14px;
+  color: #666666;
 }
 
 .rr-config-grid input,
@@ -667,14 +707,34 @@ onMounted(() => {
 }
 
 .btn-primary {
-  background: #2f605a;
+  background: #2d8cf0;
   color: #fff;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(0.95);
 }
 
 .btn-light {
   background: #fff;
-  color: #2f605a;
-  border-color: #c9dfda;
+  color: #2d8cf0;
+  border: 1px solid #2d8cf0;
+  border-radius: 8px;
+}
+
+.btn-outline {
+  background: #fff;
+  color: #2d8cf0;
+  border: 1px dashed #7eb8fc;
+  border-radius: 8px;
+}
+
+.btn-outline:hover {
+  background: rgba(45, 140, 240, 0.06);
 }
 
 .rr-loading,

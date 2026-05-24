@@ -83,9 +83,12 @@
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
             <span v-show="!isLeftMenuCollapsed">提问统计</span>
           </div>
-          <div class="menu-item" :class="{ active: activeTab === 'card' }" @click="activeTab = 'card'" title="卡点可视化">
-            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-            <span v-show="!isLeftMenuCollapsed">卡点可视化</span>
+          <div class="menu-item" :class="{ active: activeTab === 'knowledge' }" @click="activeTab = 'knowledge'" title="知识库">
+            <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6.5C3 5.12 4.12 4 5.5 4H10v16H5.5A2.5 2.5 0 0 1 3 17.5v-11z"></path>
+              <path d="M21 6.5C21 5.12 19.88 4 18.5 4H14v16h4.5a2.5 2.5 0 0 0 2.5-2.5v-11z"></path>
+            </svg>
+            <span v-show="!isLeftMenuCollapsed">知识库</span>
           </div>
           <div class="menu-item" :class="{ active: activeTab === 'iteration' }" @click="activeTab = 'iteration'" title="学情迭代">
             <svg class="ins-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path><path d="M22 12.5a10 10 0 0 1-18.8 2.2"></path></svg>
@@ -118,6 +121,7 @@
               <TeacherScriptPanel
                 v-else
                 :preview-url="realPreviewUrl"
+                :current-course-name="currentCourseName"
                 :current-course-id="currentCourseId"
                 :current-edit-page="currentEditPage"
                 :total-pages="currentCourseTotalPages"
@@ -125,6 +129,10 @@
                 :current-script-nodes="currentScriptNodes"
                 :script-generating="scriptGenerating"
                 :script-saving="scriptSaving"
+                :ai-generate-progress="aiGenerateProgress"
+                :ai-generate-stage-text="aiGenerateStageText"
+                :iteration-sync-notice="iterationSyncNotice"
+                :node-insights="scriptNodeInsights"
                 @generate-ai-script="generateAIScript"
                 @save-script="saveScript"
                 @update:current-script="currentScript = $event"
@@ -132,6 +140,7 @@
                 @autosave-mapping="handleAutosaveMapping"
                 @prev-page="prevPage"
                 @next-page="nextPage"
+                @open-iteration="activeTab = 'iteration'"
               ></TeacherScriptPanel>
             </div>
 
@@ -140,7 +149,12 @@
                 :current-course-id="currentCourseId"
                 :current-course-name="currentCourseName"
                 :student-stats="studentStats"
-              ></TeacherStatsPanel>
+                :card-data="cardData"
+                :initial-stats-tab="statsSubTab"
+                @update:stats-tab="statsSubTab = $event"
+                @open-smart-resource="handleOpenSmartResource"
+                @queue-iteration-node="handleQueueIterationNode"
+              />
             </div>
 
             <div v-else-if="activeTab === 'questions'" class="tab-container">
@@ -162,17 +176,22 @@
                 :question-records="questionRecords"
                 @update:script="handleIterationScriptUpdated"
                 @script-generated="handleIterationScriptGenerated"
+                @sync-outline-node="handleIterationOutlineInserted"
+                @open-resource-recommend="handleOpenSmartResource"
+                @toast="showAppToast"
               ></CourseIterationPanel>
             </div>
 
-            <div v-else-if="activeTab === 'card'" class="tab-container">
-              <TeacherCardAnalysisPanel
-                :current-course-id="currentCourseId"
-                :current-course-name="currentCourseName"
-                :chart-type="chartType"
-                :card-data="cardData"
-                @update:chart-type="chartType = $event"
-              ></TeacherCardAnalysisPanel>
+            <div v-else-if="activeTab === 'knowledge'" class="tab-container">
+              <div v-if="!currentCourseId" class="empty-tip-container">
+                <div class="empty-tip">请先选择课件，再进入知识库</div>
+              </div>
+              <TeacherKnowledgeGraphPanel
+                v-else
+                :course-id="currentCourseId"
+                :course-name="currentCourseName"
+                @cite-resource="handleKnowledgeCiteToScript"
+              />
             </div>
 
             <div v-else class="tab-container"></div>
@@ -194,6 +213,7 @@
           @select-course="selectCourse"
           @delete-course="deleteCourse"
           @select-page="selectEditPage"
+          @cite-to-script="handleKnowledgeCiteToScript"
         />
       </div>
     </div>
@@ -217,6 +237,8 @@
       :course-class-id="publishCourseClassId"
       :teaching-course-options="publishCourseOptions"
       :course-class-options="filteredPublishClassOptions"
+      :publish-loading="publishSubmitting"
+      :publish-success-info="publishSuccessInfo"
       @close="showPublishModal = false"
       @submit="publishCourseware"
       @update:publish-scope="publishScope = $event"
@@ -227,13 +249,19 @@
     <ResourceRecommendPanel
       :visible="resourceDrawerVisible"
       :current-course-context="currentCourseContext"
-      @update:visible="resourceDrawerVisible = $event"
+      @update:visible="onResourceDrawerVisible"
+      @insert-to-script="handleResourceInsertToScript"
+      @toast="showAppToast"
     />
+
+    <teleport to="body">
+      <div v-if="appToastVisible" class="app-global-toast" role="status">{{ appToastMessage }}</div>
+    </teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed, onUnmounted } from 'vue'
+import { ref, onMounted, computed, onUnmounted, nextTick } from 'vue'
 import { API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 import TeacherTopBar from './components/teacher/TeacherTopBar.vue'
@@ -241,7 +269,7 @@ import TeacherCoursewareSidebar from './components/teacher/TeacherCoursewareSide
 import TeacherScriptPanel from './components/teacher/TeacherScriptPanel.vue'
 import TeacherStatsPanel from './components/teacher/TeacherStatsPanel.vue'
 import TeacherQuestionsPanel from './components/teacher/TeacherQuestionsPanel.vue'
-import TeacherCardAnalysisPanel from './components/teacher/TeacherCardAnalysisPanel.vue'
+import TeacherKnowledgeGraphPanel from './components/teacher/TeacherKnowledgeGraphPanel.vue'
 import TeacherUploadModal from './components/teacher/TeacherUploadModal.vue'
 import TeacherPublishModal from './components/teacher/TeacherPublishModal.vue'
 import HomeLogin from './components/HomeLogin.vue'
@@ -291,16 +319,20 @@ const publishTeachingCourseId = ref('')
 const publishCourseClassId = ref('')
 const publishCourseOptions = ref([])
 const publishClassOptions = ref([])
+const publishSubmitting = ref(false)
+const publishSuccessInfo = ref(null)
 const backendStatus = ref('checking')
 const courseListLoading = ref(false)
 const scriptGenerating = ref(false)
 const scriptSaving = ref(false)
+const aiGenerateProgress = ref(0)
+const aiGenerateStageText = ref('')
+const iterationSyncNotice = ref('')
 
 const isSidebarVisible = ref(true)
 const isLeftMenuCollapsed = ref(window.innerWidth <= 1024)
 const studentStats = ref({ totalQuestions: 0, hotPages: [], keyDifficulties: '暂无' })
 const cardData = ref([])
-const chartType = ref('bar')
 const questionRecords = ref([])
 const filterPage = ref('')
 const previewLoading = ref(false)
@@ -404,69 +436,77 @@ const readScriptSnapshot = (courseId, page) => {
 }
 
 const buildDemoQuestions = (totalPages) => {
+  const pages = Math.max(1, Number(totalPages || 1))
   const list = []
-  for (let page = 1; page <= Math.max(1, Number(totalPages || 1)); page += 1) {
-    list.push({
-      id: `demo_q_${page}_1`,
-      studentId: `S10${page}`,
-      page,
-      nodeId: `p${page}_n2`,
-      nodeTitle: '节点2：核心讲解',
-      content: `第${page}页这个知识点在变形题里怎么快速判断？`,
-      answer: '优先看题干关键词和已知条件，再匹配本页方法步骤。',
-      time: new Date(Date.now() - page * 3600000).toLocaleString()
-    })
-    list.push({
-      id: `demo_q_${page}_2`,
-      studentId: `S20${page}`,
-      page,
-      nodeId: `p${page}_n3`,
-      nodeTitle: '节点3：总结与练习',
-      content: `第${page}页练习题里这个边界条件为什么这样写？`,
-      answer: '因为需要覆盖极端输入，避免漏掉临界情况。',
-      time: new Date(Date.now() - page * 5400000).toLocaleString()
-    })
+  const students = ['S2401', 'S2408', 'S2412', 'S2419', 'S2426', 'S2433', 'S2441', 'S2455']
+  const pickStudent = (seed) => students[Math.abs(seed) % students.length]
+
+  for (let page = 1; page <= pages; page += 1) {
+    const nExtra = (page * 3) % 4
+    const count = 2 + nExtra
+    for (let k = 0; k < count; k += 1) {
+      const nodeIdx = 1 + ((page + k) % 3)
+      const sid = pickStudent(page * 31 + k * 17)
+      list.push({
+        id: `demo_q_${page}_${k}`,
+        studentId: sid,
+        page,
+        nodeId: `p${page}_n${nodeIdx}`,
+        nodeTitle: `节点${nodeIdx}：${['导入', '核心讲解', '总结练习'][nodeIdx - 1]}`,
+        content:
+          k % 3 === 0
+            ? `【第${page}页】变形题里怎么快速判断解题入口？`
+            : k % 3 === 1
+              ? `【第${page}页】这一步和上一页定理怎么衔接？`
+              : `【第${page}页】边界条件在综合题里容易漏判，能再举一例吗？`,
+        answer: '先锁定题干关键词，再对照本页方法步骤与上一页结论逐条核验。',
+        time: new Date(Date.now() - (page * 5 + k * 2) * 3600000 - k * 810000).toLocaleString()
+      })
+    }
   }
   return list
 }
 
 const buildDemoStudentStats = (totalPages) => {
   const pages = Array.from({ length: Math.max(1, Number(totalPages || 1)) }, (_, idx) => idx + 1)
-  const nodeStats = pages.flatMap((page) => [
-    {
-      nodeId: `p${page}_n1`,
-      title: `第${page}页-导入`,
-      page,
-      questionCount: 1,
-      dialogueCount: 2,
-      stayTime: 42,
-      errorRate: 0.16,
-      masteryScore: 88,
-      needReTeach: false
-    },
-    {
-      nodeId: `p${page}_n2`,
-      title: `第${page}页-核心讲解`,
-      page,
-      questionCount: 3,
-      dialogueCount: 5,
-      stayTime: 66,
-      errorRate: 0.42,
-      masteryScore: 71,
-      needReTeach: true
-    },
-    {
-      nodeId: `p${page}_n3`,
-      title: `第${page}页-总结练习`,
-      page,
-      questionCount: 2,
-      dialogueCount: 3,
-      stayTime: 52,
-      errorRate: 0.28,
-      masteryScore: 79,
-      needReTeach: false
-    }
-  ])
+
+  const nodeQuestionPresets = [
+    [0, 5, 2],
+    [1, 8, 4],
+    [2, 6, 1],
+    [0, 9, 3],
+    [3, 7, 2],
+    [1, 4, 6]
+  ]
+
+  const nodeStats = pages.flatMap((page) => {
+    const preset = nodeQuestionPresets[(page - 1) % nodeQuestionPresets.length]
+    const labels = ['导入', '核心讲解', '总结练习']
+    return [0, 1, 2].map((ni) => {
+      const questionCount = preset[ni]
+      const dialogueCount = Math.max(questionCount, Math.round(questionCount * (1.6 + (page + ni) * 0.07)))
+      const stayTime = Math.round(32 + questionCount * 9 + (page % 4) * 6 + ni * 5)
+      const errorRate = Math.min(0.78, Math.max(0.06, 0.12 + questionCount * 0.045 + (ni === 1 ? 0.08 : 0)))
+      const masteryScore = Math.round(
+        Math.min(
+          96,
+          Math.max(28, 94 - questionCount * 5.5 - errorRate * 42 + (ni === 0 ? 6 : ni === 2 ? 2 : -4))
+        )
+      )
+      const needReTeach = errorRate >= 0.38 && questionCount >= 3
+      return {
+        nodeId: `p${page}_n${ni + 1}`,
+        title: `第${page}页-${labels[ni]}`,
+        page,
+        questionCount,
+        dialogueCount,
+        stayTime,
+        errorRate: Number(errorRate.toFixed(3)),
+        masteryScore,
+        needReTeach
+      }
+    })
+  })
 
   const uncoveredNodeIds = nodeStats.filter((item) => item.questionCount === 0).map((item) => item.nodeId)
   const pageStats = pages.map((page) => {
@@ -480,10 +520,33 @@ const buildDemoStudentStats = (totalPages) => {
     }
   })
 
+  const radarPageShape = [88, 54, 76, 41, 82, 63, 69]
+  const masteryRadarValues = pages.map((page) => radarPageShape[(page - 1) % radarPageShape.length])
+  const avgMastery = masteryRadarValues.length
+    ? Math.round(masteryRadarValues.reduce((a, b) => a + b, 0) / masteryRadarValues.length)
+    : 0
+
+  const ONE_DAY_MS = 86400000
+  const classTrend = Array.from({ length: 7 }, (_, idx) => {
+    const day = new Date(Date.now() - (6 - idx) * ONE_DAY_MS)
+    const weekday = day.getDay()
+    const weekendDip = weekday === 0 || weekday === 6 ? -5 : 0
+    const activeUsers = 22 + idx * 2 + (idx % 3) * 4 + weekendDip + ((idx + 1) % 4)
+    const questionCount = 9 + idx * 3 + (idx % 2) * 5 + (weekendDip === 0 ? 4 : -2)
+    const reteachCount = Math.max(0, 1 + (idx % 3) + (idx === 4 ? 2 : 0))
+    return {
+      day: `${day.getMonth() + 1}/${day.getDate()}`,
+      activeUsers,
+      questionCount,
+      reteachCount,
+      errorRate: Math.min(0.55, 0.16 + reteachCount * 0.045 + (idx % 2) * 0.03)
+    }
+  })
+
   return {
     totalQuestions: nodeStats.reduce((sum, item) => sum + item.questionCount, 0),
-    activeSessions: 12,
-    avgTurnsPerSession: 2.8,
+    activeSessions: 26,
+    avgTurnsPerSession: 3.4,
     hotPages: pageStats.slice(0, 3).map((item) => item.page),
     keyDifficulties: '边界条件、步骤拆解、题型迁移',
     nodeStats,
@@ -499,18 +562,10 @@ const buildDemoStudentStats = (totalPages) => {
     })),
     masteryRadar: {
       indicators: pages.map((page) => ({ name: `第${page}页`, max: 100 })),
-      values: pages.map((page) => {
-        const samePage = nodeStats.filter((item) => item.page === page)
-        return Math.round(samePage.reduce((sum, item) => sum + item.masteryScore, 0) / samePage.length)
-      }),
-      avgMastery: 79
+      values: masteryRadarValues,
+      avgMastery
     },
-    classTrend: pages.slice(0, 7).map((page) => ({
-      day: `${page}/0${Math.min(page, 9)}`,
-      questionCount: 4 + (page % 3),
-      reteachCount: 1 + (page % 2),
-      errorRate: 0.22 + (page % 3) * 0.04
-    })),
+    classTrend,
     learningInsights: {
       reteachNodes: nodeStats.filter((item) => item.needReTeach).slice(0, 4),
       prerequisiteGaps: nodeStats.filter((item) => item.page > 1 && item.questionCount >= 2).slice(0, 4).map((item) => ({
@@ -680,6 +735,7 @@ const openPublishModal = () => {
   const current = coursewareList.value.find((item) => item.id === currentCourseId.value)
   publishTeachingCourseId.value = current?.teachingCourseId || publishTeachingCourseId.value || ''
   publishCourseClassId.value = current?.courseClassId || publishCourseClassId.value || ''
+  publishSuccessInfo.value = null
   showPublishModal.value = true
 }
 
@@ -696,17 +752,9 @@ const backendStatusClass = computed(() => {
   return backendStatus.value === 'online' ? 'online' : backendStatus.value === 'offline' ? 'offline' : 'checking'
 })
 
-const currentCourseFileType = computed(() => {
-  const current = coursewareList.value.find((item) => item.id === currentCourseId.value)
-  return String(current?.fileType || '').toLowerCase()
-})
-
 const realPreviewUrl = computed(() => {
   if (!currentCourseId.value) return ''
-  // 当前后端预览链路对文档类资源会返回非图片地址，直接展示占位可避免大量ORB/404噪声。
-  if (['pdf', 'ppt', 'pptx', 'doc', 'docx'].includes(currentCourseFileType.value)) {
-    return ''
-  }
+  // 后端 /api/courseware/:id/page/:n 现统一返回可放入 <img> 的图片（PNG 或 302 至预生成切片）。
   return `${API_BASE}/api/courseware/${currentCourseId.value}/page/${currentEditPage.value}`
 })
 
@@ -737,15 +785,186 @@ const platformMiddleTiles = computed(() => {
   }))
 })
 
-const currentCourseContext = computed(() => ({
-  courseId: currentCourseId.value,
-  courseName: currentCourseName.value,
-  currentPage: currentEditPage.value,
-  keyword: currentCourseName.value,
-  pageKeyword: currentEditPage.value ? `第${currentEditPage.value}页` : '',
-  nodeKeyword: String(currentScriptNodes.value?.[0]?.title || '').trim(),
-  subject: ''
-}))
+const resourceContextBoost = ref(null)
+
+const currentCourseContext = computed(() => {
+  const boost = resourceContextBoost.value && typeof resourceContextBoost.value === 'object'
+    ? resourceContextBoost.value
+    : {}
+  const baseKeyword = String(boost.nodeKeyword || boost.keyword || '').trim()
+  return {
+    courseId: currentCourseId.value,
+    courseName: currentCourseName.value,
+    currentPage: currentEditPage.value,
+    keyword: baseKeyword || currentCourseName.value,
+    pageKeyword: currentEditPage.value ? `第${currentEditPage.value}页` : '',
+    nodeKeyword: baseKeyword || String(currentScriptNodes.value?.[0]?.title || '').trim(),
+    subject: String(boost.subject || '').trim(),
+    matchReason: String(boost.matchReason || '').trim(),
+    bottleneckHint: String(boost.bottleneckHint || '').trim()
+  }
+})
+
+const statsSubTab = ref('overview')
+
+const scriptNodeInsights = computed(() => {
+  const stats = studentStats.value?.nodeStats
+  if (!Array.isArray(stats)) return {}
+  const map = {}
+  stats.forEach((row) => {
+    const id = String(row?.nodeId || '').trim()
+    if (!id) return
+    const m = Number(row?.masteryScore ?? row?.mastery ?? 0)
+    const card = Number(row?.cardScore ?? row?.bottleneckScore ?? 0)
+    map[id] = {
+      mastery: Math.round(m),
+      card: Math.round(card * 10) / 10
+    }
+  })
+  return map
+})
+
+const appToastVisible = ref(false)
+const appToastMessage = ref('')
+let appToastTimer = null
+
+const showAppToast = (message) => {
+  const text = String(message || '').trim()
+  if (!text) return
+  appToastMessage.value = text
+  appToastVisible.value = true
+  if (appToastTimer) window.clearTimeout(appToastTimer)
+  appToastTimer = window.setTimeout(() => {
+    appToastVisible.value = false
+  }, 3200)
+}
+
+const handleOpenSmartResource = (payload) => {
+  const p = payload && typeof payload === 'object' ? payload : {}
+  resourceContextBoost.value = {
+    nodeKeyword: String(p.keyword || p.nodeKeyword || '').trim(),
+    keyword: String(p.keyword || '').trim(),
+    matchReason: String(p.matchReason || p.reason || '').trim(),
+    bottleneckHint: String(p.bottleneckHint || '').trim(),
+    subject: String(p.subject || '').trim()
+  }
+  resourceDrawerVisible.value = true
+}
+
+const onResourceDrawerVisible = (visible) => {
+  resourceDrawerVisible.value = visible
+  if (!visible) {
+    resourceContextBoost.value = null
+  }
+}
+
+const handleQueueIterationNode = (payload) => {
+  const title = String(payload?.title || payload?.nodeTitle || '').trim()
+  if (!title) return
+  try {
+    window.sessionStorage.setItem(
+      'fuww_iteration_queue',
+      JSON.stringify({ title, nodeId: payload?.nodeId || '', ts: Date.now() })
+    )
+  } catch {
+    /* ignore */
+  }
+  activeTab.value = 'iteration'
+  showAppToast(`已将「${title}」加入学情迭代待优化队列`)
+}
+
+const handleIterationOutlineInserted = (node) => {
+  const n = node && typeof node === 'object' ? node : {}
+  const page = currentEditPage.value
+  const base = Array.isArray(currentScriptNodes.value) ? [...currentScriptNodes.value] : []
+  const sortOrder = base.length + 1
+  const appended = {
+    id: String(n.id || ''),
+    nodeId: `p${page}_n${sortOrder}`,
+    title: String(n.title || '学情迭代节点').trim() || '学情迭代节点',
+    summary: n.type === 'prerequisite' ? '前置补充（学情迭代插入）' : '重讲建议（学情迭代插入）',
+    scriptText: '',
+    reteachScript: '',
+    transitionText: '',
+    estimatedDuration: 32,
+    sortOrder
+  }
+  currentScriptNodes.value = [...base, appended]
+  cacheScriptSnapshot(currentCourseId.value, page, currentScript.value, currentScriptNodes.value)
+  activeTab.value = 'script'
+  showAppToast('已成功插入到下节课讲稿大纲，可前往编辑讲稿页面查看')
+}
+
+const buildKnowledgeCiteLine = (item) => {
+  const title = String(item?.title || '知识库资源').trim()
+  const type = String(item?.type || '').trim()
+  const node = String(item?.node || '').trim()
+  const desc = String(item?.desc || '').trim()
+  const source = String(item?.source || '').trim()
+  const course = String(item?.course || item?.courseName || '').trim()
+  const url = String(item?.url || '').trim()
+  const parts = [`【知识库引用】${title}`]
+  if (type) parts.push(`类型：${type}`)
+  if (node) parts.push(`知识点：${node}`)
+  if (course) parts.push(`课程：${course}`)
+  if (source) parts.push(`来源：${source}`)
+  if (desc) parts.push(`摘要：${desc}`)
+  if (item?.hot != null && item.hot !== '') parts.push(`热度：${item.hot}`)
+  if (item?.favorites != null && item.favorites !== '') parts.push(`收藏人数：${item.favorites}`)
+  if (url) parts.push(`链接：${url}`)
+  return `\n${parts.join(' | ')}\n`
+}
+
+const appendLineToCurrentScript = async (line) => {
+  const wasOtherTab = activeTab.value !== 'script'
+  activeTab.value = 'script'
+  if (wasOtherTab) {
+    await new Promise((resolve) => setTimeout(resolve, 340))
+  }
+  await nextTick()
+
+  const page = currentEditPage.value
+  const raw = Array.isArray(currentScriptNodes.value) ? currentScriptNodes.value : []
+
+  if (raw.length === 0) {
+    const merged = `${String(currentScript.value || '').trim()}${line}`.trim()
+    currentScript.value = merged
+    currentScriptNodes.value = normalizeNodes([{ id: '', title: '节点1：开场', scriptText: merged }], page)
+  } else {
+    const nodes = raw.map((n) => ({ ...n }))
+    const idx = 0
+    nodes[idx] = {
+      ...nodes[idx],
+      scriptText: `${String(nodes[idx].scriptText || '')}${line}`
+    }
+    const normalized = normalizeNodes(nodes, page)
+    currentScriptNodes.value = normalized
+    currentScript.value = normalized
+      .map((n) => String(n.scriptText || '').trim())
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  cacheScriptSnapshot(currentCourseId.value, page, currentScript.value, currentScriptNodes.value)
+}
+
+const handleResourceInsertToScript = async (item) => {
+  const title = String(item?.title || '推荐资源').trim()
+  const url = String(item?.url || '').trim()
+  const line = `\n【推荐资源】${title}${url ? ` ${url}` : ''}\n`
+  await appendLineToCurrentScript(line)
+  showAppToast('已将资源引用插入当前节点讲稿（右侧编辑器）')
+}
+
+const handleKnowledgeCiteToScript = async (item) => {
+  if (!currentCourseId.value) {
+    showAppToast('请先选择课件后再引用到讲稿')
+    return
+  }
+  const line = buildKnowledgeCiteLine(item)
+  await appendLineToCurrentScript(line)
+  showAppToast('已插入知识库引用，可在编辑讲稿中继续修改')
+}
 
 const loadPlatformOverviewData = async () => {
   platformOverviewLoading.value = true
@@ -786,6 +1005,7 @@ const openPlatformTile = (tile) => {
 }
 
 const openResourceRecommend = () => {
+  resourceContextBoost.value = null
   resourceDrawerVisible.value = true
 }
 
@@ -990,8 +1210,16 @@ const handleAutosaveMapping = (payload) => {
 
 const generateAIScript = async () => {
   scriptGenerating.value = true
+  aiGenerateProgress.value = 8
+  aiGenerateStageText.value = '正在分析课件内容'
   try {
     currentScript.value = 'AI正在生成讲稿...'
+    await new Promise((resolve) => window.setTimeout(resolve, 260))
+    aiGenerateProgress.value = 28
+    aiGenerateStageText.value = '正在拆解知识点结构'
+    await new Promise((resolve) => window.setTimeout(resolve, 260))
+    aiGenerateProgress.value = 56
+    aiGenerateStageText.value = '正在生成节点讲稿'
     const data = await teacherV1Api.coursewares.generateScript({
       courseId: currentCourseId.value,
       pageNum: currentEditPage.value
@@ -1008,10 +1236,14 @@ const generateAIScript = async () => {
       })
 
     if (!generatedContent && !generatedNodes.length) {
+      aiGenerateProgress.value = 82
+      aiGenerateStageText.value = 'AI结果为空，切换演示讲稿'
       currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
       currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
       alert('AI 返回空结果或处理中占位文本，已切换前端模拟生成讲稿。')
     } else {
+      aiGenerateProgress.value = 82
+      aiGenerateStageText.value = '正在组装讲稿与节点'
       currentScriptNodes.value = generatedNodes.length
         ? generatedNodes
         : normalizeNodes([], currentEditPage.value, generatedContent)
@@ -1022,13 +1254,21 @@ const generateAIScript = async () => {
       }
     }
 
+    aiGenerateProgress.value = 100
+    aiGenerateStageText.value = '生成完成'
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
   } catch (err) {
+    aiGenerateProgress.value = 84
+    aiGenerateStageText.value = '服务波动，切换演示讲稿'
     currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
     currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
     alert('AI 服务不可用，已切换前端模拟生成讲稿。')
   } finally {
+    window.setTimeout(() => {
+      aiGenerateProgress.value = 0
+      aiGenerateStageText.value = ''
+    }, 650)
     scriptGenerating.value = false
   }
 }
@@ -1079,6 +1319,7 @@ const uploadCourseware = async () => {
 }
 
 const publishCourseware = async () => {
+  publishSubmitting.value = true
   try {
     const selectedCourse = publishCourseOptions.value.find((item) => item.id === publishTeachingCourseId.value)
     const selectedClass = publishClassOptions.value.find((item) => item.id === publishCourseClassId.value)
@@ -1092,17 +1333,25 @@ const publishCourseware = async () => {
       courseClassName: selectedClass?.name || ''
     })
     const course = coursewareList.value.find((c) => c.id === currentCourseId.value)
+    const publishedAt = new Date().toLocaleString()
     if (course) {
       course.published = true
       course.teachingCourseId = publishTeachingCourseId.value
       course.teachingCourseTitle = selectedCourse?.name || ''
       course.courseClassId = publishCourseClassId.value
       course.courseClassName = selectedClass?.name || ''
+      course.publishVersion = Number(course.publishVersion || 0) + 1
+      course.lastPublishedAt = publishedAt
     }
-    alert('课件发布成功！学生端已可查看。')
-    showPublishModal.value = false
+    publishSuccessInfo.value = {
+      version: Number(course?.publishVersion || 1),
+      publishedAt,
+      courseName: selectedCourse?.name || '',
+      className: selectedClass?.name || ''
+    }
   } catch (err) {
     const course = coursewareList.value.find((c) => c.id === currentCourseId.value)
+    const publishedAt = new Date().toLocaleString()
     if (course) {
       const selectedCourse = publishCourseOptions.value.find((item) => item.id === publishTeachingCourseId.value)
       const selectedClass = publishClassOptions.value.find((item) => item.id === publishCourseClassId.value)
@@ -1111,9 +1360,17 @@ const publishCourseware = async () => {
       course.teachingCourseTitle = selectedCourse?.name || ''
       course.courseClassId = publishCourseClassId.value
       course.courseClassName = selectedClass?.name || ''
+      course.publishVersion = Number(course.publishVersion || 0) + 1
+      course.lastPublishedAt = publishedAt
+      publishSuccessInfo.value = {
+        version: Number(course.publishVersion || 1),
+        publishedAt,
+        courseName: selectedCourse?.name || '',
+        className: selectedClass?.name || ''
+      }
     }
-    showPublishModal.value = false
-    alert('后端发布不可用，已按前端模拟发布成功。')
+  } finally {
+    publishSubmitting.value = false
   }
 }
 
@@ -1274,10 +1531,12 @@ const handleIterationScriptGenerated = (scriptData) => {
   currentScript.value = scriptData.content
   currentScriptNodes.value = normalizeNodes(scriptData.nodeTree || [], currentEditPage.value, scriptData.content)
 
-  // 可选：自动切换到编辑讲稿标签页
+  // 自动切换到编辑讲稿标签页，并展示一次性同步提示
   activeTab.value = 'script'
-
-  alert('讲稿已生成并加载到编辑区，请继续编辑')
+  iterationSyncNotice.value = '已同步学情迭代讲稿，建议先检查新增节点与重讲段落。'
+  window.setTimeout(() => {
+    if (iterationSyncNotice.value) iterationSyncNotice.value = ''
+  }, 4500)
 }
 
 const handleIterationScriptUpdated = (scriptText) => {
@@ -1290,7 +1549,10 @@ const handleIterationScriptUpdated = (scriptText) => {
   currentScript.value = content
   currentScriptNodes.value = normalizeNodes([], currentEditPage.value, content)
   activeTab.value = 'script'
-  alert('讲稿已生成并加载到编辑区，请继续编辑')
+  iterationSyncNotice.value = '已同步学情迭代讲稿，请确认节点顺序后保存。'
+  window.setTimeout(() => {
+    if (iterationSyncNotice.value) iterationSyncNotice.value = ''
+  }, 4500)
 }
 </script>
 
@@ -1885,6 +2147,23 @@ const handleIterationScriptUpdated = (scriptText) => {
   .platform-tile-grid {
     max-height: none;
   }
+}
+
+.app-global-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%);
+  z-index: 99999;
+  max-width: min(92vw, 480px);
+  padding: 12px 18px;
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.92);
+  color: #f8fafc;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+  pointer-events: none;
 }
 
 </style>

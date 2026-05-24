@@ -24,6 +24,8 @@ type CourseService interface {
 	GetCoursePages(courseID string) ([]model.CoursePage, error)
 	UpdatePageScript(pageID string, script string) error
 	DeleteCourse(id string) error
+	// RasterPagePreview 生成单页 PNG，供 <img> 引用；课件不存在时返回错误。
+	RasterPagePreview(ctx context.Context, courseID string, pageNum int) ([]byte, error)
 }
 
 type courseService struct {
@@ -87,10 +89,10 @@ func (s *courseService) UploadCourse(ctx context.Context, file *multipart.FileHe
 		}
 	}
 
-	// 即使 AI 不可用，也保证至少有一页可预览占位图，避免前端完全无预览。
-	if err := s.ensurePreviewFallback(tx, course); err != nil {
+	// 无 AI 页数据时，用本机 pdftoppm / LibreOffice 从源文件生成切片并写入 CoursePage（PDF/PPT/PPTX）。
+	if err := s.materializeRasterCoursePages(ctx, tx, course); err != nil {
 		tx.Rollback()
-		return nil, fmt.Errorf("创建预览兜底失败: %w", err)
+		return nil, fmt.Errorf("生成课件页预览失败: %w", err)
 	}
 
 	// 无论 AI 是否可用，至少要把课件元信息和文件 URL 落库
@@ -141,6 +143,80 @@ func (s *courseService) ensurePreviewFallback(tx *gorm.DB, course *model.Course)
 	}
 
 	return nil
+}
+
+// materializeRasterCoursePages 在尚未有任何 CoursePage 时，从 MinIO 源文件生成各页 PNG 并上传，写入 image_url。
+func (s *courseService) materializeRasterCoursePages(ctx context.Context, tx *gorm.DB, course *model.Course) error {
+	if course == nil {
+		return fmt.Errorf("course 不能为空")
+	}
+	var n int64
+	if err := tx.Model(&model.CoursePage{}).Where("course_id = ?", course.ID).Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	if strings.TrimSpace(course.FileURL) == "" {
+		return s.ensurePreviewFallback(tx, course)
+	}
+
+	ft := strings.ToLower(strings.TrimSpace(course.FileType))
+	ext := "." + strings.TrimPrefix(ft, ".")
+	if ext == "." {
+		ext = ".pdf"
+	}
+	if ext != ".pdf" && ext != ".pptx" && ext != ".ppt" {
+		return s.ensurePreviewFallback(tx, course)
+	}
+
+	tmpFile, err := os.CreateTemp("", "course_raster_*"+ext)
+	if err != nil {
+		return s.ensurePreviewFallback(tx, course)
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	if err := downloadURLToFile(ctx, strings.TrimSpace(course.FileURL), tmpPath); err != nil {
+		logger.Errorf("下载课件用于预览生成失败: %v", err)
+		return s.ensurePreviewFallback(tx, course)
+	}
+
+	m, err := s.generatePagePreviewImages(ctx, tmpPath, course.ID, ext)
+	if err != nil || len(m) == 0 {
+		logger.Errorf("生成课件预览切片失败: %v", err)
+		return s.ensurePreviewFallback(tx, course)
+	}
+
+	keys := make([]int, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	pages := make([]model.CoursePage, 0, len(keys))
+	for _, pidx := range keys {
+		url := strings.TrimSpace(m[pidx])
+		if url == "" {
+			continue
+		}
+		pages = append(pages, model.CoursePage{
+			CourseID:   course.ID,
+			PageIndex:  pidx,
+			ImageURL:   url,
+			SourceText: "",
+		})
+	}
+	if len(pages) == 0 {
+		return s.ensurePreviewFallback(tx, course)
+	}
+
+	if err := tx.Create(&pages).Error; err != nil {
+		return err
+	}
+	course.TotalPage = len(pages)
+	return tx.Save(course).Error
 }
 
 // enrichCourseWithAI 使用 AI 引擎为课件生成解析页、预览图和教学节点。
@@ -339,7 +415,7 @@ func (s *courseService) generatePagePreviewImages(ctx context.Context, localPath
 	// PPT/PPTX 先转换为 PDF
 	if ext == ".pptx" || ext == ".ppt" {
 		var err error
-		pdfPath, err = convertPptxToPdf(localPath)
+		pdfPath, err = convertPptxToPdf(ctx, localPath)
 		if err != nil {
 			return nil, fmt.Errorf("PPT 转 PDF 失败: %w", err)
 		}
@@ -353,7 +429,8 @@ func (s *courseService) generatePagePreviewImages(ctx context.Context, localPath
 	defer os.RemoveAll(imgDir)
 
 	base := filepath.Join(imgDir, "page")
-	cmd := exec.CommandContext(ctx, "pdftoppm", "-png", pdfPath, base)
+	pdfBin := PdftoppmPath()
+	cmd := exec.CommandContext(ctx, pdfBin, "-png", pdfPath, base)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("pdftoppm 生成预览失败: %w, output=%s", err, string(output))
 	}
@@ -394,9 +471,13 @@ func (s *courseService) generatePagePreviewImages(ctx context.Context, localPath
 }
 
 // convertPptxToPdf 使用本地 LibreOffice 将 PPT/PPTX 转换为 PDF
-func convertPptxToPdf(pptPath string) (string, error) {
+func convertPptxToPdf(ctx context.Context, pptPath string) (string, error) {
+	bin := SofficePath()
+	if bin == "" {
+		return "", fmt.Errorf("未找到 LibreOffice(soffice)，请安装或设置环境变量 SOFFICE_EXE")
+	}
 	outDir := filepath.Dir(pptPath)
-	cmd := exec.Command("soffice", "--headless", "--convert-to", "pdf", "--outdir", outDir, pptPath)
+	cmd := exec.CommandContext(ctx, bin, "--headless", "--convert-to", "pdf", "--outdir", outDir, pptPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("LibreOffice 转 PDF 失败: %w, output=%s", err, string(output))
 	}
