@@ -271,7 +271,11 @@ func envFileCandidates(configDir string) []string {
 	backendRoot := filepath.Dir(configDir)
 	workspaceRoot := filepath.Dir(backendRoot)
 
+	// 优先检查 backend 根目录下的 env 文件（方便测试在 backend 下放置 .env.local），
+	// 然后再回退到 workspace 根目录下的 env 文件。
 	return []string{
+		filepath.Join(backendRoot, ".env"),
+		filepath.Join(backendRoot, ".env.local"),
 		filepath.Join(workspaceRoot, ".env"),
 		filepath.Join(workspaceRoot, ".env.local"),
 	}
