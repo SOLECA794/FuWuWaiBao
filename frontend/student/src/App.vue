@@ -1190,6 +1190,8 @@ const latestAnswerMeta = ref({
   sourceNodeId: '',
   needReteach: false,
   understandingLevel: '',
+  resumePage: null,
+  resumeSec: null,
   followUpSuggestion: '',
   sessionId: ''
 })

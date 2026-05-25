@@ -95,6 +95,13 @@
             <div class="message-meta-row">
               <span class="message-role">{{ messageRoleLabel(message) }}</span>
               <div class="message-tools">
+                <template v-if="message.role === 'assistant' && !message.system && latestAnswerMeta.understandingLevel">
+                  <span class="understanding-level-tag" :class="'level-' + latestAnswerMeta.understandingLevel">
+                    {{ levelLabel(latestAnswerMeta.understandingLevel) }}
+                  </span>
+                  <span v-if="latestAnswerMeta.resumeSec !== undefined && latestAnswerMeta.resumeSec !== null"
+                    class="resume-badge">续接 {{ latestAnswerMeta.resumePage || '?' }}页 {{ latestAnswerMeta.resumeSec }}s</span>
+                </template>
                 <button
                   v-if="message.role === 'assistant' && !message.system && message.content"
                   class="inline-copy-btn"
@@ -661,6 +668,13 @@ function ensureActiveSession() {
   if (found) return found
   activeSessionId.value = sessions.value[0].id
   return sessions.value[0]
+}
+
+function levelLabel(level) {
+  if (level === 'none') return '❌ 未理解'
+  if (level === 'partial') return '⚠️ 部分理解'
+  if (level === 'full') return '✅ 已理解'
+  return level || ''
 }
 
 function sessionUserTurnCount(session) {
@@ -1416,6 +1430,29 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.understanding-level-tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-right: 4px;
+  font-weight: 500;
+}
+.understanding-level-tag.level-none {
+  background: #fee2e2; color: #b91c1c;
+}
+.understanding-level-tag.level-partial {
+  background: #fef3c7; color: #92400e;
+}
+.understanding-level-tag.level-full {
+  background: #d1fae5; color: #065f46;
+}
+.resume-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #e0e7ff; color: #4338ca;
+  margin-right: 4px;
+}
 .assistant-avatar {
   background: #dfeee7;
   color: #295c4d;
