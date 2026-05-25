@@ -210,8 +210,8 @@ func listPlatformUsers(db *gorm.DB, options platformListOptions) (gin.H, error) 
 			"major":       item.Major,
 			"grade":       item.Grade,
 			"className":   item.ClassName,
-			"email":       item.Email,
-			"phone":       item.Phone,
+			"email":       DecryptString(item.Email),
+			"phone":       DecryptString(item.Phone),
 			"updatedAt":   item.UpdatedAt,
 		})
 	}
@@ -475,8 +475,8 @@ func platformUserDetail(db *gorm.DB, userID string) (gin.H, error) {
 			"grade":           user.Grade,
 			"classExternalId": user.ClassExternalID,
 			"className":       user.ClassName,
-			"email":           user.Email,
-			"phone":           user.Phone,
+			"email":           DecryptString(user.Email),
+			"phone":           DecryptString(user.Phone),
 			"updatedAt":       user.UpdatedAt,
 		},
 		"summary": gin.H{
@@ -1616,12 +1616,15 @@ func upsertPlatformUserRecord(db *gorm.DB, payload platformUserPayload) (model.P
 	payload.Role = strings.ToLower(firstNonEmptyString(payload.Role, "student"))
 	user := model.PlatformUser{}
 	err := db.Where("external_id = ?", payload.ExternalID).First(&user).Error
+	// 对敏感字段进行加密后再写入数据库
+	encryptedEmail := EncryptString(payload.Email)
+	encryptedPhone := EncryptString(payload.Phone)
 	updates := map[string]any{
 		"platform_id":       payload.PlatformID,
 		"username":          payload.ExternalID,
 		"display_name":      payload.DisplayName,
-		"email":             payload.Email,
-		"phone":             payload.Phone,
+		"email":             encryptedEmail,
+		"phone":             encryptedPhone,
 		"role":              payload.Role,
 		"status":            "active",
 		"org_code":          payload.OrgCode,
@@ -1644,8 +1647,8 @@ func upsertPlatformUserRecord(db *gorm.DB, payload platformUserPayload) (model.P
 		ExternalID:      payload.ExternalID,
 		Username:        payload.ExternalID,
 		DisplayName:     payload.DisplayName,
-		Email:           payload.Email,
-		Phone:           payload.Phone,
+		Email:           encryptedEmail,
+		Phone:           encryptedPhone,
 		Role:            payload.Role,
 		Status:          "active",
 		OrgCode:         payload.OrgCode,

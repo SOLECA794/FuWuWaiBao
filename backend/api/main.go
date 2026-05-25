@@ -169,6 +169,9 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
+	// JWT 身份验证中间件（对 /api/v1 下非公开接口生效）
+	r.Use(handler.JWTAuthMiddleware())
+
 	r.Use(func(c *gin.Context) {
 		// 课件单页预览可能返回 302 图片地址或 PNG 二进制，不能强行声明为 JSON。
 		p := c.Request.URL.Path

@@ -143,8 +143,8 @@ type PlatformUser struct {
 	ExternalID      string `gorm:"size:64;uniqueIndex" json:"external_id"`
 	Username        string `gorm:"size:80;index" json:"username"`
 	DisplayName     string `gorm:"size:120" json:"display_name"`
-	Email           string `gorm:"size:120;index" json:"email"`
-	Phone           string `gorm:"size:32;index" json:"phone"`
+	Email           string `gorm:"size:255;index" json:"email"`
+	Phone           string `gorm:"size:255;index" json:"phone"`
 	Role            string `gorm:"size:30;default:'student';index" json:"role"`
 	Status          string `gorm:"size:30;default:'active'" json:"status"`
 	OrgCode         string `gorm:"size:64;index" json:"org_code"`

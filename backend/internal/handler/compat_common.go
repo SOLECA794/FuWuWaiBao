@@ -22,6 +22,7 @@ import (
 
 	"smart-teaching-backend/internal/repository"
 	"smart-teaching-backend/internal/service"
+	"smart-teaching-backend/pkg/logger"
 )
 
 type CompatibilityHandler struct {
@@ -95,8 +96,33 @@ func OpenAPISignatureMiddleware() gin.HandlerFunc {
 
 		delete(params, "enc")
 		delete(params, "time")
-		expected := buildOpenAPISignature(params, staticKey, timeValue)
+
+		// 只对指定的平铺字段做签名，避免复杂 JSON 导致的序列化不一致
+		signFieldsEnv := strings.TrimSpace(os.Getenv("OPEN_API_SIGN_FIELDS"))
+		var signFields []string
+		if signFieldsEnv == "" {
+			signFields = []string{"platformId", "userId"}
+		} else {
+			for _, f := range strings.Split(signFieldsEnv, ",") {
+				if s := strings.TrimSpace(f); s != "" {
+					signFields = append(signFields, s)
+				}
+			}
+		}
+
+		filtered := map[string]any{}
+		for _, k := range signFields {
+			if v, ok := params[k]; ok {
+				if stringifyAny(v) != "" {
+					filtered[k] = v
+				}
+			}
+		}
+
+		expected, builderStr := buildOpenAPISignature(filtered, staticKey, timeValue)
 		if !strings.EqualFold(expected, enc) {
+			// 记录期望签名与用于计算的原始串，便于诊断客户端计算差异
+			logger.Infof("openapi signature mismatch expected=%s provided=%s builder=%s", expected, enc, builderStr)
 			openAPIError(c, http.StatusForbidden, "签名校验失败")
 			c.Abort()
 			return
@@ -106,7 +132,7 @@ func OpenAPISignatureMiddleware() gin.HandlerFunc {
 	}
 }
 
-func buildOpenAPISignature(params map[string]any, staticKey, timeValue string) string {
+func buildOpenAPISignature(params map[string]any, staticKey, timeValue string) (string, string) {
 	keys := make([]string, 0, len(params))
 	for k, v := range params {
 		if stringifyAny(v) == "" {
@@ -118,12 +144,59 @@ func buildOpenAPISignature(params map[string]any, staticKey, timeValue string) s
 	var builder strings.Builder
 	for _, key := range keys {
 		builder.WriteString(key)
-		builder.WriteString(stringifyAny(params[key]))
+		builder.WriteString(stringifyForSign(params[key]))
 	}
 	builder.WriteString(staticKey)
 	builder.WriteString(timeValue)
-	hash := md5.Sum([]byte(builder.String()))
-	return strings.ToUpper(hex.EncodeToString(hash[:]))
+	b := builder.String()
+	hash := md5.Sum([]byte(b))
+	expected := strings.ToUpper(hex.EncodeToString(hash[:]))
+	// 返回 expected 和用于计算的原始串，便于诊断
+	return expected, b
+}
+
+func stringifyForSign(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case string:
+		return val
+	case bool, float64, float32, int, int64, int32:
+		return fmt.Sprint(val)
+	case map[string]any:
+		// deterministic serialization: sort keys
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var sb strings.Builder
+		sb.WriteString("{")
+		for i, k := range keys {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString("\"")
+			sb.WriteString(k)
+			sb.WriteString("\":")
+			sb.WriteString(stringifyForSign(val[k]))
+		}
+		sb.WriteString("}")
+		return sb.String()
+	case []any:
+		var sb strings.Builder
+		sb.WriteString("[")
+		for i, e := range val {
+			if i > 0 {
+				sb.WriteString(",")
+			}
+			sb.WriteString(stringifyForSign(e))
+		}
+		sb.WriteString("]")
+		return sb.String()
+	default:
+		return fmt.Sprint(val)
+	}
 }
 
 func stringifyAny(v any) string {
