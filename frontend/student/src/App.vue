@@ -1189,6 +1189,7 @@ const latestAnswerMeta = ref({
   sourcePage: 0,
   sourceNodeId: '',
   needReteach: false,
+  understandingLevel: '',
   followUpSuggestion: '',
   sessionId: ''
 })
@@ -3865,6 +3866,7 @@ const sendMultiModalQuestion = async () => {
       sourcePage: 0,
       sourceNodeId: '',
       needReteach: false,
+      understandingLevel: '',
       followUpSuggestion: '',
       sessionId: sessionId.value
     }

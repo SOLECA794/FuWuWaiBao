@@ -163,6 +163,24 @@ type GenerateScriptResponse struct {
 	Page            int    `json:"page"`
 	Script          string `json:"script"`
 	MindmapMarkdown string `json:"mindmap_markdown"`
+	UseEnhancedSchema bool   `json:"use_enhanced_schema"`
+	Scripts         []any  `json:"scripts,omitempty"`
+}
+
+type GenerateEnhancedRequest struct {
+	Markdown   string `json:"markdown"`
+	CourseName string `json:"course_name"`
+	Mode       string `json:"mode"`
+}
+
+type GenerateEnhancedResponse struct {
+	CourseName       string `json:"course_name"`
+	SourceMarkdown   string `json:"source_markdown"`
+	KeyPoints        []string `json:"key_points"`
+	NodeTree         map[string]any `json:"node_tree"`
+	Scripts          []any `json:"scripts"`
+	UseEnhancedSchema bool `json:"use_enhanced_schema"`
+	UsedFallback     bool   `json:"used_fallback"`
 }
 
 type GenerateAudioNode struct {
@@ -332,6 +350,14 @@ func (c *aiEngineClient) GenerateFromMarkdown(ctx context.Context, req GenerateF
 func (c *aiEngineClient) GenerateScript(ctx context.Context, req GenerateScriptRequest) (*GenerateScriptResponse, error) {
 	var result GenerateScriptResponse
 	if err := c.postJSON(ctx, "/generate-script", req, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *aiEngineClient) GenerateEnhanced(ctx context.Context, req GenerateEnhancedRequest) (*GenerateEnhancedResponse, error) {
+	var result GenerateEnhancedResponse
+	if err := c.postJSON(ctx, "/generate-enhanced", req, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
