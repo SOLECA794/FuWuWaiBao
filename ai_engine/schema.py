@@ -95,6 +95,62 @@ def build_stage3_script_schema() -> dict[str, Any]:
     }
 
 
+def build_enhanced_script_schema() -> dict[str, Any]:
+    return {
+        "name": "enhanced_node_scripts",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "scripts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "node_id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "script": {"type": "string"},
+                            "segments": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "segment_id": {"type": "string"},
+                                        "text": {"type": "string"},
+                                        "node_id": {"type": "string"},
+                                        "node_ids": {"type": "array", "items": {"type": "string"}},
+                                        "segment_type": {"type": "string", "enum": ["opening", "explanation", "example", "interaction", "transition", "summary"]},
+                                        "estimated_seconds": {"type": "integer"},
+                                        "difficulty": {"type": "string", "enum": ["easy", "medium", "hard"]},
+                                        "interaction_hint": {"type": "string"},
+                                        "knowledge_card": {
+                                            "type": "object",
+                                            "additionalProperties": False,
+                                            "properties": {
+                                                "term": {"type": "string"},
+                                                "definition": {"type": "string"},
+                                                "formula": {"type": "string"},
+                                                "tags": {"type": "array", "items": {"type": "string"}},
+                                            },
+                                            "required": ["term", "definition"],
+                                        },
+                                    },
+                                    "required": ["segment_id", "text", "node_id", "segment_type", "estimated_seconds"],
+                                },
+                            },
+                        },
+                        "required": ["node_id", "title", "script", "segments"],
+                    },
+                }
+            },
+            "required": ["scripts"],
+        },
+    }
+
+
 def normalize_stage2_nodes(nodes: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     seen: set[str] = set()

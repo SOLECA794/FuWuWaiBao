@@ -16,6 +16,7 @@ try:
         build_stage1_markdown_schema,
         build_stage2_node_tree_schema,
         build_stage3_script_schema,
+        build_enhanced_script_schema,
         normalize_stage2_nodes,
         normalize_stage3_scripts,
     )
@@ -25,6 +26,7 @@ except ImportError:
         build_stage1_markdown_schema,
         build_stage2_node_tree_schema,
         build_stage3_script_schema,
+        build_enhanced_script_schema,
         normalize_stage2_nodes,
         normalize_stage3_scripts,
     )
@@ -113,6 +115,163 @@ class LessonGenerator:
             result["generation_error"] = str(error)
             result["used_fallback"] = True
             return result
+
+    def generate_from_markdown_enhanced(self, markdown: str, course_name: str | None = None) -> dict[str, Any]:
+        normalized_markdown = self._prepare_content(markdown or "")
+        if not normalized_markdown:
+            normalized_markdown = "# 未命名课件\n\n- 内容为空"
+        fallback = self._fallback_pipeline(normalized_markdown)
+        enhanced = self._build_enhanced_fallback(normalized_markdown)
+        try:
+            client = self._build_llm_client()
+            stage1 = self._run_stage1_markdown_understanding(client, normalized_markdown)
+            stage1_md = str(stage1.get("normalized_markdown") or normalized_markdown).strip() or normalized_markdown
+            stage1_points = [str(item).strip() for item in (stage1.get("key_points") or []) if str(item).strip()]
+            stage2_nodes = self._run_stage2_node_tree(client, stage1_md, stage1_points)
+            if not stage2_nodes:
+                stage2_nodes = fallback["node_tree"]["nodes"]
+            enhanced_scripts = self._run_stage3_enhanced_scripts(client, stage1_md, stage2_nodes, course_name)
+            if not enhanced_scripts:
+                enhanced_scripts = enhanced["scripts"]
+            node_ids = {item["node_id"] for item in stage2_nodes}
+            cleaned = self._normalize_enhanced_scripts(enhanced_scripts, node_ids)
+            if not cleaned:
+                cleaned = enhanced["scripts"]
+            return {
+                "course_name": course_name or "未命名课程",
+                "source_markdown": stage1_md,
+                "key_points": stage1_points,
+                "node_tree": {"nodes": stage2_nodes},
+                "scripts": cleaned,
+                "use_enhanced_schema": True,
+                "used_fallback": False,
+            }
+        except Exception as error:
+            result = dict(enhanced)
+            result["generation_error"] = str(error)
+            result["used_fallback"] = True
+            return result
+
+    def _run_stage3_enhanced_scripts(self, client, markdown: str, nodes: list, course_name: str | None) -> list:
+        system_prompt = (
+            "你是课堂讲稿生成助手（增强版）。只输出JSON。\n"
+            "格式: {\"scripts\": [{\"node_id\":\"...\",\"title\":\"...\",\"script\":\"...\",\"segments\":[...]}]}\n\n"
+            "每个segment必须包含:\n"
+            "  - segment_id, text, node_id (必填)\n"
+            "  - segment_type: opening/exclamation/example/interaction/transition/summary (必填)\n"
+            "  - estimated_seconds: 整数15-120 (必填)\n"
+            "  - interaction_hint: 具体教师话术 (必填)\n"
+            "  - knowledge_card: {\"term\":\"术语\",\"definition\":\"定义\",\"formula\":\"公式或空串\",\"tags\":[\"标签\"]} (必填)\n"
+            "  - difficulty: easy/medium/hard (必填)\n"
+            "使用节点树中的node_id值，不要编造。"
+        )
+        user_prompt = (
+            f"课程名: {course_name or '未命名课程'}\n原始MD:\n{markdown}\n\n节点树:\n{json.dumps(nodes, ensure_ascii=False)}\n\n"
+            "每个节点至少2-4个segments: 开场->讲解->互动->过渡。node_id必须用节点树中的值。"
+        )
+        raw = self._request_llm_payload(client, system_prompt, user_prompt)
+        with open("/tmp/enhanced_raw.json", "w") as f:
+            f.write(raw)
+        data = self._extract_json(raw)
+        scripts = data if isinstance(data, list) else data.get("scripts") or []
+        valid_ids = {n["node_id"] for n in nodes}
+        valid_list = sorted(valid_ids)
+        for idx, script in enumerate(scripts):
+            raw_id = str(script.get("node_id") or "").strip()
+            if raw_id in valid_ids:
+                continue
+            mapped = valid_list[idx] if idx < len(valid_list) else (valid_list[-1] if valid_list else None)
+            if mapped:
+                script["node_id"] = mapped
+                for seg in script.get("segments") or []:
+                    seg["node_id"] = mapped
+        return scripts
+
+    @staticmethod
+    def _resolve_seg_node_id(seg, node_id: str, valid_node_ids: set) -> str:
+        raw = str((seg or {}).get("node_id") or "").strip()
+        if not raw:
+            raw_arr = (seg or {}).get("node_ids") or []
+            if raw_arr:
+                raw = str(raw_arr[0]).strip()
+        if not raw or raw not in valid_node_ids:
+            raw = node_id
+        return raw
+
+    @staticmethod
+    def _resolve_script_node_id(item, valid_node_ids: set) -> str:
+        raw = str((item or {}).get("node_id") or "").strip()
+        if not raw:
+            raw_arr = (item or {}).get("node_ids") or []
+            if raw_arr:
+                raw = str(raw_arr[0]).strip()
+        if raw in valid_node_ids:
+            return raw
+        if valid_node_ids:
+            return sorted(valid_node_ids)[0]
+        return "node_unknown"
+
+    @staticmethod
+    def _normalize_enhanced_scripts(scripts: list, valid_node_ids: set) -> list:
+        _resolve_script_node_id = __class__._resolve_script_node_id
+        _resolve_seg_node_id = __class__._resolve_seg_node_id
+        normalized = []
+        for item in scripts or []:
+            node_id = _resolve_script_node_id(item, valid_node_ids)
+            if not node_id:
+                continue
+            segments = []
+            for seg in (item or {}).get("segments") or []:
+                seg_id = str((seg or {}).get("segment_id") or "").strip()
+                text = str((seg or {}).get("text") or "").strip()
+                if not seg_id or not text:
+                    continue
+                seg_nid = _resolve_seg_node_id(seg, node_id, valid_node_ids)
+                seg_type = str((seg or {}).get("segment_type") or "explanation").strip()
+                est_sec = int((seg or {}).get("estimated_seconds") or 30)
+                segments.append({
+                    "segment_id": seg_id, "text": text, "node_id": seg_nid,
+                    "segment_type": seg_type, "estimated_seconds": est_sec,
+                    "difficulty": str((seg or {}).get("difficulty") or "medium").strip(),
+                    "interaction_hint": str((seg or {}).get("interaction_hint") or "").strip(),
+                    "knowledge_card": (seg or {}).get("knowledge_card") or {},
+                })
+            script_text = str((item or {}).get("script") or "").strip()
+            if not script_text and segments:
+                script_text = "".join(s["text"] for s in segments)
+            normalized.append({
+                "node_id": node_id,
+                "title": str((item or {}).get("title") or node_id).strip() or node_id,
+                "script": script_text,
+                "segments": segments,
+            })
+        return normalized
+
+    def _build_enhanced_fallback(self, markdown: str) -> dict:
+        fallback = self._fallback_pipeline(markdown)
+        scripts = []
+        for idx, node in enumerate(fallback["node_tree"]["nodes"], start=1):
+            nid = node["node_id"]
+            title = node["title"]
+            st = f"讲解节点 {nid}：{title}。"
+            scripts.append({
+                "node_id": nid, "title": title, "script": st,
+                "segments": [{
+                    "segment_id": f"seg_{idx}_1", "text": st, "node_id": nid,
+                    "segment_type": "explanation", "estimated_seconds": 45,
+                    "difficulty": "medium",
+                    "interaction_hint": f"提问：你对{title}有什么理解？",
+                    "knowledge_card": {"term": title, "definition": f"关于{title}的核心知识", "formula": "", "tags": ["core"]},
+                }],
+            })
+        return {
+            "course_name": fallback.get("course_name", "未命名课程"),
+            "source_markdown": fallback.get("source_markdown", markdown),
+            "key_points": fallback.get("key_points", []),
+            "node_tree": fallback.get("node_tree", {"nodes": []}),
+            "scripts": scripts, "use_enhanced_schema": True,
+            "generation_error": "enhanced_fallback", "used_fallback": True,
+        }
 
     def _generate_llm(self, page: int, content: str) -> dict[str, Any]:
         normalized_content = self._prepare_content(content)

@@ -274,6 +274,16 @@ async def generate_node_script(req: GenerateNodeScriptRequest):
         raise HTTPException(status_code=500, detail=f"节点讲稿生成失败: {str(e)}")
 
 
+@app.post("/generate-enhanced")
+async def generate_enhanced(req: GenerateFromMarkdownRequest):
+    """增强版三阶段生成：输出带 segment_type/estimated_seconds/interaction_hint/knowledge_card 的结构化脚本。"""
+    try:
+        generator = LessonGenerator(GenerationConfig(mode=req.mode))
+        return generator.generate_from_markdown_enhanced(req.markdown, req.course_name)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"增强生成失败: {str(e)}")
+
+
 @app.post("/generate-from-markdown")
 async def generate_from_markdown(req: GenerateFromMarkdownRequest):
     """三阶段最小链路：Markdown -> 节点树(node_id) -> 节点讲稿(node_id)。"""

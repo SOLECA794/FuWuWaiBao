@@ -9,19 +9,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-RETEACH_KEYWORDS = [
-    "听不懂",
-    "不懂",
-    "太难",
-    "没明白",
-    "再讲",
-    "换个说法",
-    "举例",
-    "不太会",
-]
-
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# 三态理解程度枚举
+UNDERSTANDING_NONE = "none"
+UNDERSTANDING_PARTIAL = "partial"
+UNDERSTANDING_FULL = "full"
+
+RETEACH_KEYWORDS = ["听不懂", "不懂", "太难", "没明白", "再讲", "换个说法", "举例", "不太会"]
 
 
 def resolve_llm_base_url(model: str) -> tuple[str, str]:
@@ -66,11 +62,13 @@ class QAResponder:
     def answer(self, question: str, current_page: int, history_summary: str = "", recent_turns: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         source_page = self._resolve_source_page(current_page)
         source_content = self.page_map.get(source_page, "")
-        need_reteach = self._need_reteach(question)
         recent_turns = recent_turns or []
 
-        # 始终使用 LLM 进行回答
+        understanding = self._predict_understanding(question, source_content, history_summary)
+        need_reteach = understanding in (UNDERSTANDING_NONE, UNDERSTANDING_PARTIAL)
         answer_text, used_fallback, fallback_reason = self._llm_answer(question, source_page, source_content, need_reteach, history_summary, recent_turns)
+
+        resume_page, resume_node_id, resume_sec = self._resolve_resume_strategy(source_page, understanding, current_page)
 
         return {
             "question": question,
@@ -78,14 +76,49 @@ class QAResponder:
             "source_excerpt": source_content[:160].strip(),
             "intent": {
                 "need_reteach": need_reteach,
-                "reason": "keyword_trigger" if need_reteach else "normal_qa",
+                "understanding_level": understanding,
+                "reason": "llm_prediction",
             },
             "answer": answer_text,
             "used_fallback": used_fallback,
             "fallback_reason": fallback_reason,
-            "resume_page": source_page,
+            "resume_page": resume_page,
+            "resume_node_id": resume_node_id,
+            "resume_sec": resume_sec,
             "follow_up_suggestion": self._make_followup_suggestion(question, need_reteach, source_page),
         }
+
+    def _predict_understanding(self, question: str, source_content: str, history_summary: str) -> str:
+        api_key = os.getenv("AI_API_KEY")
+        if not api_key:
+            return UNDERSTANDING_PARTIAL if (any(kw in question.lower() for kw in RETEACH_KEYWORDS)) else UNDERSTANDING_FULL
+        try:
+            from openai import OpenAI
+            base_url, _ = resolve_llm_base_url(self.config.model)
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            resp = client.chat.completions.create(
+                model=self.config.model, temperature=0.1,
+                messages=[
+                    {"role": "system", "content": "你是教学助手的意图分析模块。只返回JSON: {\"understanding_level\": \"none|partial|full\"}\n- none: 听不懂/要求重讲\n- partial: 有具体疑点需补充\n- full: 理解正确可推进"},
+                    {"role": "user", "content": f"问题: {question}\n内容: {source_content[:400]}\n历史: {history_summary[:200] or '无'}\n输出JSON。"}
+                ],
+                response_format={"type": "json_object"}
+            )
+            raw = resp.choices[0].message.content
+            data = json.loads(raw)
+            level = str(data.get("understanding_level", UNDERSTANDING_PARTIAL)).strip().lower()
+            if level in (UNDERSTANDING_NONE, UNDERSTANDING_PARTIAL, UNDERSTANDING_FULL):
+                return level
+        except Exception:
+            pass
+        return UNDERSTANDING_PARTIAL if (any(kw in question.lower() for kw in RETEACH_KEYWORDS)) else UNDERSTANDING_FULL
+
+    def _resolve_resume_strategy(self, source_page: int, understanding: str, current_page: int) -> tuple:
+        if understanding == UNDERSTANDING_FULL:
+            return source_page + 1, f"p{source_page+1}_n1", 0
+        if understanding == UNDERSTANDING_PARTIAL:
+            return source_page, f"p{source_page}_n1", max((current_page - 1) * 15, 5)
+        return source_page, f"p{source_page}_n1", 0
 
     def _resolve_source_page(self, current_page: int) -> int:
         if current_page in self.page_map:
