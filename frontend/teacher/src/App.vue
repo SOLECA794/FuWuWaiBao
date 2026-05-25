@@ -264,7 +264,7 @@
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted, nextTick } from 'vue'
-import { API_BASE } from './config/api'
+import { API_BASE, AI_API_BASE } from './config/api'
 import { teacherV1Api } from './services/v1'
 import TeacherTopBar from './components/teacher/TeacherTopBar.vue'
 import TeacherCoursewareSidebar from './components/teacher/TeacherCoursewareSidebar.vue'
@@ -1219,54 +1219,90 @@ const handleAutosaveMapping = (payload) => {
   }, 800)
 }
 
+const fetchPageContent = async (courseId, page) => {
+  try {
+    const resp = await fetch(`${API_BASE}/api/v1/teacher/coursewares/${courseId}/scripts/${page}`)
+    const data = await resp.json()
+    const nodes = data?.data?.nodes || []
+    const script = data?.data?.content || ''
+    return { nodes, script }
+  } catch {
+    return { nodes: [], script: '' }
+  }
+}
+
+const buildMarkdownFromPage = (pageContent, courseName) => {
+  const nodes = pageContent.nodes || []
+  const lines = [`# ${courseName}`]
+  nodes.forEach((node) => {
+    lines.push(`## ${node.title || '节点'}`)
+    lines.push(node.summary || node.text || node.scriptText || '')
+    lines.push('')
+  })
+  return lines.join('\n').trim() || `# ${courseName}\n\n暂无内容`
+}
+
 const generateAIScript = async () => {
   scriptGenerating.value = true
   aiGenerateProgress.value = 8
   aiGenerateStageText.value = '正在分析课件内容'
   try {
     currentScript.value = 'AI正在生成讲稿...'
-    await new Promise((resolve) => window.setTimeout(resolve, 260))
+
+    const pageContent = await fetchPageContent(currentCourseId.value, currentEditPage.value)
+    const markdown = buildMarkdownFromPage(pageContent, currentCourseName.value || '课件')
+    if (!markdown || markdown === `# ${currentCourseName.value || '课件'}\n\n暂无内容`) {
+      throw new Error('课件内容为空，请先上传并解析课件')
+    }
+
     aiGenerateProgress.value = 28
-    aiGenerateStageText.value = '正在拆解知识点结构'
-    await new Promise((resolve) => window.setTimeout(resolve, 260))
-    aiGenerateProgress.value = 56
-    aiGenerateStageText.value = '正在生成节点讲稿'
-    const data = await teacherV1Api.coursewares.generateScript({
-      courseId: currentCourseId.value,
-      pageNum: currentEditPage.value
+    aiGenerateStageText.value = '正在通过 AI 引擎生成增强脚本'
+
+    const resp = await fetch(`${AI_API_BASE}/generate-enhanced`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown, course_name: currentCourseName.value || '未命名课程', mode: 'llm' })
     })
+    const enhancedData = await resp.json()
 
-    const generatedContentRaw = String(data?.data?.content || '').trim()
-    const looksLikePendingText = /(AI正在生成|生成讲稿中|智能生成中|请稍后|处理中|失败)/i.test(generatedContentRaw)
-    const generatedContent = looksLikePendingText ? '' : generatedContentRaw
-    const generatedNodes = normalizeNodes(data?.data?.nodes || [], currentEditPage.value)
-      .filter((node) => {
-        const text = `${node.title || ''} ${node.summary || ''} ${node.scriptText || ''}`.trim()
-        if (!text) return false
-        return !/(AI正在生成|生成讲稿中|智能生成中|请稍后|处理中|失败)/i.test(text)
-      })
+    aiGenerateProgress.value = 56
+    aiGenerateStageText.value = '正在解析结构化节点与分段'
 
-    if (!generatedContent && !generatedNodes.length) {
-      aiGenerateProgress.value = 82
-      aiGenerateStageText.value = 'AI结果为空，切换演示讲稿'
+    const scripts = enhancedData.scripts || []
+    const totalSegments = scripts.reduce((acc, s) => acc + (s.segments?.length || 0), 0)
+    const totalSec = scripts.reduce((acc, s) => acc + s.segments?.reduce((a, seg) => a + (seg.estimated_seconds || 0), 0) || 0, 0)
+
+    const enhancedNodes = enhancedData.node_tree?.nodes || []
+    const normalizedNodes = enhancedNodes.map((n) => ({
+      node_id: n.node_id,
+      title: n.title,
+      summary: n.summary || '',
+      source_span: n.source_span || `第${currentEditPage.value}页`,
+      scriptText: scripts.find(s => s.node_id === n.node_id)?.script || '',
+      prerequisites: n.prerequisites || [],
+      segments: scripts.find(s => s.node_id === n.node_id)?.segments || []
+    }))
+
+    const combinedScript = scripts.map(s => {
+      const segText = s.segments?.map(seg =>
+        `[${seg.segment_type}] (${seg.estimated_seconds}s) ${seg.text}`
+      ).join('\n') || s.script
+      return `## ${s.title}\n${segText}\n`
+    }).join('\n')
+
+    aiGenerateProgress.value = 82
+    aiGenerateStageText.value = '正在组装讲稿与结构化节点'
+
+    if (normalizedNodes.length > 0) {
+      currentScriptNodes.value = normalizedNodes
+      currentScript.value = combinedScript || buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, normalizedNodes)
+    } else {
       currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
       currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
-      alert('AI 返回空结果或处理中占位文本，已切换前端模拟生成讲稿。')
-    } else {
-      aiGenerateProgress.value = 82
-      aiGenerateStageText.value = '正在组装讲稿与节点'
-      currentScriptNodes.value = generatedNodes.length
-        ? generatedNodes
-        : normalizeNodes([], currentEditPage.value, generatedContent)
-      currentScript.value = generatedContent || buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
-
-      if (!generatedContent) {
-        alert('AI 返回内容不完整，已按前端规则补全讲稿内容。')
-      }
     }
 
     aiGenerateProgress.value = 100
-    aiGenerateStageText.value = '生成完成'
+    aiGenerateStageText.value = `生成完成 - ${totalSegments}个段落, 共${totalSec}秒`
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
   } catch (err) {
     aiGenerateProgress.value = 84
@@ -1274,7 +1310,9 @@ const generateAIScript = async () => {
     currentScriptNodes.value = buildDemoNodes(currentEditPage.value)
     currentScript.value = buildDemoScript(currentCourseName.value || '演示课件', currentEditPage.value, currentScriptNodes.value)
     cacheScriptSnapshot(currentCourseId.value, currentEditPage.value, currentScript.value, currentScriptNodes.value)
-    alert('AI 服务不可用，已切换前端模拟生成讲稿。')
+    if (err.message !== '课件内容为空，请先上传并解析课件') {
+      alert(`AI 服务不可用，已切换前端模拟生成讲稿。(${err.message})`)
+    }
   } finally {
     window.setTimeout(() => {
       aiGenerateProgress.value = 0
