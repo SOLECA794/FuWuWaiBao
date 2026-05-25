@@ -36,6 +36,8 @@ type sessionState struct {
 	CourseID      string    `json:"courseId"`
 	CurrentPage   int       `json:"currentPage"`
 	CurrentNodeID string    `json:"currentNodeId"`
+	ProgressPercent float64 `json:"progressPercent,omitempty"`
+	LastOperateTime string  `json:"lastOperateTime,omitempty"`
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 

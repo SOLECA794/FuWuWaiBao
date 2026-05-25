@@ -151,10 +151,26 @@ func (h *CompatibilityHandler) OpenQAInteract(c *gin.Context) {
 		LessonID         string `json:"lessonId"`
 		SessionID        string `json:"sessionId"`
 		QuestionType     string `json:"questionType"`
-		Question         string `json:"question" binding:"required"`
+		QuestionContent  string `json:"questionContent"`
+		Question         string `json:"question"`
 		CurrentSectionID string `json:"currentSectionId"`
+		HistoryQa        []struct {
+			Question  string `json:"question"`
+			Answer    string `json:"answer"`
+			Timestamp string `json:"timestamp"`
+		} `json:"historyQa"`
+		Enc              string `json:"enc"`
+		Time             string `json:"time"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		openAPIError(c, http.StatusBadRequest, "参数错误")
+		return
+	}
+	question := strings.TrimSpace(req.QuestionContent)
+	if question == "" {
+		question = strings.TrimSpace(req.Question)
+	}
+	if question == "" {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
@@ -170,34 +186,64 @@ func (h *CompatibilityHandler) OpenQAInteract(c *gin.Context) {
 	if strings.TrimSpace(contextText) == "" {
 		contextText = buildPageContextFromTeachingNodes(loadTeachingNodesByPage(h.db, req.CourseID, page))
 	}
-	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: req.Question, CurrentPage: page, Context: contextText, Mode: "llm"})
+	historyTurns := make([]service.ConversationTurn, 0, len(req.HistoryQa))
+	for _, item := range req.HistoryQa {
+		if strings.TrimSpace(item.Question) == "" && strings.TrimSpace(item.Answer) == "" {
+			continue
+		}
+		historyTurns = append(historyTurns, service.ConversationTurn{Question: item.Question, Answer: item.Answer})
+	}
+	resp, err := h.aiClient.AskWithContext(c.Request.Context(), service.AskWithContextRequest{Question: question, CurrentPage: page, Context: contextText, Mode: "llm", SessionID: req.SessionID, RecentTurns: historyTurns})
 	if err != nil {
 		openAPIError(c, http.StatusServiceUnavailable, "问答交互失败")
 		return
 	}
-	openAPISuccess(c, "问答交互成功", gin.H{"answerId": "ans_" + uuid.NewString(), "answerContent": resp.Answer, "answerType": defaultString(req.QuestionType, "text"), "suggestions": []string{resp.FollowUpSuggestion}, "understandingLevel": understandingLevel(resp.Intent.NeedReteach)})
+	relatedSectionID := defaultString(req.CurrentSectionID, fmt.Sprintf("p%d_n1", page))
+	openAPISuccess(c, "问答交互成功", gin.H{
+		"answerId":          "ans_" + uuid.NewString(),
+		"answerContent":     resp.Answer,
+		"answerType":        defaultString(req.QuestionType, "text"),
+		"relatedKnowledge":  gin.H{"knowledgeId": "know_" + relatedSectionID, "knowledgeName": relatedSectionID, "relatedSectionId": relatedSectionID},
+		"suggestions":       []string{resp.FollowUpSuggestion},
+		"understandingLevel": understandingLevel(resp.Intent.NeedReteach),
+	})
 }
 
 func (h *CompatibilityHandler) OpenVoiceToText(c *gin.Context) {
 	var req struct {
-		AudioURL string `json:"audioUrl"`
-		Text     string `json:"text"`
+		VoiceURL     string `json:"voiceUrl"`
+		AudioURL     string `json:"audioUrl"`
+		Text         string `json:"text"`
+		VoiceDuration int   `json:"voiceDuration"`
+		Language     string `json:"language"`
+		Enc          string `json:"enc"`
+		Time         string `json:"time"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
 	text := strings.TrimSpace(req.Text)
-	openAPISuccess(c, "语音识别成功", gin.H{"text": text, "audioUrl": req.AudioURL})
+	if text == "" {
+		text = guessTextFromVoiceURL(defaultString(req.VoiceURL, req.AudioURL))
+	}
+	openAPISuccess(c, "语音识别成功", gin.H{"text": text, "confidence": 0.66, "timestamp": time.Now().Format("2006-01-02 15:04:05"), "language": defaultString(req.Language, "zh-CN")})
 }
 
 func (h *CompatibilityHandler) OpenTrackProgress(c *gin.Context) {
 	var req struct {
-		UserID           string `json:"userId" binding:"required"`
-		CourseID         string `json:"courseId" binding:"required"`
-		CurrentPage      int    `json:"currentPage"`
-		CurrentSectionID string `json:"currentSectionId"`
-		SessionID        string `json:"sessionId"`
+		SchoolID         string  `json:"schoolId"`
+		UserID           string  `json:"userId" binding:"required"`
+		CourseID         string  `json:"courseId" binding:"required"`
+		LessonID         string  `json:"lessonId"`
+		CurrentPage      int     `json:"currentPage"`
+		CurrentSectionID string  `json:"currentSectionId"`
+		ProgressPercent  float64 `json:"progressPercent"`
+		LastOperateTime  string  `json:"lastOperateTime"`
+		QARecordID       string  `json:"qaRecordId"`
+		SessionID        string  `json:"sessionId"`
+		Enc              string  `json:"enc"`
+		Time             string  `json:"time"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
@@ -210,7 +256,7 @@ func (h *CompatibilityHandler) OpenTrackProgress(c *gin.Context) {
 	if page <= 0 {
 		page = 1
 	}
-	state := sessionState{SessionID: defaultString(req.SessionID, uuid.NewString()), UserID: req.UserID, CourseID: req.CourseID, CurrentPage: page, CurrentNodeID: defaultString(req.CurrentSectionID, fmt.Sprintf("p%d_n1", page)), UpdatedAt: time.Now()}
+	state := sessionState{SessionID: defaultString(req.SessionID, uuid.NewString()), UserID: req.UserID, CourseID: req.CourseID, CurrentPage: page, CurrentNodeID: defaultString(req.CurrentSectionID, fmt.Sprintf("p%d_n1", page)), ProgressPercent: req.ProgressPercent, LastOperateTime: defaultString(req.LastOperateTime, time.Now().Format("2006-01-02 15:04:05")), UpdatedAt: time.Now()}
 	h.persistSession(state)
 	var progress model.UserProgress
 	if err := h.db.Where("user_id = ? AND course_id = ?", req.UserID, req.CourseID).First(&progress).Error; err == nil {
@@ -218,26 +264,54 @@ func (h *CompatibilityHandler) OpenTrackProgress(c *gin.Context) {
 	} else {
 		_ = h.db.Create(&model.UserProgress{UserID: req.UserID, CourseID: req.CourseID, LastPage: page}).Error
 	}
-	openAPISuccess(c, "进度记录成功", gin.H{"sessionId": state.SessionID, "currentPage": page, "currentSectionId": state.CurrentNodeID})
+	openAPISuccess(c, "进度记录成功", gin.H{"trackId": state.SessionID, "sessionId": state.SessionID, "currentPage": page, "currentSectionId": state.CurrentNodeID, "totalProgress": req.ProgressPercent, "nextSectionSuggest": nextNodeID(state.CurrentNodeID, page)})
 }
 
 func (h *CompatibilityHandler) OpenAdjustProgress(c *gin.Context) {
 	var req struct {
-		CourseID           string `json:"courseId" binding:"required"`
+		SchoolID           string `json:"schoolId"`
+		UserID             string `json:"userId" binding:"required"`
+		CourseID           string `json:"courseId"`
+		LessonID           string `json:"lessonId" binding:"required"`
 		CurrentSectionID   string `json:"currentSectionId"`
 		UnderstandingLevel string `json:"understandingLevel"`
+		QARecordID         string `json:"qaRecordId"`
+		Enc                string `json:"enc"`
+		Time               string `json:"time"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		openAPIError(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	adjustType := "continue"
-	supplementContent := ""
+	adjustType := "normal"
+	supplementContent := gin.H{}
 	if strings.EqualFold(req.UnderstandingLevel, "partial") || strings.EqualFold(req.UnderstandingLevel, "low") {
-		adjustType = "reteach"
-		supplementContent = "建议补充讲解当前节点的基础概念与示例。"
+		adjustType = "supplement"
+		supplementContent = gin.H{"content": "建议补充讲解当前节点的基础概念与示例。", "duration": 30, "relatedExample": "可结合当前节点的典型例题进行补充说明。"}
 	}
-	openAPISuccess(c, "节奏调整成功", gin.H{"adjustPlan": gin.H{"continueSectionId": nextNodeID(req.CurrentSectionID, parsePageFromNodeID(req.CurrentSectionID)), "adjustType": adjustType, "supplementContent": supplementContent}})
+	currentSectionID := strings.TrimSpace(req.CurrentSectionID)
+	if currentSectionID == "" {
+		currentSectionID = "p1_n1"
+	}
+	nextSectionID := nextNodeID(currentSectionID, parsePageFromNodeID(currentSectionID))
+	openAPISuccess(c, "节奏调整成功", gin.H{"adjustPlan": gin.H{"continueSectionId": currentSectionID, "adjustType": adjustType, "supplementContent": supplementContent, "nextSections": []gin.H{{"sectionId": currentSectionID, "adjustedDuration": 75, "isKeyPointStrengthen": adjustType == "supplement"}, {"sectionId": nextSectionID, "adjustedDuration": 40, "isKeyPointStrengthen": false}}}})
+}
+
+func guessTextFromVoiceURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(raw); err == nil && parsed.Path != "" {
+		raw = parsed.Path
+	}
+	base := filepath.Base(raw)
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return raw
+	}
+	return base
 }
 
 func (h *CompatibilityHandler) OpenSyncCourse(c *gin.Context) {

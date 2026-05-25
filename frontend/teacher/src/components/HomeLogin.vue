@@ -53,6 +53,10 @@
           教师高效管理课件讲稿，学生实时互动提问，
           AI 智能解析学情，让每一节课更有意义。
         </p>
+        <div class="connection-pill">
+          <span class="pill-dot"></span>
+          泛雅开放平台已接通 · 教师端平台总览已联通
+        </div>
         <div class="features">
           <div class="feature-chip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -65,6 +69,10 @@
           <div class="feature-chip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             学情深度分析
+          </div>
+          <div class="feature-chip feature-chip-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h6l3 7 4-14 2 7h3"/></svg>
+            泛雅开放平台接通
           </div>
         </div>
       </div>
@@ -633,6 +641,40 @@ const handleRegister = async () => {
   height: 16px;
   color: #2F605A;
   flex-shrink: 0;
+}
+
+.feature-chip-accent {
+  background: linear-gradient(180deg, rgba(236, 248, 243, 0.96), rgba(217, 241, 233, 0.96));
+  color: #226a5a;
+  border-color: rgba(47, 96, 90, 0.18);
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(236, 248, 243, 0.92);
+  border: 1px solid rgba(47, 96, 90, 0.14);
+  color: #235f53;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #14b8a6;
+  box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.35);
+  animation: pulse-pill 2s ease-in-out infinite;
+}
+
+@keyframes pulse-pill {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(20, 184, 166, 0); }
 }
 
 /* ---- Login card ---- */
