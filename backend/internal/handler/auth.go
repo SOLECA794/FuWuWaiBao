@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -108,10 +109,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	token, err := GenerateToken(fmt.Sprint(user.ID), user.Role)
+	if err != nil {
+		logger.Errorf("生成令牌失败: %v", err)
+		apiresp.Internal(c, "登录失败，生成令牌失败", "")
+		return
+	}
+
 	apiresp.OK(c, "登录成功", gin.H{
-			"id":       user.ID,
-			"username": user.Username,
-			"role":     user.Role,
-		})
+		"id":        user.ID,
+		"username":  user.Username,
+		"role":      user.Role,
+		"authToken": token,
+	})
 }
 
