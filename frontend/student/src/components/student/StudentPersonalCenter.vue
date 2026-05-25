@@ -1,33 +1,20 @@
 <template>
   <div class="pc-shell">
+    <section class="pc-fixed-region">
     <header class="pc-top">
       <div class="pc-identity">
         <div class="avatar" :title="studentId">{{ avatarText }}</div>
         <div class="id-meta">
           <div class="title-row">
-            <h2>个人中心</h2>
-            <span class="pill" v-if="currentCourseName">正在学习：{{ currentCourseName }}</span>
+            <div class="title-main">
+              <h2>个人中心</h2>
+              <span class="pill" v-if="currentCourseName">正在学习：{{ currentCourseName }}</span>
+            </div>
+            <button type="button" class="stats-toggle-btn" @click="toggleStatsPanel">
+              {{ statsPanelVisible ? '收起数据统计' : '数据统计' }}
+            </button>
           </div>
           <p class="subtitle">把「学习 → 记录 → 练习 → 复习 → 任务 → 反馈」收拢到一个闭环里。</p>
-        </div>
-      </div>
-
-      <div class="pc-metrics">
-        <div class="metric">
-          <div class="metric-label">学习专注</div>
-          <div class="metric-value">{{ learningStatsSafe.focusScore }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">掌握率</div>
-          <div class="metric-value">{{ masteryRateClamped }}%</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">薄弱点</div>
-          <div class="metric-value">{{ weakPointTagsSafe.length }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">未读通知</div>
-          <div class="metric-value">{{ unreadNotificationCount }}</div>
         </div>
       </div>
 
@@ -63,6 +50,27 @@
           </div>
         </div>
       </div>
+
+      <transition name="stats-pop">
+        <div v-if="statsPanelVisible" class="pc-stats-popover">
+          <div class="metric">
+            <div class="metric-label">学习专注</div>
+            <div class="metric-value">{{ learningStatsSafe.focusScore }}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">掌握率</div>
+            <div class="metric-value">{{ masteryRateClamped }}%</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">薄弱点</div>
+            <div class="metric-value">{{ weakPointTagsSafe.length }}</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">未读通知</div>
+            <div class="metric-value">{{ unreadNotificationCount }}</div>
+          </div>
+        </div>
+      </transition>
     </header>
 
     <div v-if="dueReminders.length" class="pc-banner">
@@ -72,7 +80,7 @@
       </div>
     </div>
 
-    <div class="pc-tabs sticky">
+    <div class="pc-tabs">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -84,6 +92,7 @@
         <span class="tab-count" v-if="tabCount(tab.key) !== null">{{ tabCount(tab.key) }}</span>
       </button>
     </div>
+    </section>
 
     <main class="pc-body" ref="bodyEl" @dragover.prevent>
       <transition name="pc-fade-slide" mode="out-in">
@@ -138,7 +147,7 @@
               title="拖拽到收藏列：待学习/薄弱点/重点难点/已掌握"
             >
               <div class="card-top">
-                <div class="card-title">{{ note.title || `第${note.pageNum}页笔记` }}</div>
+                <div class="card-title">{{ resolveNoteTitle(note) }}</div>
                 <div class="card-actions" @click.stop>
                   <button class="icon-btn" @click="startNoteEdit(note)">编辑</button>
                   <button class="icon-btn danger" @click="deleteNote(note.id)">删除</button>
@@ -238,6 +247,180 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <section v-else-if="activeTab === 'plans'" key="plans" class="panel">
+          <div class="panel-head">
+            <div class="head-left">
+              <h3>复习计划</h3>
+              <p>把笔记/收藏转成可执行复习清单，形成学习闭环。</p>
+            </div>
+            <div class="head-right">
+              <button class="btn primary" @click="startPlanEdit()">创建计划</button>
+            </div>
+          </div>
+
+          <div v-if="showPlanForm" class="editor">
+            <div class="grid">
+              <input v-model="planForm.name" class="input" placeholder="计划名称（例如：本周薄弱点复习）" />
+              <select v-model="planForm.frequency" class="input select">
+                <option value="daily">每日</option>
+                <option value="weekly">每周</option>
+                <option value="monthly">每月</option>
+              </select>
+            </div>
+            <textarea v-model="planForm.description" class="input textarea" rows="3" placeholder="计划说明（可选）"></textarea>
+            <div class="row actions">
+              <button class="btn" @click="showPlanForm = false; editingPlan = null">取消</button>
+              <button class="btn primary" @click="savePlan">保存计划</button>
+            </div>
+          </div>
+
+          <div v-if="!reviewPlans.length" class="empty-card">
+            <div class="empty-title">暂无复习计划</div>
+            <div class="empty-desc">你可以从收藏看板一键加入计划，或先新建一个空计划。</div>
+            <div class="empty-actions">
+              <button class="btn primary" @click="startPlanEdit()">创建第一个计划</button>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="grid-2">
+              <div v-for="plan in reviewPlans" :key="plan.id" class="card compact">
+                <div class="card-top">
+                  <div class="card-title">{{ plan.name || '未命名计划' }}</div>
+                  <span class="badge">{{ formatPlanStatus(plan.status) }}</span>
+                </div>
+                <div class="card-body">{{ plan.description || '暂无计划说明' }}</div>
+                <div class="card-foot">
+                  <span class="muted">频率：{{ formatFrequency(plan.frequency) }}</span>
+                  <span class="muted">下次：{{ formatDate(plan.nextReviewDate) || '-' }}</span>
+                </div>
+                <div class="row actions">
+                  <button class="btn" @click="viewPlanItems(plan)">查看复习项</button>
+                  <button class="btn" @click="startPlanEdit(plan)">编辑</button>
+                  <button class="btn danger" @click="deletePlan(plan.id)">删除</button>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="currentPlan" class="subpanel">
+              <div class="section-head">
+                <h4>计划详情：{{ currentPlan.name }}</h4>
+                <button class="btn ghost" @click="viewPlanItems(currentPlan)">刷新复习项</button>
+              </div>
+
+              <div class="editor slim">
+                <div class="grid">
+                  <select v-model="addItemForm.type" class="input select">
+                    <option value="note">笔记</option>
+                    <option value="favorite">收藏</option>
+                  </select>
+                  <select v-model="addItemForm.itemId" class="input select">
+                    <option disabled value="">选择要加入的内容</option>
+                    <option v-for="item in availablePlanItems" :key="item.id" :value="item.id">
+                      {{ addItemForm.type === 'favorite' ? getFavoriteTitle(item.id) : (item.title || `第${item.pageNum}页笔记`) }}
+                    </option>
+                  </select>
+                </div>
+                <div class="row actions">
+                  <button class="btn primary" @click="addPlanItem">加入复习项</button>
+                </div>
+              </div>
+
+              <div v-if="!planItems.length" class="empty">当前计划还没有复习项。</div>
+              <div v-else class="note-list">
+                <div v-for="item in planItems" :key="item.id" class="card compact">
+                  <div class="card-top">
+                    <div class="card-title">
+                      {{ item.itemType === 'favorite' ? getFavoriteTitle(item.itemId) : getNoteContent(item.itemId) }}
+                    </div>
+                    <span class="pill">{{ item.itemType === 'favorite' ? '收藏' : '笔记' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">优先级：{{ item.priority || '-' }}</span>
+                    <span class="muted">复习次数：{{ item.reviewCount || 0 }}</span>
+                    <span class="muted">最近复习：{{ formatDate(item.lastReviewedAt) || '-' }}</span>
+                  </div>
+                  <div class="row actions">
+                    <button class="btn primary" @click="markReviewed(item)">标记已复习</button>
+                    <button class="btn danger" @click="removePlanItem(item.id)">移除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <section v-else-if="activeTab === 'practice'" key="practice" class="panel">
+          <div class="panel-head">
+            <div class="head-left">
+              <h3>练习记录</h3>
+              <p>展示最近练习历史与错题，支持一键重做。</p>
+            </div>
+            <div class="head-right">
+              <button class="btn ghost" @click="loadPracticeData">刷新</button>
+            </div>
+          </div>
+
+          <div v-if="!practiceHistory.length && !wrongQuestions.length" class="empty-card">
+            <div class="empty-title">暂无练习记录</div>
+            <div class="empty-desc">先去「随堂练习」做题，结果会自动同步到这里。</div>
+            <div class="empty-actions">
+              <button class="btn primary" @click="jumpToClassroom">去课堂学习</button>
+            </div>
+          </div>
+
+          <template v-else>
+            <div class="subpanel">
+              <div class="section-head">
+                <h4>最近练习</h4>
+                <span class="muted">共 {{ practiceHistory.length }} 条</span>
+              </div>
+              <div v-if="!practiceHistory.length" class="empty">暂无已提交练习。</div>
+              <div v-else class="grid-2">
+                <div v-for="item in practiceHistory" :key="item.taskId" class="card compact">
+                  <div class="card-top">
+                    <div class="card-title">任务 {{ item.taskId }}</div>
+                    <span class="badge">{{ item.status === 'completed' ? '已完成' : '待完成' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">页码：{{ item.pageNum || '-' }}</span>
+                    <span class="muted">难度：{{ item.difficulty || '-' }}</span>
+                    <span class="muted">提交：{{ formatDate(item.attempt?.submittedAt || item.createdAt) || '-' }}</span>
+                  </div>
+                  <div class="card-foot">
+                    <span class="muted">正确：{{ item.attempt?.correctCount || 0 }}/{{ item.attempt?.totalCount || item.questionCount || item.questionCnt || 0 }}</span>
+                    <span class="muted">得分：{{ item.attempt?.score || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="subpanel">
+              <div class="section-head">
+                <h4>错题列表</h4>
+                <span class="muted">共 {{ wrongQuestions.length }} 题</span>
+              </div>
+              <div v-if="!wrongQuestions.length" class="empty">当前没有错题，继续保持。</div>
+              <div v-else class="note-list">
+                <div v-for="item in wrongQuestions" :key="item.recordId || item.questionId" class="card">
+                  <div class="card-top">
+                    <div class="card-title">{{ item.content || '未提供题干' }}</div>
+                    <span class="pill">{{ item.questionType || '题目' }}</span>
+                  </div>
+                  <div class="card-body">
+                    <div>你的答案：{{ item.userAnswer || '未作答' }}</div>
+                    <div>正确答案：{{ item.correctAnswer || item.referenceAnswer || '主观题请查看解析' }}</div>
+                    <div>解析：{{ item.explanation || item.aiComment || '暂无解析' }}</div>
+                  </div>
+                  <div class="row actions">
+                    <button class="btn primary" @click="retryWrongQuestion(item.questionId)">重做本题</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </section>
 
         <section v-else-if="activeTab === 'tasks'" key="tasks" class="panel">
@@ -351,7 +534,7 @@
           <div class="drawer-head">
             <div>
               <div class="drawer-kicker">笔记详情</div>
-              <div class="drawer-title">{{ noteDrawer.note?.title || `第${noteDrawer.note?.pageNum || 1}页笔记` }}</div>
+              <div class="drawer-title">{{ resolveNoteTitle(noteDrawer.note) }}</div>
               <div class="drawer-meta">
                 <span class="chip">{{ getCourseName(noteDrawer.note?.courseId) }}</span>
                 <span class="muted">第 {{ noteDrawer.note?.pageNum || 1 }} 页</span>
@@ -391,7 +574,8 @@ export default {
     courseId: { type: String, default: '' },
     currentCourseName: { type: String, default: '' },
     learningStats: { type: Object, default: null },
-    weakPointTags: { type: Array, default: () => [] }
+    weakPointTags: { type: Array, default: () => [] },
+    initialTab: { type: String, default: 'notes' }
   },
   data() {
     return {
@@ -411,7 +595,8 @@ export default {
       showTaskEditor: false,
       editingTaskId: '',
       taskForm: { title: '', detail: '', dueAt: '' },
-      tabScrollTops: {},
+      noteTitleMap: {},
+      statsPanelVisible: false,
     }
   },
   computed: {
@@ -444,7 +629,7 @@ export default {
       const list = (this.notes || []).filter((n) => {
         if (!q) return true
         const courseName = this.getCourseName(n.courseId)
-        const hay = `${n.title || ''} ${n.note || ''} ${courseName}`.toLowerCase()
+        const hay = `${this.resolveNoteTitle(n)} ${n.note || ''} ${courseName}`.toLowerCase()
         return hay.includes(q)
       })
       const sorted = [...list].sort((a, b) => {
@@ -476,29 +661,45 @@ export default {
       return [...planReminders, ...notificationReminders].slice(0, 5)
     }
   },
-  async created() { await this.loadData() },
+  async created() {
+    this.applyInitialTab(this.initialTab)
+    this.loadLocalNoteTitleMap()
+    await this.loadData()
+  },
+  watch: {
+    initialTab(next) {
+      this.applyInitialTab(next)
+    }
+  },
   methods: {
+    applyInitialTab(tab) {
+      const safe = String(tab || '').trim()
+      if (!safe) return
+      const exists = this.tabs.some((item) => item.key === safe)
+      if (!exists) return
+      if (this.activeTab === safe) return
+      this.activeTab = safe
+    },
     switchTab(key) {
-      this.persistActiveTabScroll()
+      if (this.activeTab === key) return
       this.activeTab = key
       this.dragOverCol = ''
       this.editingFavorite = null
-      this.$nextTick(() => this.restoreActiveTabScroll())
+      this.statsPanelVisible = false
+      this.$nextTick(() => {
+        const el = this.$refs.bodyEl
+        if (!el) return
+        el.scrollTop = 0
+      })
     },
-    persistActiveTabScroll() {
-      const el = this.$refs.bodyEl
-      if (!el) return
-      this.tabScrollTops = { ...(this.tabScrollTops || {}), [this.activeTab]: el.scrollTop || 0 }
-    },
-    restoreActiveTabScroll() {
-      const el = this.$refs.bodyEl
-      if (!el) return
-      const next = (this.tabScrollTops && this.tabScrollTops[this.activeTab]) || 0
-      el.scrollTop = next
+    toggleStatsPanel() {
+      this.statsPanelVisible = !this.statsPanelVisible
     },
     tabCount(key) {
       if (key === 'notes') return (this.notes || []).length
       if (key === 'favorites') return (this.favorites || []).length
+      if (key === 'plans') return (this.reviewPlans || []).length
+      if (key === 'practice') return (this.practiceHistory || []).length
       if (key === 'notifications') return this.unreadNotificationCount
       if (key === 'tasks') return (this.mergeTasks() || []).filter(t => t.status !== 'done').length
       return null
@@ -506,6 +707,7 @@ export default {
     async loadData() { await this.loadCollections(); await this.loadPracticeData(); await this.loadNotificationData(); await this.loadTaskData() },
     async loadCollections() {
       try {
+        this.loadLocalNoteTitleMap()
         const [courseRes, notesRes, favRes, plansRes] = await Promise.all([studentCoursewareApi.list(), studentCoursewareApi.listNotes({ studentId: this.studentId, pageSize: 100 }), studentCoursewareApi.listFavorites({ studentId: this.studentId, pageSize: 100 }), studentCoursewareApi.listReviewPlans(this.studentId)])
         this.courses = courseRes.data || []
         this.notes = (notesRes.data && notesRes.data.items) || []
@@ -588,6 +790,25 @@ export default {
     async deleteTask(id) { if (!window.confirm('确认删除这条任务吗？')) return; try { await studentTaskApi.remove(id); await this.loadTaskData(); ElMessage.success('任务已删除') } catch (error) { ElMessage.error(`删除任务失败：${error.message}`) } },
     async openReminder(item) { if (item.kind === 'plan') return this.viewPlanItems(item.plan); await this.markNotificationRead(item.notification) },
     parseFavoriteTags(raw) { if (Array.isArray(raw)) return raw; if (!raw) return []; try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed : [] } catch (error) { return [] } },
+    noteTitleMapKey() { return `fuww_student_note_title_map:${String(this.studentId || '').trim().toLowerCase()}` },
+    loadLocalNoteTitleMap() {
+      this.noteTitleMap = {}
+      if (typeof window === 'undefined') return
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(this.noteTitleMapKey()) || '{}')
+        if (parsed && typeof parsed === 'object') this.noteTitleMap = parsed
+      } catch (error) {
+        this.noteTitleMap = {}
+      }
+    },
+    resolveNoteTitle(note) {
+      if (!note) return '课堂笔记'
+      if (note.title) return note.title
+      const key = `${note.courseId || ''}::${note.pageNum || ''}`
+      const mapped = this.noteTitleMap?.[key]
+      if (mapped) return mapped
+      return `第${note.pageNum || 1}页笔记`
+    },
     getCourseName(id) { const target = this.courses.find(item => item.id === id); return (target && target.title) || id || '未关联课程' },
     getNoteContent(id) { const target = this.notes.find(item => item.id === id); return (target && target.note) || '未找到笔记' },
     getFavoriteTitle(id) { const target = this.favorites.find(item => item.id === id); return (target && target.title) || '未找到收藏' },
@@ -905,18 +1126,61 @@ export default {
 </script>
 
 <style scoped>
-.pc-shell { display: grid; gap: 16px; padding: 16px; color: #1E293B; background: #F5F7FA; }
-.pc-top { background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; }
+.pc-shell { display: grid; gap: 14px; padding: 16px; color: #1E293B; background: #F5F7FA; }
+.pc-fixed-region {
+  position: sticky;
+  top: 8px;
+  z-index: 12;
+  display: grid;
+  gap: 10px;
+  background: #F5F7FA;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+.pc-top { min-height: 176px; background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; overflow: visible; }
 .pc-identity { display: flex; gap: 12px; align-items: center; }
 .avatar { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #2f605a 0%, #4d8a80 100%); color: #fff; display: grid; place-items: center; font-size: 20px; font-weight: 800; box-shadow: 0 8px 30px rgba(47, 96, 90, 0.18); }
 .id-meta { min-width: 0; }
-.title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.title-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.title-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .title-row h2 { margin: 0; font-size: 20px; }
 .subtitle { margin: 6px 0 0; color: #64748B; font-size: 13px; }
-.pc-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stats-toggle-btn {
+  border: 1px solid rgba(226,232,240,0.95);
+  background: #FFFFFF;
+  color: #334155;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease-out, border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.stats-toggle-btn:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 6px 18px rgba(47, 96, 90, 0.08); }
+.stats-toggle-btn:active { transform: scale(0.97); }
+.pc-stats-popover {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  width: min(420px, calc(100% - 32px));
+  border: 1px solid rgba(226,232,240,0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(8px);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
 .metric { border: 1px solid rgba(226,232,240,0.9); background: #F8FAFC; border-radius: 12px; padding: 10px 12px; }
 .metric-label { font-size: 12px; color: #64748B; font-weight: 600; letter-spacing: 0.02em; }
 .metric-value { margin-top: 4px; font-size: 18px; font-weight: 800; color: #1E293B; }
+
+.stats-pop-enter-active,
+.stats-pop-leave-active { transition: all 0.2s ease-out; }
+.stats-pop-enter-from,
+.stats-pop-leave-to { opacity: 0; transform: translateY(-6px); }
 
 .pc-learning-viz {
   display: grid;
@@ -989,16 +1253,16 @@ export default {
 .banner-item { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .banner-text { color: #334155; font-weight: 600; }
 
-.pc-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-.pc-tabs.sticky { position: sticky; top: 0; z-index: 3; padding: 10px 0; background: rgba(245,247,250,0.92); backdrop-filter: blur(10px); box-shadow: 0 10px 26px rgba(0,0,0,0.06); }
-.tab { border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 999px; padding: 8px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; transition: transform 0.2s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out, background 0.2s ease-out; }
-.tab:hover { transform: translateY(-2px) scale(1.01); border-color: rgba(47, 96, 90, 0.35); box-shadow: 0 8px 30px rgba(47, 96, 90, 0.08); }
+.pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0 2px; }
+.tab { width: 96px; height: 32px; border: 1px solid rgba(226,232,240,0.95); background: #FFFFFF; border-radius: 11px; padding: 0 8px; cursor: pointer; display: inline-flex; justify-content: center; gap: 5px; align-items: center; font-size: 11px; font-weight: 600; transition: transform 0.16s ease-out, box-shadow 0.18s ease-out, border-color 0.18s ease-out, background 0.18s ease-out; }
+.tab:hover { transform: translateY(-1px); border-color: rgba(47, 96, 90, 0.32); box-shadow: 0 4px 12px rgba(47, 96, 90, 0.08); }
 .tab:active { transform: translateY(0) scale(0.97); }
-.tab.active { background: #2f605a; color: #fff; border-color: #2f605a; box-shadow: 0 8px 30px rgba(47, 96, 90, 0.14); }
-.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+.tab.active { background: #2f605a; color: #fff; border-color: #2f605a; box-shadow: 0 4px 12px rgba(47, 96, 90, 0.14); }
+.tab-label { line-height: 1; }
+.tab-count { background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.22); padding: 1px 5px; border-radius: 999px; font-size: 10px; font-weight: 800; }
 .tab:not(.active) .tab-count { background: #F8FAFC; border-color: rgba(226,232,240,0.95); color: #334155; }
 
-.pc-body { min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; padding-bottom: 2px; }
+.pc-body { min-height: 240px; max-height: calc(100vh - 280px); overflow: auto; scroll-behavior: auto; padding-bottom: 2px; }
 .panel { background: #FFFFFF; border: 1px solid rgba(226,232,240,0.95); border-radius: 16px; padding: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); display: grid; gap: 12px; }
 .panel-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .head-left h3 { margin: 0; font-size: 16px; color: #1E293B; }
@@ -1075,17 +1339,19 @@ export default {
 .drawer-meta { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .drawer-tip { color: #6b7f75; font-size: 12px; }
 
-.pc-fade-slide-enter-active, .pc-fade-slide-leave-active { transition: all 0.25s ease-out; }
-.pc-fade-slide-enter-from, .pc-fade-slide-leave-to { opacity: 0; transform: translateY(8px) scale(0.995); }
+.pc-fade-slide-enter-active, .pc-fade-slide-leave-active { transition: opacity 0.18s ease-out; }
+.pc-fade-slide-enter-from, .pc-fade-slide-leave-to { opacity: 0; }
 
 .drawer-fade-enter-active, .drawer-fade-leave-active { transition: opacity 0.22s ease; }
 .drawer-fade-enter-from, .drawer-fade-leave-to { opacity: 0; }
 
 @media (max-width: 1100px) {
-  .pc-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pc-fixed-region { top: 6px; }
+  .pc-stats-popover { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(360px, calc(100% - 20px)); right: 10px; top: 58px; }
   .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
+  .pc-stats-popover { grid-template-columns: 1fr; width: calc(100% - 16px); right: 8px; }
   .board { grid-template-columns: 1fr; }
   .editor .grid { grid-template-columns: 1fr; }
   .banner-item { flex-direction: column; align-items: flex-start; }

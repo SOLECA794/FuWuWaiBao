@@ -1,0 +1,582 @@
+openapi: 3.0.3
+info:
+  title: 超星AI互动智课服务系统开放API
+  version: 1.0.0
+  description: |
+    基于《超星AI互动智课服务系统开放API设计规范与示例》PDF 抽取的接口定义。
+    统一响应格式：{ code, msg, data, requestId }。
+    签名规则：enc = MD5(参数有序拼接 + staticKey + time)，time 格式为 yyyy-MM-ddHH:mm:ss。
+servers:
+  - url: https://api.example.com
+    description: 生产环境占位符
+  - url: https://sandbox.example.com
+    description: 沙盒环境占位符
+paths:
+  /api/v1/lesson/parse:
+    post:
+      summary: 课件上传与解析
+      operationId: parseLessonMaterial
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonParseRequest'
+            examples:
+              example1:
+                value:
+                  schoolId: sch10001
+                  userId: tea20001
+                  courseId: cou30001
+                  fileType: pdf
+                  fileUrl: http://xxx.com/course/ppt/123.pdf
+                  isExtractKeyPoint: true
+                  enc: C4C859FB8E0E2035DB8C69212E89838A
+      responses:
+        '200':
+          description: 解析成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonParseResponse'
+  /api/v1/lesson/generateScript:
+    post:
+      summary: 智课脚本生成
+      operationId: generateLessonScript
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonGenerateScriptRequest'
+            examples:
+              example1:
+                value:
+                  parseId: parse20240520001
+                  teachingStyle: standard
+                  speechSpeed: normal
+                  customOpening: 同学们好，今天我们学习梁弯曲理论的核心知识点
+                  enc: D7E3F9A2B4C6D8E0F2A3B5C7D9E1F3A5
+      responses:
+        '200':
+          description: 脚本生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonGenerateScriptResponse'
+  /api/v1/lesson/generateAudio:
+    post:
+      summary: 语音合成
+      operationId: generateLessonAudio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LessonGenerateAudioRequest'
+            examples:
+              example1:
+                value:
+                  scriptId: script20240520001
+                  voiceType: female_standard
+                  audioFormat: mp3
+                  sectionIds: [sec001, sec002]
+                  enc: E8F9A3B5C7D9E1F3A5B7C9D1E3F5A7B9
+      responses:
+        '200':
+          description: 语音合成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonGenerateAudioResponse'
+  /api/v1/qa/interact:
+    post:
+      summary: 问答交互
+      operationId: interactQA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QAInteractRequest'
+            examples:
+              example1:
+                value:
+                  schoolId: sch10001
+                  userId: stu20001
+                  courseId: cou30001
+                  lessonId: lesson20240520001
+                  sessionId: ses20240520001
+                  questionType: text
+                  questionContent: 平面假设为什么能简化梁弯曲问题？
+                  currentSectionId: sec002
+                  historyQa:
+                    - question: 什么是平面假设？
+                      answer: 平面假设是...
+                      timestamp: 2024-05-20 10:00:00
+                  enc: F9A2B4C6D8E0F2A3B5C7D9E1F3A5B7C9
+      responses:
+        '200':
+          description: 问答交互成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QAInteractResponse'
+  /api/v1/qa/voiceToText:
+    post:
+      summary: 语音提问识别
+      operationId: voiceToTextQA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QAVoiceToTextRequest'
+            examples:
+              example1:
+                value:
+                  voiceUrl: http://xxx.com/question/voice/123.wav
+                  voiceDuration: 10
+                  language: zh-CN
+                  enc: A3B5C7D9E1F3A5B7C9D1E3F5A7B9C1D3
+      responses:
+        '200':
+          description: 语音识别成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QAVoiceToTextResponse'
+  /api/v1/progress/track:
+    post:
+      summary: 学习进度追踪
+      operationId: trackLearningProgress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressTrackRequest'
+            examples:
+              example1:
+                value:
+                  schoolId: sch10001
+                  userId: stu20001
+                  courseId: cou30001
+                  lessonId: lesson20240520001
+                  currentSectionId: sec002
+                  progressPercent: 60.5
+                  lastOperateTime: 2024-05-20 10:10:00
+                  qaRecordId: ans20240520001
+                  enc: B5C7D9E1F3A5B7C9D1E3F5A7B9C1D3E5
+      responses:
+        '200':
+          description: 进度追踪成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressTrackResponse'
+  /api/v1/progress/adjust:
+    post:
+      summary: 学习节奏调整
+      operationId: adjustLearningPace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressAdjustRequest'
+            examples:
+              example1:
+                value:
+                  userId: stu20001
+                  lessonId: lesson20240520001
+                  currentSectionId: sec002
+                  understandingLevel: partial
+                  qaRecordId: ans20240520001
+                  enc: C7D9E1F3A5B7C9D1E3F5A7B9C1D3E5F7
+      responses:
+        '200':
+          description: 节奏调整成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressAdjustResponse'
+components:
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        msg:
+          type: string
+          example: 操作成功
+        data:
+          type: object
+          additionalProperties: true
+        requestId:
+          type: string
+          example: req20240520001
+    LessonParseRequest:
+      type: object
+      required: [schoolId, userId, courseId, fileType, fileUrl, enc]
+      properties:
+        schoolId:
+          type: string
+        userId:
+          type: string
+        courseId:
+          type: string
+        fileType:
+          type: string
+          enum: [ppt, pdf]
+        fileUrl:
+          type: string
+          format: uri
+        isExtractKeyPoint:
+          type: boolean
+          default: true
+        enc:
+          type: string
+    LessonParseResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                parseId:
+                  type: string
+                fileInfo:
+                  type: object
+                  properties:
+                    fileName:
+                      type: string
+                    fileSize:
+                      type: integer
+                    pageCount:
+                      type: integer
+                structurePreview:
+                  type: object
+                  properties:
+                    chapters:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          chapterId:
+                            type: string
+                          chapterName:
+                            type: string
+                          subChapters:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                subChapterId:
+                                  type: string
+                                subChapterName:
+                                  type: string
+                                isKeyPoint:
+                                  type: boolean
+                                pageRange:
+                                  type: string
+                taskStatus:
+                  type: string
+                  enum: [processing, completed, failed]
+    LessonGenerateScriptRequest:
+      type: object
+      required: [parseId, enc]
+      properties:
+        parseId:
+          type: string
+        teachingStyle:
+          type: string
+          enum: [standard, detailed, concise]
+          default: standard
+        speechSpeed:
+          type: string
+          enum: [slow, normal, fast]
+          default: normal
+        customOpening:
+          type: string
+        enc:
+          type: string
+    LessonGenerateScriptResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                scriptId:
+                  type: string
+                scriptStructure:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectionId:
+                        type: string
+                      sectionName:
+                        type: string
+                      content:
+                        type: string
+                      duration:
+                        type: integer
+                      relatedChapterId:
+                        type: string
+                      relatedPage:
+                        type: string
+                      keyPoints:
+                        type: array
+                        items:
+                          type: string
+                editUrl:
+                  type: string
+                  format: uri
+                audioGenerateUrl:
+                  type: string
+                  format: uri
+    LessonGenerateAudioRequest:
+      type: object
+      required: [scriptId, enc]
+      properties:
+        scriptId:
+          type: string
+        voiceType:
+          type: string
+          default: female_standard
+        audioFormat:
+          type: string
+          default: mp3
+        sectionIds:
+          type: array
+          items:
+            type: string
+        enc:
+          type: string
+    LessonGenerateAudioResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                audioId:
+                  type: string
+                audioUrl:
+                  type: string
+                  format: uri
+                audioInfo:
+                  type: object
+                  properties:
+                    totalDuration:
+                      type: integer
+                    fileSize:
+                      type: integer
+                    format:
+                      type: string
+                    bitRate:
+                      type: integer
+                sectionAudios:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      sectionId:
+                        type: string
+                      audioUrl:
+                        type: string
+                        format: uri
+                      duration:
+                        type: integer
+    QAInteractRequest:
+      type: object
+      required: [schoolId, userId, courseId, lessonId, sessionId, questionType, questionContent, currentSectionId, enc]
+      properties:
+        schoolId:
+          type: string
+        userId:
+          type: string
+        courseId:
+          type: string
+        lessonId:
+          type: string
+        sessionId:
+          type: string
+        questionType:
+          type: string
+          enum: [text, voice]
+        questionContent:
+          type: string
+        currentSectionId:
+          type: string
+        historyQa:
+          type: array
+          items:
+            type: object
+            properties:
+              question:
+                type: string
+              answer:
+                type: string
+              timestamp:
+                type: string
+        enc:
+          type: string
+    QAInteractResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                answerId:
+                  type: string
+                answerContent:
+                  type: string
+                answerType:
+                  type: string
+                  enum: [text, mixed]
+                relatedKnowledge:
+                  type: object
+                  properties:
+                    knowledgeId:
+                      type: string
+                    knowledgeName:
+                      type: string
+                    relatedSectionId:
+                      type: string
+                suggestions:
+                  type: array
+                  items:
+                    type: string
+                understandingLevel:
+                  type: string
+                  enum: [none, partial, full]
+    QAVoiceToTextRequest:
+      type: object
+      required: [voiceUrl, enc]
+      properties:
+        voiceUrl:
+          type: string
+          format: uri
+        voiceDuration:
+          type: integer
+        language:
+          type: string
+          default: zh-CN
+        enc:
+          type: string
+    QAVoiceToTextResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                text:
+                  type: string
+                confidence:
+                  type: number
+                  format: float
+                timestamp:
+                  type: string
+    ProgressTrackRequest:
+      type: object
+      required: [schoolId, userId, courseId, lessonId, currentSectionId, progressPercent, lastOperateTime, enc]
+      properties:
+        schoolId:
+          type: string
+        userId:
+          type: string
+        courseId:
+          type: string
+        lessonId:
+          type: string
+        currentSectionId:
+          type: string
+        progressPercent:
+          type: number
+          format: float
+        lastOperateTime:
+          type: string
+        qaRecordId:
+          type: string
+        enc:
+          type: string
+    ProgressTrackResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                trackId:
+                  type: string
+                totalProgress:
+                  type: number
+                  format: float
+                nextSectionSuggest:
+                  type: string
+    ProgressAdjustRequest:
+      type: object
+      required: [userId, lessonId, currentSectionId, understandingLevel, qaRecordId, enc]
+      properties:
+        userId:
+          type: string
+        lessonId:
+          type: string
+        currentSectionId:
+          type: string
+        understandingLevel:
+          type: string
+          enum: [none, partial, full]
+        qaRecordId:
+          type: string
+        enc:
+          type: string
+    ProgressAdjustResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                adjustPlan:
+                  type: object
+                  properties:
+                    continueSectionId:
+                      type: string
+                    adjustType:
+                      type: string
+                      enum: [supplement, accelerate, normal]
+                    supplementContent:
+                      type: object
+                      properties:
+                        content:
+                          type: string
+                        duration:
+                          type: integer
+                        relatedExample:
+                          type: string
+                    nextSections:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          sectionId:
+                            type: string
+                          adjustedDuration:
+                            type: integer
+                          isKeyPointStrengthen:
+                            type: boolean

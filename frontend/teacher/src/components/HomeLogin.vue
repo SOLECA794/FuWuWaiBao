@@ -38,13 +38,25 @@
       <div class="hero-left">
         <span class="badge">智慧教育 · 赋能未来</span>
         <h1 class="hero-title">
-          一个平台<br />
-          <span class="highlight">连接教与学</span>
+          <span class="project-name-line">
+            <span class="project-name">{{ displayedProjectName }}</span>
+            <span class="typewriter-caret" aria-hidden="true"></span>
+          </span>
+          <span class="hero-slogan-line" aria-live="polite">
+            <span class="slogan-wrap">
+              <span class="tagline-top">{{ displayedTaglineTop }}</span>
+              <span class="tagline-bottom">{{ displayedTaglineBottom }}</span>
+            </span>
+          </span>
         </h1>
         <p class="hero-desc">
           教师高效管理课件讲稿，学生实时互动提问，
           AI 智能解析学情，让每一节课更有意义。
         </p>
+        <div class="connection-pill">
+          <span class="pill-dot"></span>
+          泛雅开放平台已接通 · 教师端平台总览已联通
+        </div>
         <div class="features">
           <div class="feature-chip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -57,6 +69,10 @@
           <div class="feature-chip">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
             学情深度分析
+          </div>
+          <div class="feature-chip feature-chip-accent">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h6l3 7 4-14 2 7h3"/></svg>
+            泛雅开放平台接通
           </div>
         </div>
       </div>
@@ -162,7 +178,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { defineEmits, onMounted, onUnmounted, ref } from 'vue'
 import { API_BASE } from '../config/api'
 
 const emit = defineEmits(['login-success'])
@@ -173,6 +189,102 @@ const loading = ref(false)
 const isRegisterMode = ref(false)
 const role = ref('teacher')
 const errorMessage = ref('')
+
+const projectName = '启智云'
+const displayedProjectName = ref('')
+const taglineSets = [
+  { top: '一个平台', bottom: '连接教与学' },
+  { top: '让学习更简单', bottom: '让教学更高效' }
+]
+const displayedTaglineTop = ref('')
+const displayedTaglineBottom = ref('')
+
+const TITLE_TYPE_MS = 320
+const SLOGAN_TYPE_MS = 140
+const SLOGAN_LINE_GAP_MS = 120
+const SLOGAN_HOLD_MS = 1800
+const SLOGAN_CLEAR_GAP_MS = 280
+
+let projectNameCycleId = 0
+let sloganCycleId = 0
+const pendingTimeouts = new Set()
+
+const sleep = (ms) => new Promise((resolve) => {
+  const timer = setTimeout(() => {
+    pendingTimeouts.delete(timer)
+    resolve()
+  }, ms)
+  pendingTimeouts.add(timer)
+})
+
+const clearPendingTimeouts = () => {
+  pendingTimeouts.forEach((timer) => clearTimeout(timer))
+  pendingTimeouts.clear()
+}
+
+const runProjectNameTypewriter = async (cycleId) => {
+  displayedProjectName.value = ''
+  for (let i = 1; i <= projectName.length; i += 1) {
+    displayedProjectName.value = projectName.slice(0, i)
+    await sleep(TITLE_TYPE_MS)
+    if (cycleId !== projectNameCycleId) return
+  }
+}
+
+const runSloganTypewriter = async (cycleId) => {
+  let sloganIndex = 0
+  while (cycleId === sloganCycleId) {
+    const currentSlogan = taglineSets[sloganIndex]
+    displayedTaglineTop.value = ''
+    displayedTaglineBottom.value = ''
+
+    for (let i = 1; i <= currentSlogan.top.length; i += 1) {
+      displayedTaglineTop.value = currentSlogan.top.slice(0, i)
+      await sleep(SLOGAN_TYPE_MS)
+      if (cycleId !== sloganCycleId) return
+    }
+
+    await sleep(SLOGAN_LINE_GAP_MS)
+    if (cycleId !== sloganCycleId) return
+
+    for (let i = 1; i <= currentSlogan.bottom.length; i += 1) {
+      displayedTaglineBottom.value = currentSlogan.bottom.slice(0, i)
+      await sleep(SLOGAN_TYPE_MS)
+      if (cycleId !== sloganCycleId) return
+    }
+
+    await sleep(SLOGAN_HOLD_MS)
+    if (cycleId !== sloganCycleId) return
+
+    displayedTaglineTop.value = ''
+    displayedTaglineBottom.value = ''
+    await sleep(SLOGAN_CLEAR_GAP_MS)
+    if (cycleId !== sloganCycleId) return
+
+    sloganIndex = (sloganIndex + 1) % taglineSets.length
+  }
+}
+
+onMounted(() => {
+  projectNameCycleId += 1
+  sloganCycleId += 1
+  const projectCycleId = projectNameCycleId
+  const currentSloganCycleId = sloganCycleId
+
+  const startHeadlineAnimation = async () => {
+    await runProjectNameTypewriter(projectCycleId)
+    if (projectCycleId !== projectNameCycleId || currentSloganCycleId !== sloganCycleId) return
+    runSloganTypewriter(currentSloganCycleId)
+  }
+
+  startHeadlineAnimation()
+})
+
+onUnmounted(() => {
+  projectNameCycleId += 1
+  sloganCycleId += 1
+  clearPendingTimeouts()
+})
 
 const tryLocalLoginFallback = () => {
   const uname = String(username.value || '').trim().toLowerCase()
@@ -418,29 +530,52 @@ const handleRegister = async () => {
 }
 
 .hero-title {
-  font-size: 52px;
-  font-weight: 800;
-  color: #1e293b;
-  line-height: 1.2;
-  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  line-height: 1.15;
+  margin: 0 0 16px;
   letter-spacing: -1px;
+  /* 为标题和两行标语预留垂直空间，避免打印第二行时上移 */
+  min-height: 11rem;
 }
 
-.highlight {
-  color: #2F605A;
-  position: relative;
+.project-name-line {
+  display: inline-flex;
+  align-items: flex-end;
+  min-height: 1.2em;
+  font-size: 64px;
+  font-weight: 800;
+  color: #0b3d2e;
 }
 
-.highlight::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  left: 0;
-  right: 0;
-  height: 8px;
-  background: rgba(143, 193, 181, 0.35);
-  z-index: -1;
-  border-radius: 4px;
+.project-name {
+  display: inline-block;
+  min-width: 3ch;
+  text-shadow: 0 8px 20px rgba(47, 96, 90, 0.12);
+}
+
+.typewriter-caret {
+  width: 3px;
+  height: 0.95em;
+  margin-left: 8px;
+  border-radius: 2px;
+  background: #2F605A;
+  animation: caret-blink 0.9s steps(1, end) infinite;
+}
+
+@keyframes caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.hero-slogan-line {
+  display: block;
+  min-height: 2.3em;
+  margin-top: 2px;
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1.08;
 }
 
 .hero-desc {
@@ -449,6 +584,36 @@ const handleRegister = async () => {
   line-height: 1.8;
   margin: 0 0 32px;
   max-width: 440px;
+}
+
+.slogan-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  /* 顶部对齐，逐行打印时从上向下展开，不会把上一行推上去 */
+  justify-content: flex-start;
+  min-height: 2.3em;
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    min-height: 9rem;
+  }
+}
+
+.tagline-top {
+  color: #1e293b;
+  font-size: 1em;
+  font-weight: 800;
+  line-height: 1.02;
+}
+
+.tagline-bottom {
+  color: #2F605A;
+  font-size: 1em;
+  font-weight: 800;
+  line-height: 1.02;
 }
 
 .features {
@@ -476,6 +641,40 @@ const handleRegister = async () => {
   height: 16px;
   color: #2F605A;
   flex-shrink: 0;
+}
+
+.feature-chip-accent {
+  background: linear-gradient(180deg, rgba(236, 248, 243, 0.96), rgba(217, 241, 233, 0.96));
+  color: #226a5a;
+  border-color: rgba(47, 96, 90, 0.18);
+}
+
+.connection-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 2px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(236, 248, 243, 0.92);
+  border: 1px solid rgba(47, 96, 90, 0.14);
+  color: #235f53;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #14b8a6;
+  box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.35);
+  animation: pulse-pill 2s ease-in-out infinite;
+}
+
+@keyframes pulse-pill {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(20, 184, 166, 0); }
 }
 
 /* ---- Login card ---- */

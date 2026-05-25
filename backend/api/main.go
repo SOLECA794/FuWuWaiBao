@@ -6,6 +6,7 @@ import (
 	"io"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -24,6 +25,7 @@ import (
 	"smart-teaching-backend/pkg/config"
 	applogger "smart-teaching-backend/pkg/logger"
 	"smart-teaching-backend/pkg/oss"
+	
 )
 
 func main() {
@@ -167,8 +169,15 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
+	// JWT 身份验证中间件（对 /api/v1 下非公开接口生效）
+	r.Use(handler.JWTAuthMiddleware())
+
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		// 课件单页预览可能返回 302 图片地址或 PNG 二进制，不能强行声明为 JSON。
+		p := c.Request.URL.Path
+		if !(strings.Contains(p, "/courseware/") && strings.Contains(p, "/page/")) {
+			c.Writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		}
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")

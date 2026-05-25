@@ -3,7 +3,7 @@
     <!-- 面板头部 -->
     <div class="panel-header">
       <h3>自适应教学闭环 - 学情迭代</h3>
-      <p>基于上节课复盘报告，智能推荐重讲节点、补充前置知识，并关联高频疑问，生成下节课讲稿。</p>
+      <p>基于上节课班级学情数据，智能推荐重讲节点、前置补充知识点，一键插入生成下节课讲稿，完成教学迭代闭环。</p>
     </div>
 
     <div class="main-layout">
@@ -34,17 +34,23 @@
               <!-- 内容 -->
               <div class="suggestion-content">
                 <div class="suggestion-title">{{ node.title }}</div>
-                <div class="suggestion-reason">{{ node.reason }}</div>
+                <div class="suggestion-evidence" v-if="node.evidence">学情依据：{{ node.evidence }}</div>
+                <div class="suggestion-reason">建议：{{ node.advice || node.reason }}</div>
+                <div class="suggestion-model" v-if="node.priorityScore != null">
+                  迭代优先级得分 {{ Number(node.priorityScore).toFixed(2) }}（多目标优化模型：停留·测验·互动加权）
+                </div>
               </div>
 
               <!-- 操作按钮 -->
               <div class="suggestion-actions">
+                <button type="button" class="text-link-btn" @click="openResourceForSuggestion(node)">匹配推荐资源</button>
                 <button
-                  class="insert-btn"
+                  type="button"
+                  class="insert-btn primary"
                   @click="insertNodeToTree(node)"
-                  title="插入到大纲"
+                  title="同步到编辑讲稿大纲"
                 >
-                  → 插入
+                  插入到讲稿大纲
                 </button>
               </div>
             </div>
@@ -170,19 +176,6 @@
 
       <!-- ============ 右侧：课件大纲树与讲稿生成 ============ -->
       <main class="right-panel outline-panel">
-        <!-- 生成讲稿按钮（顶部） -->
-        <div class="outline-toolbar">
-          <button
-            class="generate-btn"
-            @click="generateScript"
-            :disabled="isGenerating || nodeTree.length === 0"
-          >
-            <span v-if="isGenerating" class="spinner">⌛</span>
-            <span v-else>▶</span>
-            {{ isGenerating ? '生成讲稿中...' : '基于当前大纲预生成讲稿' }}
-          </button>
-        </div>
-
         <!-- 大纲树 -->
         <header class="panel-section-header">
           <h4>📚 下节课大纲树</h4>
@@ -263,9 +256,23 @@
 
         <!-- 新增节点按钮 -->
         <div class="outline-footer">
-          <button class="add-node-btn" @click="addManualNode">
+          <button type="button" class="add-node-btn" @click="addManualNode">
             + 手动新增节点
           </button>
+        </div>
+
+        <div class="outline-toolbar bottom-toolbar">
+          <button
+            type="button"
+            class="generate-btn"
+            @click="generateScript"
+            :disabled="isGenerating || nodeTree.length === 0"
+          >
+            <span v-if="isGenerating" class="spinner">⌛</span>
+            <span v-else>▶</span>
+            {{ isGenerating ? '生成讲稿中...' : '一键生成讲稿' }}
+          </button>
+          <p class="toolbar-hint">生成后将自动跳转「编辑讲稿」，并把大纲同步为讲稿节点</p>
         </div>
       </main>
     </div>
@@ -288,7 +295,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:script', 'script-generated'])
+const emit = defineEmits(['update:script', 'script-generated', 'sync-outline-node', 'open-resource-recommend', 'toast'])
 
 // ============ Mock 数据 ============
 
@@ -300,8 +307,24 @@ const basicNodeTree = ref([
 
 // 2. 待处理的建议节点 (来自 AI 报告)
 const pendingNodes = ref([
-  { id: 'p1', title: '递归的基础概念', type: 'prerequisite', reason: '复盘发现30%学生上节课卡在递归' },
-  { id: 'p2', title: '基准值的选择策略', type: 're_teach', reason: '上节课该部分随堂测验正确率仅45%' }
+  {
+    id: 'p1',
+    title: '递归的基础概念',
+    type: 'prerequisite',
+    reason: '复盘发现 30% 学生上节课在该知识点停留偏长',
+    evidence: '复盘发现约 30% 学生上节课在该知识点停留时长超班级均值 200%，存在理解卡点',
+    advice: '补充前置概念讲解，降低后续算法主线 cognitive load',
+    priorityScore: 8.6
+  },
+  {
+    id: 'p2',
+    title: '基准值的选择策略',
+    type: 're_teach',
+    reason: '上节课该知识点随堂测验正确率偏低',
+    evidence: '上节课该知识点随堂测验正确率仅 45%，超 60% 学生错题集中于此',
+    advice: '重点重讲，并补充 2～3 道配套巩固题',
+    priorityScore: 9.1
+  }
 ])
 
 // 3. 待关联的学生案例
@@ -428,6 +451,17 @@ const insertNodeToTree = (node, insertIdx = null) => {
   if (idx > -1) {
     pendingNodes.value.splice(idx, 1)
   }
+
+  emit('sync-outline-node', { ...newNode })
+}
+
+const openResourceForSuggestion = (node) => {
+  const keyword = String(node?.title || '').trim()
+  if (!keyword) return
+  emit('open-resource-recommend', {
+    keyword,
+    matchReason: String(node?.evidence || node?.reason || '').trim()
+  })
 }
 
 /**
@@ -586,7 +620,7 @@ const generateScript = async () => {
       bindingMap: bindingMap.value
     })
 
-    alert('讲稿生成成功！')
+    emit('toast', '讲稿已生成并同步至编辑讲稿')
   } catch (err) {
     console.error('生成讲稿失败:', err)
     const content = buildScriptFallback()
@@ -596,7 +630,7 @@ const generateScript = async () => {
       nodeTree: nodeTree.value,
       bindingMap: bindingMap.value
     })
-    alert('后端不可用，已使用前端模拟讲稿生成。')
+    emit('toast', '后端不可用，已使用前端模拟讲稿并同步至编辑讲稿')
   } finally {
     isGenerating.value = false
   }
@@ -719,7 +753,7 @@ watch(boundNodeIds, (ids) => {
 
 .main-layout {
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 0;
   flex: 1;
   overflow: hidden;
@@ -866,13 +900,14 @@ watch(boundNodeIds, (ids) => {
 
 .suggestion-item {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  align-items: start;
+  padding: 16px;
   background: #ffffff;
   border: 1px solid #dbe5df;
-  border-radius: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: grab;
   transition: all 0.2s ease;
 }
@@ -924,38 +959,81 @@ watch(boundNodeIds, (ids) => {
   text-overflow: ellipsis;
 }
 
+.suggestion-evidence {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
 .suggestion-reason {
+  font-size: 12px;
+  color: #666666;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.suggestion-model {
   font-size: 11px;
-  color: #64748b;
-  margin-top: 3px;
-  line-height: 1.3;
+  color: #999999;
+  margin-top: 6px;
 }
 
 .suggestion-actions {
+  grid-column: 1 / -1;
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.text-link-btn {
+  border: none;
+  background: none;
+  color: #2d8cf0;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 4px;
+  transition: transform 0.15s ease;
+}
+
+.text-link-btn:hover {
+  text-decoration: underline;
+}
+
+.text-link-btn:active {
+  transform: scale(0.96);
 }
 
 .insert-btn {
-  padding: 5px 10px;
-  background: linear-gradient(135deg, #2f605a 0%, #1e4b42 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 8px 16px;
+  background: #ffffff;
+  color: #2d8cf0;
+  border: 1px solid #2d8cf0;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
+.insert-btn.primary {
+  background: #2d8cf0;
+  color: #ffffff;
+  border-color: #2d8cf0;
+  padding: 12px 24px;
+}
+
 .insert-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(47, 96, 90, 0.3);
+  box-shadow: 0 4px 8px rgba(45, 140, 240, 0.25);
 }
 
 .insert-btn:active {
-  transform: translateY(0);
+  transform: scale(0.96);
 }
 
 .divider {
@@ -1130,28 +1208,44 @@ watch(boundNodeIds, (ids) => {
 
 .outline-toolbar {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.bottom-toolbar {
+  margin-bottom: 0;
+}
+
+.toolbar-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #999999;
+  line-height: 1.4;
 }
 
 .generate-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #2f605a 0%, #1e4b42 100%);
+  padding: 12px 24px;
+  background: #2d8cf0;
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .generate-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(47, 96, 90, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(45, 140, 240, 0.35);
 }
 
 .generate-btn:active:not(:disabled) {

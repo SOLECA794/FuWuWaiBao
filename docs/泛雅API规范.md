@@ -27,6 +27,29 @@ o  time：当前时间，格式为“yyyy–MM–ddHH:mm:ss”；
  
 3.   验证流程：服务端接收请求后，按相同规则计算签名，与请求参数中的 enc 比
 对，一致则通过验证，否则返回403 错误。
+
+附注（签名范围变更）：
+为降低对复杂 JSON 序列化差异导致的签名不一致风险，服务端签名中间件改为仅对“指定的平铺字段”进行签名（即只签名顶层的标量字段，而不对嵌套对象做全量拼接）。
+- 签名字段由环境变量 `OPEN_API_SIGN_FIELDS` 指定，采用逗号分隔字段名（例如 `platformId,userId`）。
+- 若未设置该环境变量，默认只签名 `platformId` 与 `userId` 两个字段。
+
+示例（PowerShell + curl）：假设签名字段为 `platformId,userId`，staticKey 为 `static_test_key`：
+
+PowerShell 计算 enc：
+
+	$static = 'static_test_key'
+	$time = Get-Date -Format 'yyyy-MM-ddHH:mm:ss'
+	$platformId = 'plat_test'
+	$userId = 'plat_stu_test'
+	$builder = "platformId$platformId" + "userId$userId" + $static + $time
+	$md5 = [System.BitConverter]::ToString((New-Object System.Security.Cryptography.MD5CryptoServiceProvider).ComputeHash([System.Text.Encoding]::UTF8.GetBytes($builder))).Replace('-','').ToUpper()
+	$enc = $md5
+
+然后用 curl 发送请求（将 `enc` 与 `time` 放到 querystring）：
+
+	curl -X POST "http://your-host/api/v1/platform/syncUser?platformId=plat_test&userId=plat_stu_test&enc=$enc&time=$time" -H "Content-Type: application/json; charset=utf-8" -d '{"platformId":"plat_test","userId":"plat_stu_test","userInfo":{"userId":"plat_stu_test","userName":"李四","contactInfo":{"email":"lisi@example.com","phone":"13800138000"}}}'
+
+注意：如果需要对其它接口签名不同字段，请在对接前通过环境变量 `OPEN_API_SIGN_FIELDS` 与服务方达成一致并在请求端实现相同的字段顺序策略。
 1.5 通用响应格式
 json
 {

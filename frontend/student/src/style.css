@@ -13,7 +13,7 @@
   --app-panel: rgba(255, 255, 255, 0.9);
   --app-border: rgba(148, 163, 184, 0.18);
   --app-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
-  --app-brand: #0f766e;
+  --app-brand: #10b981;
   --app-accent: #0284c7;
   --app-warm: #f59e0b;
 }
@@ -25,9 +25,11 @@
 html,
 body,
 #app {
+  height: 100vh;
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
