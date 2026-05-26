@@ -205,7 +205,7 @@ func (h *CompatibilityHandler) OpenQAInteract(c *gin.Context) {
 		"answerType":        defaultString(req.QuestionType, "text"),
 		"relatedKnowledge":  gin.H{"knowledgeId": "know_" + relatedSectionID, "knowledgeName": relatedSectionID, "relatedSectionId": relatedSectionID},
 		"suggestions":       []string{resp.FollowUpSuggestion},
-		"understandingLevel": understandingLevel(resp.Intent.NeedReteach),
+		"understandingLevel": UnderstandingLevelOrFallback(resp.Intent.UnderstandingLevel, resp.Intent.NeedReteach),
 	})
 }
 

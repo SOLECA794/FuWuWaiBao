@@ -330,16 +330,25 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 			result.SourcePage = maxInt(resp.SourcePage, req.Page)
 			result.SourceExcerpt = resp.SourceExcerpt
 			result.ResumePage = maxInt(resp.ResumePage, req.Page)
+			result.ResumeNodeID = resp.ResumeNodeID
+			result.ResumeSec = resp.ResumeSec
 			result.FollowUpSuggestion = resp.FollowUpSuggestion
 			result.Intent.NeedReteach = resp.Intent.NeedReteach
+			result.Intent.UnderstandingLevel = resp.Intent.UnderstandingLevel
 		} else {
 			result = h.askQuestionWithFallback(c, req.CourseID, req.Page, nodeID, req.Question)
 		}
 	} else {
 		result = h.askQuestionWithFallback(c, req.CourseID, req.Page, nodeID, req.Question)
 	}
-	resumeNodeID := resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, result.ResumePage, result.Intent.NeedReteach)
-	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, result.ResumePage, resumeNodeID)
+	resumeNodeID := result.ResumeNodeID
+	if resumeNodeID == "" {
+		resumeNodeID = resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, result.ResumePage, result.Intent.NeedReteach)
+	}
+	resumeSec := result.ResumeSec
+	if resumeSec == 0 {
+		resumeSec = resolvePlaybackResumeSec(h.db, req.CourseID, result.ResumePage, resumeNodeID)
+	}
 	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, result.Answer, result.SourcePage, result.Intent.NeedReteach, result.FollowUpSuggestion)
 	syncDialogueSessionState(h.db, sessionID, userID, req.CourseID, result.ResumePage, resumeNodeID, resumeSec)
 	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
@@ -371,7 +380,7 @@ func (h *StudentHandler) QAStream(c *gin.Context) {
 		}
 	}
 	writeEvent("sentence", gin.H{"text": result.Answer})
-	writeEvent("final", gin.H{"session_id": sessionID, "need_reteach": result.Intent.NeedReteach, "source_page": result.SourcePage, "source_node_id": nodeID, "resume_page": result.ResumePage, "resume_node_id": resumeNodeID, "resume_sec": resumeSec, "follow_up_suggestion": result.FollowUpSuggestion})
+	writeEvent("final", gin.H{"session_id": sessionID, "need_reteach": result.Intent.NeedReteach, "understanding_level": result.Intent.UnderstandingLevel, "source_page": result.SourcePage, "source_node_id": nodeID, "resume_page": result.ResumePage, "resume_node_id": resumeNodeID, "resume_sec": resumeSec, "follow_up_suggestion": result.FollowUpSuggestion})
 	h.recordQuestion(userID, req.CourseID, req.Page, nodeID, req.Question, result.Answer)
 }
 
@@ -473,10 +482,13 @@ type questionReply struct {
 	SourcePage         int
 	SourceExcerpt      string
 	ResumePage         int
+	ResumeNodeID       string
+	ResumeSec          int
 	FollowUpSuggestion string
 	Fallback           bool
 	Intent             struct {
-		NeedReteach bool
+		NeedReteach        bool
+		UnderstandingLevel string
 	}
 }
 

@@ -241,10 +241,13 @@ type AskWithContextResponse struct {
 	UsedFallback       bool   `json:"used_fallback"`
 	FallbackReason     string `json:"fallback_reason"`
 	ResumePage         int    `json:"resume_page"`
+	ResumeNodeID       string `json:"resume_node_id"`
+	ResumeSec          int    `json:"resume_sec"`
 	FollowUpSuggestion string `json:"follow_up_suggestion"`
 	Intent             struct {
-		NeedReteach bool   `json:"need_reteach"`
-		Reason      string `json:"reason"`
+		NeedReteach        bool   `json:"need_reteach"`
+		UnderstandingLevel string `json:"understanding_level"`
+		Reason             string `json:"reason"`
 	} `json:"intent"`
 }
 

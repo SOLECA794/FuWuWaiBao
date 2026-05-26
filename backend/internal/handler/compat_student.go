@@ -259,8 +259,14 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 		return
 	}
 	resumePage := maxInt(aiResp.ResumePage, req.Page)
-	resumeNodeID := resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, resumePage, aiResp.Intent.NeedReteach)
-	resumeSec := resolvePlaybackResumeSec(h.db, req.CourseID, resumePage, resumeNodeID)
+	resumeNodeID := aiResp.ResumeNodeID
+	if resumeNodeID == "" {
+		resumeNodeID = resolveResumeNodeIDByCourse(h.db, req.CourseID, nodeID, resumePage, aiResp.Intent.NeedReteach)
+	}
+	resumeSec := aiResp.ResumeSec
+	if resumeSec == 0 {
+		resumeSec = resolvePlaybackResumeSec(h.db, req.CourseID, resumePage, resumeNodeID)
+	}
 	appendDialogueTurn(h.db, sessionID, userID, req.CourseID, req.Page, nodeID, req.Question, aiResp.Answer, maxInt(aiResp.SourcePage, req.Page), aiResp.Intent.NeedReteach, aiResp.FollowUpSuggestion)
 	if userID != "" {
 		_ = h.db.Create(&model.QuestionLog{UserID: userID, CourseID: req.CourseID, PageIndex: req.Page, NodeID: nodeID, Question: req.Question, Answer: aiResp.Answer}).Error
@@ -300,6 +306,7 @@ func (h *CompatibilityHandler) StreamStudentQA(c *gin.Context) {
 	writeSSE("final", gin.H{
 		"session_id":           sessionID,
 		"need_reteach":         aiResp.Intent.NeedReteach,
+		"understanding_level":  aiResp.Intent.UnderstandingLevel,
 		"source_page":          maxInt(aiResp.SourcePage, req.Page),
 		"source_node_id":       nodeID,
 		"resume_page":          resumePage,

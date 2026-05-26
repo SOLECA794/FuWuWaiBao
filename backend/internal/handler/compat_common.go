@@ -330,11 +330,14 @@ func parsePageFromNodeID(nodeID string) int {
 	return 0
 }
 
-func understandingLevel(needReteach bool) string {
+func UnderstandingLevelOrFallback(llm string, needReteach bool) string {
+	if llm != "" && llm != "unknown" {
+		return llm
+	}
 	if needReteach {
 		return "partial"
 	}
-	return "good"
+	return "full"
 }
 
 func max(a, b int) int {

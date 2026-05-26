@@ -182,15 +182,16 @@ class DocumentParser:
             if notes_frame and getattr(notes_frame, "text", ""):
                 texts.append(notes_frame.text)
             merged_text = "\n".join(texts).strip()
-            if self._is_meaningful_text(merged_text):
-                cleaned = self._clean_text(merged_text)
+            images = self._extract_pptx_images(slide) if use_vision else []
+            has_text = self._is_meaningful_text(merged_text)
+            has_images = len(images) > 0
+            if has_text or (has_images and use_vision):
+                cleaned = self._clean_text(merged_text) if has_text else merged_text
                 page_data = {"page": slide_index, "content": cleaned, "content_length": len(cleaned)}
-                if use_vision:
-                    images = self._extract_pptx_images(slide)
-                    if images:
-                        vis_desc = self._describe_images(images, slide_index)
-                        if vis_desc:
-                            page_data["visual_description"] = vis_desc
+                if use_vision and images:
+                    vis_desc = self._describe_images(images, slide_index)
+                    if vis_desc:
+                        page_data["visual_description"] = vis_desc
                 parsed_pages.append(page_data)
         return parsed_pages
 
