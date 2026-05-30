@@ -136,6 +136,9 @@
                 :iteration-sync-notice="iterationSyncNotice"
                 :node-insights="scriptNodeInsights"
                 @generate-ai-script="generateAIScript"
+                @generate-audio="generatePageAudio"
+                :current-page-audio="currentPageAudio"
+                :audio-generating="audioGenerating"
                 @save-script="saveScript"
                 @update:current-script="currentScript = $event"
                 @update:current-script-nodes="currentScriptNodes = $event"
@@ -850,6 +853,45 @@ const showAppToast = (message) => {
   }, 3200)
 }
 
+const currentPageAudio = ref(null)
+const audioGenerating = ref(false)
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+const generatePageAudio = async () => {
+  if (!currentCourseId.value) return
+  audioGenerating.value = true
+  currentPageAudio.value = null
+  try {
+    const maxTries = 6
+    for (let i = 0; i < maxTries; i++) {
+      const resp = await teacherV1Api.coursewares.generateAudio({ courseId: currentCourseId.value, pageNum: currentEditPage.value })
+      const data = resp && resp.data ? resp.data : null
+      if (data) {
+        // 如果任何 section 已经有音频，直接使用
+        const hasAudio = Array.isArray(data.sections) && data.sections.some(s => s.has_audio || s.audio_url)
+        if (hasAudio) {
+          currentPageAudio.value = data
+          showAppToast('音频已生成，可播放')
+          break
+        }
+        // 第一次尝试只发起请求并继续轮询
+        if (i === 0) showAppToast('音频生成请求已发送，开始轮询')
+      }
+      // 等待并重试
+      await sleep(3000)
+    }
+    if (!currentPageAudio.value) {
+      showAppToast('未检测到已生成音频（超时）')
+    }
+  } catch (err) {
+    console.warn('生成音频失败', err)
+    alert('生成音频失败，请查看控制台')
+  } finally {
+    audioGenerating.value = false
+  }
+}
+
 const handleOpenSmartResource = (payload) => {
   const p = payload && typeof payload === 'object' ? payload : {}
   resourceContextBoost.value = {
@@ -1254,6 +1296,8 @@ const generateAIScript = async () => {
     if (!markdown || markdown === `# ${currentCourseName.value || '课件'}\n\n暂无内容`) {
       throw new Error('课件内容为空，请先上传并解析课件')
     }
+
+    
 
     aiGenerateProgress.value = 28
     aiGenerateStageText.value = '正在通过 AI 引擎生成增强脚本'

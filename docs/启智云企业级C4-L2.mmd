@@ -1,0 +1,32 @@
+C4Container
+    title 启智云系统容器图
+
+    Person(teacher, "高校教师")
+    Person(student, "大学生")
+
+    System_Boundary(zhiqiyun, "启智云平台") {
+        Container(teacher_web, "教师端 Web", "Vue 3 + Vite", "课件上传、讲稿编辑、学情查看、发布")
+        Container(student_web, "学生端 Web", "Vue + CLI", "播放、提问、断点续接、学习记录")
+        Container(go_backend, "Go 教学后端", "Go + Gin", "教师/学生接口、平台适配、进度状态、SSE 代理")
+        Container(ai_engine, "AI 引擎", "Python + FastAPI", "课件解析、脚本生成、问答、意图识别")
+        ContainerDb(pg, "Postgres", "关系数据库", "课程、页、讲稿、学情、日志")
+        ContainerDb(redis, "Redis", "状态与缓存", "会话、进度、任务队列、临时状态")
+        ContainerDb(minio, "MinIO", "对象存储", "课件文件、预览图、音频资产")
+    }
+
+    System_Ext(fanya, "泛雅平台")
+    System_Ext(ai_api, "外部 AI 能力")
+
+    Rel(teacher, teacher_web, "使用")
+    Rel(student, student_web, "使用")
+
+    Rel(teacher_web, go_backend, "HTTP/JSON")
+    Rel(student_web, go_backend, "HTTP + SSE")
+
+    Rel(go_backend, pg, "读写结构化数据")
+    Rel(go_backend, redis, "读写会话与进度")
+    Rel(go_backend, minio, "存取课件与音频")
+    Rel(go_backend, ai_engine, "调用生成/问答/解析能力")
+    Rel(go_backend, fanya, "对接开放接口")
+
+    Rel(ai_engine, ai_api, "调用大模型/视觉/语音 API")

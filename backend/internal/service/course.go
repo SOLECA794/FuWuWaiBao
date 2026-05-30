@@ -131,11 +131,10 @@ func (s *courseService) ensurePreviewFallback(tx *gorm.DB, course *model.Course)
 		course.TotalPage = 1
 	}
 
-	placeholderURL := fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, 1)
 	page := model.CoursePage{
 		CourseID:   course.ID,
 		PageIndex:  1,
-		ImageURL:   placeholderURL,
+		ImageURL:   "",
 		SourceText: "课件解析服务暂不可用，当前为占位预览。",
 	}
 	if err := tx.Create(&page).Error; err != nil {
@@ -251,8 +250,7 @@ func (s *courseService) enrichCourseWithAI(ctx context.Context, tx *gorm.DB, cou
 	for _, page := range parsed.ParsedPages {
 		imageURL := strings.TrimSpace(pagePreviewURLs[page.Page])
 		if imageURL == "" {
-			// 回退：使用占位预览图，确保前端预览可用
-			imageURL = fmt.Sprintf("https://picsum.photos/seed/%s_%d/800/600", course.ID, page.Page)
+			// 占位置空，GetPagePreview 走 RasterPagePreview 本地渲染
 		}
 		pages = append(pages, model.CoursePage{
 			CourseID:   course.ID,

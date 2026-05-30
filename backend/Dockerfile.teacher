@@ -9,7 +9,7 @@ COPY . .
 RUN go build -o teacher-server cmd/teacher/main.go
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates poppler-utils
 WORKDIR /app
 COPY --from=builder /app/teacher-server .
 COPY config/config.yaml ./config/

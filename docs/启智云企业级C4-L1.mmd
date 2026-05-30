@@ -1,0 +1,15 @@
+C4Context
+    title 启智云系统上下文图
+
+    Person(teacher, "高校教师", "上传课件、查看学情、组织辅导")
+    Person(student, "大学生", "补学课件、实时提问、查看续接位置")
+
+    System(zhiqiyun, "启智云平台", "面向泛雅平台的教学辅助系统")
+
+    System_Ext(fanya, "泛雅平台", "学校现有教学平台与统一入口")
+    System_Ext(ai_api, "外部 AI 能力", "大模型、视觉、ASR、TTS 等商业 API")
+
+    Rel(teacher, zhiqiyun, "上传课件、查看学情、查看讲稿")
+    Rel(student, zhiqiyun, "学习课件、提问、继续学习")
+    Rel(zhiqiyun, fanya, "同步课程、用户、发布状态")
+    Rel(zhiqiyun, ai_api, "调用解析、生成、问答、语音能力")

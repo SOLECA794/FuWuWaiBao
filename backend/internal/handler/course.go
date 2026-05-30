@@ -33,9 +33,10 @@ func (h *CourseHandler) GetPagePreview(c *gin.Context) {
 	}
 
 	// 预生成切片（MinIO 等）可直接 302，浏览器 <img> 跟随跳转加载图片。
+	// 跳过 picsum 占位 URL，转走本地栅格渲染。
 	var coursePage model.CoursePage
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, pageNum).First(&coursePage).Error; err == nil {
-		if url := strings.TrimSpace(coursePage.ImageURL); url != "" {
+		if url := strings.TrimSpace(coursePage.ImageURL); url != "" && !strings.Contains(url, "picsum.photos") {
 			c.Header("Cache-Control", "public, max-age=300")
 			c.Redirect(http.StatusFound, url)
 			return

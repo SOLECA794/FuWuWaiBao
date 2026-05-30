@@ -126,31 +126,6 @@ class DocumentParser:
         doc.close()
         return parsed_pages
 
-    def parse_pptx_pages(self) -> list[dict[str, Any]]:
-        presentation = Presentation(self.file_path)
-        parsed_pages = []
-        use_vision = os.getenv("AI_USE_VISION", "false").strip().lower() == "true"
-        for slide_index, slide in enumerate(presentation.slides, start=1):
-            texts = []
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    texts.append(shape.text)
-            notes_frame = getattr(getattr(slide, "notes_slide", None), "notes_text_frame", None)
-            if notes_frame and getattr(notes_frame, "text", ""):
-                texts.append(notes_frame.text)
-            merged_text = "\n".join(texts).strip()
-            if self._is_meaningful_text(merged_text):
-                cleaned = self._clean_text(merged_text)
-                page_data = {"page": slide_index, "content": cleaned, "content_length": len(cleaned)}
-                if use_vision:
-                    images = self._extract_pptx_images(slide)
-                    if images:
-                        vis_desc = self._describe_images(images, slide_index)
-                        if vis_desc:
-                            page_data["visual_description"] = vis_desc
-                parsed_pages.append(page_data)
-        return parsed_pages
-
     def parse_pdf(self) -> dict[str, Any]:
         """
         解析PDF并返回统一协议的结构化JSON数据。

@@ -35,7 +35,7 @@ ai:
   base_url: http://host.docker.internal:8000
   api_key: ""
   model: qwen-plus
-  timeout: 30s
+  timeout: 120s
 
 log:
   level: info

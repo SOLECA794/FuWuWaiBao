@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 try:
     from .parser import DocumentParser

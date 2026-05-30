@@ -1,0 +1,270 @@
+{
+  "picture": {
+    "hidden": false,
+    "url": "http://localhost:3000/api/uploads/019e63ee-9658-740a-9924-4a837cef21b3/pictures/1779796489442.jpeg",
+    "size": 80,
+    "rotation": 0,
+    "aspectRatio": 0.75,
+    "borderRadius": 0,
+    "borderColor": "rgba(0, 0, 0, 0.5)",
+    "borderWidth": 0,
+    "shadowColor": "rgba(0, 0, 0, 0.5)",
+    "shadowWidth": 0
+  },
+  "basics": {
+    "name": "苏子恒",
+    "headline": "华为见习生招聘申请",
+    "email": "3451175152@qq.com",
+    "phone": "18233685856",
+    "location": "浙江，杭州，杭州电子科技大学",
+    "website": {
+      "url": "https://github.com/SOLECA794",
+      "label": ""
+    },
+    "customFields": []
+  },
+  "summary": {
+    "title": "",
+    "columns": 1,
+    "hidden": false,
+    "content": "<p>杭电在读学生，绩点排名12/400，参加过科研与竞赛经历，</p>"
+  },
+  "sections": {
+    "profiles": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e6423-cee2-751c-8800-5f918677541c",
+          "hidden": false,
+          "icon": "address-book",
+          "iconColor": "",
+          "network": "sadasd",
+          "username": "SOLECA",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          }
+        }
+      ]
+    },
+    "experience": {
+      "title": "",
+      "columns": 1,
+      "hidden": true,
+      "items": []
+    },
+    "education": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e6402-d5bd-739e-afa6-0ff58660d058",
+          "hidden": false,
+          "school": "杭州电子科技大学",
+          "degree": "本科在读",
+          "area": "计算机科学与技术",
+          "grade": "绩点排名12/400",
+          "location": "",
+          "period": "",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          },
+          "description": "<p>第一学期 绩点排名12/400<br>第一学期 绩点排名12/400<br>第一学期 绩点排名12/400</p><p></p>"
+        }
+      ]
+    },
+    "projects": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e6410-a3c1-70cf-89c5-3314f74757ea",
+          "hidden": false,
+          "name": "全国智能算法对抗挑战赛",
+          "period": "",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          },
+          "description": "<ul><li><p>负责提示词工程</p></li><li><p>部分算法参与开发</p></li></ul><p></p>"
+        },
+        {
+          "id": "019e6412-a11e-76a5-a6a6-8f1847014317",
+          "hidden": false,
+          "name": "服务外包创新创业竞赛-泛雅AI智课系统",
+          "period": "",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          },
+          "description": "<ul><li><p>项目带头人，主导团队管理和项目开发</p></li><li><p></p></li></ul><p></p>"
+        }
+      ]
+    },
+    "skills": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e6422-1efc-7319-8a6f-042c46e85be7",
+          "hidden": false,
+          "icon": "acorn",
+          "iconColor": "",
+          "name": "c++",
+          "proficiency": "熟练",
+          "level": 1,
+          "keywords": []
+        }
+      ]
+    },
+    "languages": {
+      "title": "",
+      "columns": 1,
+      "hidden": true,
+      "items": []
+    },
+    "interests": {
+      "title": "",
+      "columns": 1,
+      "hidden": true,
+      "items": []
+    },
+    "awards": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e641b-fda7-713c-bf4c-3e377c41dc6c",
+          "hidden": false,
+          "title": "美国大学生数学建模竞赛",
+          "awarder": "ACM协会",
+          "date": "",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          },
+          "description": "<p>H奖</p>"
+        }
+      ]
+    },
+    "certifications": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": []
+    },
+    "publications": {
+      "title": "",
+      "columns": 1,
+      "hidden": true,
+      "items": []
+    },
+    "volunteer": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": [
+        {
+          "id": "019e6421-854c-70ab-94f6-777f0555d1b1",
+          "hidden": false,
+          "organization": "网球ATP",
+          "location": "杭州",
+          "period": "",
+          "website": {
+            "url": "",
+            "label": "",
+            "inlineLink": false
+          },
+          "description": ""
+        }
+      ]
+    },
+    "references": {
+      "title": "",
+      "columns": 1,
+      "hidden": false,
+      "items": []
+    }
+  },
+  "customSections": [],
+  "metadata": {
+    "template": "ditgar",
+    "layout": {
+      "sidebarWidth": 35,
+      "pages": [
+        {
+          "fullWidth": false,
+          "main": [
+            "profiles",
+            "summary",
+            "experience",
+            "projects",
+            "volunteer",
+            "references",
+            "skills",
+            "certifications",
+            "education",
+            "languages",
+            "interests",
+            "publications"
+          ],
+          "sidebar": [
+            "awards"
+          ]
+        }
+      ]
+    },
+    "page": {
+      "gapX": 4,
+      "gapY": 6,
+      "marginX": 14,
+      "marginY": 12,
+      "format": "a4",
+      "locale": "zh-CN",
+      "hideIcons": false
+    },
+    "design": {
+      "level": {
+        "icon": "star",
+        "type": "square"
+      },
+      "colors": {
+        "primary": "rgba(0, 146, 184, 1)",
+        "text": "rgba(0, 0, 0, 1)",
+        "background": "rgba(255, 255, 255, 1)"
+      }
+    },
+    "typography": {
+      "body": {
+        "fontFamily": "IBM Plex Serif",
+        "fontWeights": [
+          "400",
+          "500"
+        ],
+        "fontSize": 10,
+        "lineHeight": 1.5
+      },
+      "heading": {
+        "fontFamily": "IBM Plex Serif",
+        "fontWeights": [
+          "600"
+        ],
+        "fontSize": 14,
+        "lineHeight": 1.5
+      }
+    },
+    "notes": ""
+  }
+}

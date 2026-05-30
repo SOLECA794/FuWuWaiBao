@@ -172,6 +172,11 @@
                 <span class="page-pill">第 {{ currentEditPage }} / {{ totalPages || 1 }} 页</span>
                 <button type="button" class="btn-tool btn-tool--pager" @click="$emit('next-page')" :disabled="currentEditPage >= totalPages" title="下一页">下一页</button>
               </div>
+              <div class="action-strip__audio">
+                <button type="button" class="btn-tool" @click="$emit('generate-audio')" :disabled="!currentCourseId || scriptGenerating">
+                  生成页面音频
+                </button>
+              </div>
             </div>
 
             <div class="action-strip action-strip--save">
@@ -179,6 +184,36 @@
               <button type="button" class="btn-save-primary" @click="$emit('save-script')" :disabled="!currentCourseId || scriptSaving || scriptGenerating">
                 {{ scriptSaving ? '保存中…' : '保存讲稿与节点' }}
               </button>
+            </div>
+            <div class="action-strip action-strip--audio">
+              <div v-if="audioGenerating" class="audio-status">生成音频中…</div>
+              <div v-else-if="currentPageAudio && currentPageAudio.sections && currentPageAudio.sections.length">
+                <div class="audio-player">
+                  <div class="audio-controls">
+                    <button type="button" class="btn-tool" @click="playPrevSection" :disabled="currentSectionIndex <= 0">上段</button>
+                    <button type="button" class="btn-tool" @click="togglePlay">{{ isPlaying ? '暂停' : '播放' }}</button>
+                    <button type="button" class="btn-tool" @click="playNextSection" :disabled="currentSectionIndex >= sections.length - 1">下段</button>
+                    <span class="audio-meta">段 {{ currentSectionIndex + 1 }} / {{ sections.length }}</span>
+                    <label class="rate-label">速率
+                      <select class="rate-select" v-model.number="playbackRate">
+                        <option :value="0.75">0.75x</option>
+                        <option :value="1">1x</option>
+                        <option :value="1.25">1.25x</option>
+                        <option :value="1.5">1.5x</option>
+                        <option :value="2">2x</option>
+                      </select>
+                    </label>
+                    <button type="button" class="btn-tool" @click="downloadCurrentSection" :disabled="!currentSection || !currentSection.audio_url">下载</button>
+                  </div>
+                  <audio ref="audioEl" controls @timeupdate="onTimeUpdate" @ended="onEnded"></audio>
+                  <ul class="audio-section-list">
+                    <li v-for="(s, idx) in sections" :key="s.node_id || idx" :class="{ active: idx === currentSectionIndex }" @click="playSection(idx)">
+                      <strong>{{ idx + 1 }}. {{ s.title || '段落' }}</strong>
+                      <div class="section-hint">{{ s.duration_sec || s.audio_duration_sec || 0 }}s · {{ s.tts_status || s.status || '' }}</div>
+                    </li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </footer>
         </section>
@@ -307,14 +342,38 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   }
+  ,
+  currentPageAudio: {
+    type: Object,
+    default: null
+  },
+  audioGenerating: {
+    type: Boolean,
+    default: false
+  }
 })
 
-const emit = defineEmits(['generate-ai-script', 'save-script', 'update:current-script', 'update:current-script-nodes', 'prev-page', 'next-page', 'open-iteration'])
+const emit = defineEmits(['generate-ai-script', 'generate-audio', 'save-script', 'update:current-script', 'update:current-script-nodes', 'prev-page', 'next-page', 'open-iteration'])
 
 const localNodes = ref([])
 const selectedNodeIndex = ref(0)
 const isPreviewWindowOpen = ref(true)
 const isEditorWindowOpen = ref(true)
+const audioEl = ref(null)
+const isPlaying = ref(false)
+const currentSectionIndex = ref(0)
+const playbackRate = ref(1)
+
+const currentSection = computed(() => sections.value[currentSectionIndex.value] || null)
+
+watch(() => playbackRate.value, (v) => {
+  try { if (audioEl.value) audioEl.value.playbackRate = Number(v) || 1 } catch {}
+})
+
+const sections = computed(() => {
+  if (!props.currentPageAudio || !Array.isArray(props.currentPageAudio.sections)) return []
+  return props.currentPageAudio.sections
+})
 
 const kbRailItems = [
   { id: 'kb1', title: '分治·简案片段', tag: '教案' },
@@ -538,6 +597,73 @@ const updateSelectedNodeText = (value) => {
   }
   emitNodes()
   syncScriptFromNodes()
+}
+
+const playSection = (index) => {
+  const list = sections.value
+  if (!list.length) return
+  const idx = Math.max(0, Math.min(index, list.length - 1))
+  const s = list[idx]
+  if (!s || !s.audio_url) return
+  currentSectionIndex.value = idx
+  const el = audioEl.value
+  if (!el) return
+  el.src = s.audio_url
+  try { el.playbackRate = Number(playbackRate.value) || 1 } catch {}
+  el.play().then(() => { isPlaying.value = true }).catch(() => { isPlaying.value = false })
+}
+
+const playNextSection = () => {
+  playSection(currentSectionIndex.value + 1)
+}
+
+const playPrevSection = () => {
+  playSection(currentSectionIndex.value - 1)
+}
+
+const togglePlay = () => {
+  const el = audioEl.value
+  if (!el) return
+  if (isPlaying.value) {
+    el.pause(); isPlaying.value = false
+  } else {
+    el.play().then(() => { isPlaying.value = true }).catch(() => { isPlaying.value = false })
+  }
+}
+
+const onTimeUpdate = (ev) => {
+  const el = audioEl.value
+  if (!el) return
+  const t = Number(el.currentTime || 0)
+  for (let i = 0; i < sections.value.length; i++) {
+    const s = sections.value[i]
+    const start = Number(s.audio_start_sec ?? s.start_sec ?? 0)
+    const end = Number(s.audio_end_sec ?? s.end_sec ?? (s.audio_duration_sec ? start + Number(s.audio_duration_sec) : start + 9999))
+    if (t >= start && t < end) {
+      if (currentSectionIndex.value !== i) currentSectionIndex.value = i
+      break
+    }
+  }
+}
+
+const onEnded = () => {
+  isPlaying.value = false
+  // 自动继续下一段
+  if (currentSectionIndex.value < sections.value.length - 1) {
+    playNextSection()
+  }
+}
+
+const downloadCurrentSection = () => {
+  const s = currentSection.value
+  if (!s || !s.audio_url) return
+  const a = document.createElement('a')
+  a.href = s.audio_url
+  const fname = `${props.currentCourseId || 'course'}_p${props.currentEditPage || 1}_${currentSectionIndex.value + 1}.wav`
+  a.download = fname
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 function inferNodeType(index, total) {

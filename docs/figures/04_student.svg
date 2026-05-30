@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#edf4ff" stop-opacity="0.92"/>
+    </linearGradient>
+    <linearGradient id="blue1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#f5f9ff"/>
+    </linearGradient>
+    <linearGradient id="blue2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cfe0ff"/>
+      <stop offset="100%" stop-color="#eff5ff"/>
+    </linearGradient>
+    <linearGradient id="blue3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#b9d3ff"/>
+      <stop offset="100%" stop-color="#eef4ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#7a85bf" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,6 L0,12 z" fill="#8ea6d8"/>
+    </marker>
+  </defs>
+  <style><![CDATA[
+    text { font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif; }
+    .title { font-size: 50px; font-weight: 800; fill: #4367d8; letter-spacing: 0.2px; }
+    .tab { font-size: 24px; font-weight: 800; fill: #6e76c4; }
+    .tab-active { fill: #ffffff; }
+    .hero { font-size: 28px; font-weight: 800; fill: #1f2d4d; }
+    .sub { font-size: 16px; fill: #5f6f8b; }
+    .panel-title { font-size: 22px; font-weight: 800; fill: #23324d; }
+    .panel-sub { font-size: 15px; fill: #66758f; }
+    .item-title { font-size: 18px; font-weight: 800; fill: #24344d; }
+    .item-body { font-size: 16px; fill: #53637d; }
+    .chip { font-size: 15px; font-weight: 800; fill: #4064c8; }
+    .note { font-size: 16px; fill: #4e5f7d; }
+    .muted { fill: #7a879c; }
+    .summary { font-size: 22px; font-weight: 800; fill: #2f3d5a; }
+  ]]></style>
+
+  <rect x="0" y="0" width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1450" cy="104" r="160" fill="#dceaff" opacity="0.38"/>
+  <circle cx="120" cy="820" r="220" fill="#eef5ff" opacity="0.52"/>
+  <rect x="22" y="18" width="1556" height="100" rx="18" fill="url(#header)"/>
+  <rect x="0" y="0" width="1600" height="900" fill="none" stroke="#aeb9ef" stroke-width="2" opacity="0.45"/>
+
+  <g transform="translate(44,31)">
+    <rect x="2" y="24" width="64" height="50" rx="10" fill="#d9ecff" stroke="#2c7fb8" stroke-width="4"/>
+    <path d="M10 35 Q34 20 58 35" fill="none" stroke="#2c7fb8" stroke-width="4"/>
+    <path d="M10 46 Q34 31 58 46" fill="none" stroke="#2c7fb8" stroke-width="4"/>
+    <circle cx="34" cy="10" r="10" fill="#ffd54f" stroke="#e0a800" stroke-width="3"/>
+    <path d="M34 0 L34 5" stroke="#2c7fb8" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <text x="136" y="76" class="title">学生端：断点续学</text>
+
+  <g>
+    <rect x="560" y="36" width="162" height="48" rx="24" fill="#d8dcfa"/>
+    <text x="601" y="68" class="tab">项目背景</text>
+    <rect x="750" y="36" width="162" height="48" rx="24" fill="#5f6bd8"/>
+    <text x="791" y="68" class="tab tab-active">项目方案</text>
+    <rect x="940" y="36" width="162" height="48" rx="24" fill="#d8dcfa"/>
+    <text x="981" y="68" class="tab">系统原型</text>
+    <rect x="1130" y="36" width="162" height="48" rx="24" fill="#d8dcfa"/>
+    <text x="1171" y="68" class="tab">项目管理</text>
+  </g>
+
+  <text x="72" y="166" class="hero">学生端不是“只给答案”，而是把问题回链到节点，再继续学下去</text>
+  <text x="72" y="196" class="sub">输入是当前页、当前节点和历史上下文，输出是理解判断与续接位置。</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="236" width="1456" height="82" rx="24" fill="#ffffff" stroke="#d9e2f3" stroke-width="2"/>
+    <rect x="96" y="254" width="240" height="44" rx="22" fill="url(#blue1)" stroke="#c5d7f0" stroke-width="1.5"/>
+    <rect x="356" y="254" width="240" height="44" rx="22" fill="url(#blue2)" stroke="#b7caf0" stroke-width="1.5"/>
+    <rect x="616" y="254" width="300" height="44" rx="22" fill="url(#blue3)" stroke="#a8bfeb" stroke-width="1.5"/>
+    <rect x="936" y="254" width="250" height="44" rx="22" fill="#f4f8ff" stroke="#d3def2" stroke-width="1.5"/>
+    <text x="122" y="283" class="chip">current_page</text>
+    <text x="386" y="283" class="chip">current_node</text>
+    <text x="652" y="283" class="chip">history_summary</text>
+    <text x="972" y="283" class="chip">recent_turns</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="344" width="468" height="388" rx="28" fill="#ffffff" stroke="#dbe4f2" stroke-width="2"/>
+    <rect x="566" y="344" width="468" height="388" rx="28" fill="#ffffff" stroke="#cfe0fb" stroke-width="2"/>
+    <rect x="1060" y="344" width="468" height="388" rx="28" fill="#ffffff" stroke="#bfd0f4" stroke-width="2"/>
+    <rect x="72" y="344" width="468" height="10" rx="5" fill="#a9c2f6"/>
+    <rect x="566" y="344" width="468" height="10" rx="5" fill="#87acef"/>
+    <rect x="1060" y="344" width="468" height="10" rx="5" fill="#6f93e3"/>
+  </g>
+
+  <text x="102" y="394" class="panel-title">输入</text>
+  <text x="102" y="422" class="panel-sub">把问题定位到当前学习位置</text>
+  <rect x="102" y="454" width="404" height="72" rx="18" fill="#f6faff" stroke="#d9e4f3"/>
+  <text x="126" y="488" class="item-title">当前页优先</text>
+  <text x="126" y="514" class="item-body">先召回正在看的课件页</text>
+  <rect x="102" y="542" width="404" height="72" rx="18" fill="#f6faff" stroke="#d9e4f3"/>
+  <text x="126" y="576" class="item-title">当前节点优先</text>
+  <text x="126" y="602" class="item-body">把问题锚定到知识节点</text>
+  <rect x="102" y="630" width="404" height="72" rx="18" fill="#f6faff" stroke="#d9e4f3"/>
+  <text x="126" y="664" class="item-title">历史上下文</text>
+  <text x="126" y="690" class="item-body">保留前文问答和理解轨迹</text>
+
+  <line x1="540" y1="538" x2="558" y2="538" stroke="#b7c7e8" stroke-width="5" marker-end="url(#arrow)"/>
+  <line x1="540" y1="626" x2="558" y2="626" stroke="#b7c7e8" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <text x="596" y="394" class="panel-title">处理</text>
+  <text x="596" y="422" class="panel-sub">回答不止一轮，判断也不止一次</text>
+  <rect x="596" y="454" width="404" height="72" rx="18" fill="#f7fbff" stroke="#d7e5f7"/>
+  <text x="620" y="488" class="item-title">上下文问答</text>
+  <text x="620" y="514" class="item-body">结合课件内容回答当前问题</text>
+  <rect x="596" y="542" width="404" height="72" rx="18" fill="#f7fbff" stroke="#d7e5f7"/>
+  <text x="620" y="576" class="item-title">理解程度判断</text>
+  <text x="620" y="602" class="item-body">none / partial / full 三态判定</text>
+  <rect x="596" y="630" width="404" height="72" rx="18" fill="#f7fbff" stroke="#d7e5f7"/>
+  <text x="620" y="664" class="item-title">续接策略</text>
+  <text x="620" y="690" class="item-body">决定补讲、重讲还是继续推进</text>
+
+  <line x1="1034" y1="538" x2="1052" y2="538" stroke="#b7c7e8" stroke-width="5" marker-end="url(#arrow)"/>
+  <line x1="1034" y1="626" x2="1052" y2="626" stroke="#b7c7e8" stroke-width="5" marker-end="url(#arrow)"/>
+
+  <text x="1090" y="394" class="panel-title">输出</text>
+  <text x="1090" y="422" class="panel-sub">回到正确节点继续学</text>
+  <rect x="1090" y="454" width="404" height="78" rx="18" fill="#f5f9ff" stroke="#d3def4"/>
+  <text x="1114" y="488" class="item-title">resume_page / resume_node_id</text>
+  <text x="1114" y="514" class="item-body">告诉学生应该回到哪一页哪一节点</text>
+  <rect x="1090" y="546" width="404" height="78" rx="18" fill="#f5f9ff" stroke="#d3def4"/>
+  <text x="1114" y="580" class="item-title">resume_sec</text>
+  <text x="1114" y="606" class="item-body">给出秒级续接位置，直接续播</text>
+  <rect x="1090" y="638" width="404" height="78" rx="18" fill="#f5f9ff" stroke="#d3def4"/>
+  <text x="1114" y="672" class="item-title">补讲 / 重讲 / 继续推进</text>
+  <text x="1114" y="698" class="item-body">根据理解程度返回下一步动作</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="756" width="1456" height="82" rx="22" fill="#ffffff" stroke="#d9e2f3" stroke-width="2"/>
+  </g>
+  <text x="100" y="790" class="summary">理论</text>
+  <text x="100" y="816" class="note">问答不是终点，续接才是闭环。</text>
+  <text x="640" y="790" class="summary">公式</text>
+  <text x="640" y="816" class="note">续接策略 = f(current_page, current_node, understanding_level, history_context)</text>
+  <text x="1180" y="790" class="summary">示例</text>
+  <text x="1180" y="816" class="note">“听不懂”→ none → resume_sec=0；“有疑问”→ partial → resume_sec=15；“懂了”→ full</text>
+
+  <text x="1068" y="882" class="muted" style="font-size:14px;font-weight:600;">量化节点：understanding_level / resume_page / resume_node_id / resume_sec</text>
+</svg>

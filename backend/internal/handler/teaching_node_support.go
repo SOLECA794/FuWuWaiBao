@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -219,6 +220,55 @@ func encodeJSON(value any) string {
 		return "[]"
 	}
 	return string(payload)
+}
+
+func defaultScriptSegments(script string, nodeID string) []map[string]any {
+	text := strings.TrimSpace(script)
+	if text == "" {
+		return []map[string]any{}
+	}
+	rough := []string{text}
+	if strings.Contains(text, "。") {
+		rough = strings.Split(text, "。")
+	}
+	segments := make([]map[string]any, 0, len(rough))
+	for idx, seg := range rough {
+		seg = strings.TrimSpace(seg)
+		if seg == "" {
+			continue
+		}
+		segments = append(segments, map[string]any{
+			"segment_id":      fmt.Sprintf("seg_%d", idx+1),
+			"text":            seg,
+			"node_ids":        []string{nodeID},
+			"confidence":      0.8,
+			"manual_override": false,
+		})
+	}
+	if len(segments) == 0 {
+		segments = append(segments, map[string]any{
+			"segment_id": "seg_1",
+			"text":       text,
+			"node_ids":   []string{nodeID},
+			"confidence": 0.8,
+		})
+	}
+	return segments
+}
+
+func defaultKnowledgeNodes(nodeID string, title string) []map[string]any {
+	return []map[string]any{
+		{
+			"node_id":       nodeID,
+			"parent_id":     "",
+			"level":         1,
+			"title":         title,
+			"tags":          []string{"core"},
+			"prerequisites": []string{},
+			"difficulty":    "medium",
+			"coverage_span": []string{"seg_1"},
+		},
+	}
 }
 
 func filterEmptyStrings(values []string) []string {

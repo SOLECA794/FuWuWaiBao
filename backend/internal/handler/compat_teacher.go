@@ -118,6 +118,17 @@ func (h *CompatibilityHandler) AIGenerateTeacherScriptV1(c *gin.Context) {
 		}
 		script = resp.Script
 		mindmapMarkdown = resp.MindmapMarkdown
+		// 页面级生成成功但节点级失败时，用页面脚本回填 node 字段
+		for _, node := range teachingNodes {
+			segments := defaultScriptSegments(script, node.NodeID)
+			_ = h.db.Model(&model.TeachingNode{}).Where("id = ?", node.ID).Updates(map[string]any{
+				"script_text":          script,
+				"mindmap_markdown":     mindmapMarkdown,
+				"knowledge_nodes_json": encodeJSON(defaultKnowledgeNodes(node.NodeID, node.Title)),
+				"script_segments_json": encodeJSON(segments),
+				"schema_version":       2,
+			}).Error
+		}
 	}
 	if err := h.db.Where("course_id = ? AND page_index = ?", courseID, req.PageNum).First(&page).Error; err == nil {
 		_ = h.db.Model(&page).Update("script_text", script).Error

@@ -270,7 +270,7 @@ func NewAIEngineClient(baseURL string, timeout time.Duration) AIEngine {
 		baseURL = "http://127.0.0.1:8000"
 	}
 	if timeout <= 0 {
-		timeout = 30 * time.Second
+		timeout = 120 * time.Second
 	}
 
 	return &aiEngineClient{

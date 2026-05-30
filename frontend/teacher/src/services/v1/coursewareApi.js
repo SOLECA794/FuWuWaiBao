@@ -37,6 +37,11 @@ export const teacherCoursewareApi = {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pageNum, mode })
   }),
+  generateAudio: ({ courseId, pageNum }) => requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/pages/${pageNum}/audio`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  }),
   syncKnowledgeGraph: (courseId) =>
     requestJson(`/api/v1/teacher/coursewares/${encodeURIComponent(courseId)}/knowledge-graph/sync`, {
       method: 'POST'

@@ -948,20 +948,7 @@ const selectionDisplayCards = computed(() => {
     desc: item.desc || `共 ${item.totalPage || 1} 页内容，点击卡片立即开始学习。`,
     order: index
   }))
-  if (realCards.length > 0) return realCards
-
-  const fallbackCourse = selectionCourseOptions.value[0]?.name || '示例课程'
-  const fallbackClass = filteredSelectionClassOptions.value[0]?.name || '示例班级'
-  return Array.from({ length: 6 }).map((_, index) => ({
-    id: `mock-courseware-${index + 1}`,
-    name: `占位课件 ${String(index + 1).padStart(2, '0')}`,
-    courseName: fallbackCourse,
-    className: fallbackClass,
-    desc: '当前暂无真实选课数据，先用占位卡片展示平铺效果。',
-    totalPage: 1,
-    mock: true,
-    order: index
-  }))
+  return realCards
 })
 
 const jumpToSection = (section, options = {}) => {
@@ -1470,19 +1457,6 @@ const practiceChoiceQuestions = [
   }
 ]
 
-const mockOutlineNodes = [
-  { node_id: 'mock_n1', title: '遗传算法学习目标', text: '明确本节课输出：理解编码、适应度、选择、交叉、变异。', type: 'opening', start_sec: 0, end_sec: 45, mockBucket: 'prerequisite' },
-  { node_id: 'mock_n2', title: '编码与种群初始化', text: '通过二进制编码描述个体，并初始化首代种群。', type: 'core', start_sec: 45, end_sec: 95, mockBucket: 'mastered' },
-  { node_id: 'mock_n3', title: '适应度函数定义', text: '适应度决定个体保留概率，是搜索方向的核心。', type: 'core', start_sec: 95, end_sec: 150, mockBucket: 'mastered' },
-  { node_id: 'mock_n4', title: '轮盘赌选择示例', text: '基于适应度归一化，计算个体被选中概率。', type: 'core', start_sec: 150, end_sec: 210, mockBucket: 'unmastered' },
-  { node_id: 'mock_n5', title: '单点交叉演算', text: '在交叉点后交换片段，生成两个子代。', type: 'core', start_sec: 210, end_sec: 265, mockBucket: 'unmastered' },
-  { node_id: 'mock_n6', title: '突变与多样性', text: '通过低概率突变避免早熟收敛，增强全局搜索能力。', type: 'transition', start_sec: 265, end_sec: 315, mockBucket: 'prerequisite' },
-  { node_id: 'mock_n7', title: '参数调优策略', text: '结合收敛速度与最优质量，调整种群规模与变异率。', type: 'core', start_sec: 315, end_sec: 370, mockBucket: 'unmastered' },
-  { node_id: 'mock_n8', title: '典型易错点复盘', text: '重点关注概率归一化、交叉点偏移和边界条件。', type: 'core', start_sec: 370, end_sec: 430, mockBucket: 'mastered' },
-  { node_id: 'mock_n9', title: '课堂小测与反馈', text: '通过随堂测验识别薄弱环节并生成复习建议。', type: 'transition', start_sec: 430, end_sec: 485, mockBucket: 'unmastered' },
-  { node_id: 'mock_n10', title: '总结与作业指引', text: '完成作业并将错题同步到个人中心形成闭环。', type: 'transition', start_sec: 485, end_sec: 540, mockBucket: 'prerequisite' }
-]
-
 const practiceAnswers = reactive({
   choice1: '',
   choice2: '',
@@ -1621,20 +1595,7 @@ const displayOutlineNodes = computed(() => {
     ...node,
     type: node.type || (index === 0 ? 'opening' : 'core')
   }))
-  if (realNodes.length >= 8) return realNodes
-
-  const usedIds = new Set(realNodes.map((node) => node.node_id))
-  const offsetSec = Number(realNodes[realNodes.length - 1]?.end_sec || 0)
-  const fillers = mockOutlineNodes
-    .filter((node) => !usedIds.has(node.node_id))
-    .map((node) => ({
-      ...node,
-      start_sec: Number(node.start_sec || 0) + offsetSec,
-      end_sec: Number(node.end_sec || 0) + offsetSec
-    }))
-
-  const needCount = Math.max(8 - realNodes.length, 4)
-  return [...realNodes, ...fillers.slice(0, needCount)]
+  return realNodes
 })
 
 const filteredOutlineNodes = computed(() => {

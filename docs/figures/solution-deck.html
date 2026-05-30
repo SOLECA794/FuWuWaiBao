@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>方案设计 Deck</title>
+  <style>
+    :root {
+      --bg: #f6f9ff;
+      --surface: #ffffff;
+      --surface-2: #f8fbff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --line: #dbe3f3;
+      --line-strong: #b8c7ea;
+      --primary: #4466d8;
+      --primary-strong: #2d49b5;
+      --primary-soft: rgba(68, 102, 216, 0.08);
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+      --radius: 28px;
+      --radius-sm: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 10%, rgba(68, 102, 216, 0.08), transparent 26%),
+        radial-gradient(circle at 85% 15%, rgba(68, 102, 216, 0.06), transparent 28%),
+        linear-gradient(180deg, #f7faff 0%, #f2f6ff 100%);
+      color: var(--text);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+    }
+
+    .deck {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 16px;
+      padding: 24px;
+    }
+
+    .topbar, .bottombar, .notes-drawer {
+      border: 1px solid rgba(219, 227, 243, 0.9);
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      height: 72px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px 0 24px;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #eef4ff, #dfe8ff);
+      border: 1px solid #d2dcf3;
+      display: grid;
+      place-items: center;
+      color: var(--primary);
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .brand-text {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-family: Georgia, "Songti SC", "STSong", serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .brand-subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      color: #334155;
+      border-radius: 999px;
+      height: 38px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .pill:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+    .pill.active {
+      background: linear-gradient(180deg, rgba(68, 102, 216, 0.14), rgba(68, 102, 216, 0.08));
+      border-color: rgba(68, 102, 216, 0.35);
+      color: var(--primary-strong);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      color: #334155;
+      font-size: 15px;
+      font-weight: 700;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .icon-btn:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+    }
+
+    .slide {
+      height: 100%;
+      width: auto;
+      max-width: 100%;
+      aspect-ratio: 16 / 9;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border-radius: 30px;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(219, 227, 243, 0.9);
+      overflow: hidden;
+    }
+
+    .slide.active { display: flex; }
+
+    .slide-inner {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 16px;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 90% 8%, rgba(68, 102, 216, 0.05), transparent 28%),
+        linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    }
+
+    .slide-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .slide-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--primary-strong);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+
+    .slide-title {
+      margin: 0;
+      font-family: Georgia, "Songti SC", "STSong", serif;
+      font-size: 34px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: #0f172a;
+    }
+
+    .slide-lead {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+      max-width: 980px;
+    }
+
+    .slide-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .progress-track {
+      width: 180px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8eefb;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 33.33%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--primary), #7a8ff0);
+      transition: width 0.2s ease;
+    }
+
+    .art-wrap {
+      display: grid;
+      place-items: center;
+      padding: 0;
+      min-height: 0;
+    }
+
+    .art {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid rgba(219, 227, 243, 0.75);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+
+    .slide-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--muted);
+      min-width: 0;
+    }
+
+    .foot-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(68, 102, 216, 0.18);
+      background: var(--primary-soft);
+      color: var(--primary-strong);
+      font-weight: 800;
+    }
+
+    .notes-drawer {
+      position: fixed;
+      right: 24px;
+      bottom: 92px;
+      width: min(540px, calc(100vw - 48px));
+      max-height: 42vh;
+      border-radius: 24px;
+      padding: 18px 18px 16px;
+      display: none;
+      overflow: hidden;
+    }
+
+    .notes-drawer.open { display: block; }
+
+    .notes-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .notes-title {
+      font-family: Georgia, "Songti SC", "STSong", serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .notes-body {
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.7;
+      overflow: auto;
+      max-height: calc(42vh - 70px);
+      padding-right: 4px;
+      white-space: pre-wrap;
+    }
+
+    .notes-body .hl { color: var(--primary-strong); font-weight: 700; }
+
+    .bottombar {
+      height: 56px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset;
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+    }
+
+    .tiny { color: var(--muted); font-weight: 600; }
+
+    @media (max-width: 1200px) {
+      .slide-title { font-size: 28px; }
+      .slide-lead { font-size: 14px; }
+      .slide { width: 100%; }
+      .topbar { height: auto; padding: 14px 16px; flex-wrap: wrap; }
+      .deck { padding: 16px; gap: 12px; }
+      .notes-drawer { bottom: 84px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">P</div>
+        <div class="brand-text">
+          <div class="brand-title">方案设计 Deck</div>
+          <div class="brand-subtitle">html-ppt 风格导航 · white editorial / blueprint · 4 slides</div>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Slide navigation">
+        <button class="pill active" data-jump="0">01 需求梳理</button>
+        <button class="pill" data-jump="1">02 双端总览</button>
+        <button class="pill" data-jump="2">03 教师端</button>
+        <button class="pill" data-jump="3">04 学生端</button>
+      </nav>
+
+      <div class="controls">
+        <button class="icon-btn" id="prevBtn" title="上一页">←</button>
+        <button class="icon-btn" id="nextBtn" title="下一页">→</button>
+        <button class="icon-btn" id="notesBtn" title="切换讲者备注">N</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <section class="slide active" data-title="题目需求和内容梳理" data-notes="这一页只做一件事：把题目要求翻译成内容结构。主讲顺序是先讲题目要求，再讲教师和学生的角色需求，接着讲为什么静态课件会出现内容问题，最后把方案入口收束到内容梳理和双端协作。\n\n讲的时候要把 L1-L3 层级说清楚：L1 是题目要求，L2 是教师/学生需求，L3 是内容问题与方案入口。不要把技术实现提前抬上来，这一页的职责是定边界，不是讲算法。">
+        <div class="slide-inner">
+          <div class="slide-head">
+            <div>
+              <div class="slide-kicker">Solution / 01</div>
+              <h1 class="slide-title">题目需求和内容梳理</h1>
+              <p class="slide-lead">先把题目要求翻译成内容结构，再决定方案怎么落地。</p>
+            </div>
+            <div class="slide-progress"><span>01 / 04</span><div class="progress-track"><div class="progress-fill"></div></div></div>
+          </div>
+          <div class="art-wrap">
+            <img class="art" src="./01_requirements.svg" alt="题目需求和内容梳理" />
+          </div>
+          <div class="slide-foot">
+            <div class="foot-left"><span class="badge">L1 宏观</span><span class="tiny">题目要求</span><span class="tiny">→</span><span class="tiny">教师 / 学生需求</span><span class="tiny">→</span><span class="tiny">内容问题</span></div>
+            <div class="tiny">单页只讲一个观点：先定边界，再定方案。</div>
+          </div>
+          <div class="notes" hidden>这一页只做一件事：把题目要求翻译成内容结构。主讲顺序是先讲题目要求，再讲教师和学生的角色需求，接着讲为什么静态课件会出现内容问题，最后把方案入口收束到内容梳理和双端协作。
+
+讲的时候要把 L1-L3 层级说清楚：L1 是题目要求，L2 是教师/学生需求，L3 是内容问题与方案入口。不要把技术实现提前抬上来，这一页的职责是定边界，不是讲算法。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="双端解决方案总览" data-notes="这一页的核心是共享底座。对外要讲成一句话：一套底座，两端分工。上半部分是总流程，下半部分是节点化学习底座，再往下分别展开教师端和学生端，最后底部用系统级、中观级和微观级抽象层收束。\n\n这里要强调量化锚点：current_page、understanding_level、resume_sec、node-insights。它们不是附属字段，而是学生端和教师端都能消费的共同语言。">
+        <div class="slide-inner">
+          <div class="slide-head">
+            <div>
+              <div class="slide-kicker">Solution / 02</div>
+              <h1 class="slide-title">双端解决方案总览</h1>
+              <p class="slide-lead">一套底座，两端分工，统一节点语言后再谈协作。</p>
+            </div>
+            <div class="slide-progress"><span>02 / 04</span><div class="progress-track"><div class="progress-fill"></div></div></div>
+          </div>
+          <div class="art-wrap">
+            <img class="art" src="./02_overview.svg" alt="双端解决方案总览" />
+          </div>
+          <div class="slide-foot">
+            <div class="foot-left"><span class="badge">L2 中观</span><span class="tiny">共享底座</span><span class="tiny">→</span><span class="tiny">双端协作</span><span class="tiny">→</span><span class="tiny">学习闭环</span></div>
+            <div class="tiny">量化锚点：page / node / second / node-insights。</div>
+          </div>
+          <div class="notes" hidden>这一页的核心是共享底座。对外要讲成一句话：一套底座，两端分工。上半部分是总流程，下半部分是节点化学习底座，再往下分别展开教师端和学生端，最后底部用系统级、中观级和微观级抽象层收束。
+
+这里要强调量化锚点：current_page、understanding_level、resume_sec、node-insights。它们不是附属字段，而是学生端和教师端都能消费的共同语言。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="教师端：讲授内容" data-notes="这一页要把 I/O 链路讲完整：输入是 PPT / PDF 和课件要点，处理中间有页级摘要、节点聚合、脚本生成和教师校准，输出是可讲、可改、可发布的讲授内容。\n\n这一页的深度要落在三件事上：一，理论上为什么要先做页级摘要；二，公式上为什么可以写成‘脚本 = Σ(页级摘要 × 节点聚合) + 教师校准’；三，示例上如何从三类输入得到四段输出和一份可编辑脚本。">
+        <div class="slide-inner">
+          <div class="slide-head">
+            <div>
+              <div class="slide-kicker">Solution / 03</div>
+              <h1 class="slide-title">教师端：讲授内容</h1>
+              <p class="slide-lead">把课件变成可讲、可改、可发布的讲授内容。</p>
+            </div>
+            <div class="slide-progress"><span>03 / 04</span><div class="progress-track"><div class="progress-fill"></div></div></div>
+          </div>
+          <div class="art-wrap">
+            <img class="art" src="./03_teacher.svg" alt="教师端方案" />
+          </div>
+          <div class="slide-foot">
+            <div class="foot-left"><span class="badge">L3 微观</span><span class="tiny">I/O 链路</span><span class="tiny">→</span><span class="tiny">理论 / 公式 / 示例</span></div>
+            <div class="tiny">量化节点：current_page / resume_sec / understanding_level。</div>
+          </div>
+          <div class="notes" hidden>这一页要把 I/O 链路讲完整：输入是 PPT / PDF 和课件要点，处理中间有页级摘要、节点聚合、脚本生成和教师校准，输出是可讲、可改、可发布的讲授内容。
+
+这一页的深度要落在三件事上：一，理论上为什么要先做页级摘要；二，公式上为什么可以写成“脚本 = Σ(页级摘要 × 节点聚合) + 教师校准”；三，示例上如何从三类输入得到四段输出和一份可编辑脚本。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="学生端：断点续学" data-notes="这一页补上学生端。主讲顺序是：先讲输入是什么，再讲系统怎么处理，再讲输出怎么帮助学生继续学。\n\n要特别强调三态理解：none、partial、full。none 代表需要重讲，partial 代表需要补充，full 代表可以继续推进。这个三态不是形式化装饰，而是续接位置和讲授节奏的依据。">
+        <div class="slide-inner">
+          <div class="slide-head">
+            <div>
+              <div class="slide-kicker">Solution / 04</div>
+              <h1 class="slide-title">学生端：断点续学</h1>
+              <p class="slide-lead">把问题回链到节点，再继续学下去。</p>
+            </div>
+            <div class="slide-progress"><span>04 / 04</span><div class="progress-track"><div class="progress-fill"></div></div></div>
+          </div>
+          <div class="art-wrap">
+            <img class="art" src="./04_student.svg" alt="学生端方案" />
+          </div>
+          <div class="slide-foot">
+            <div class="foot-left"><span class="badge">L3 微观</span><span class="tiny">current_page → understanding_level → resume_sec</span></div>
+            <div class="tiny">核心不是答完，而是接着学。</div>
+          </div>
+          <div class="notes" hidden>这一页补上学生端。主讲顺序是：先讲输入是什么，再讲系统怎么处理，再讲输出怎么帮助学生继续学。
+
+要特别强调三态理解：none、partial、full。none 代表需要重讲，partial 代表需要补充，full 代表可以继续推进。这个三态不是形式化装饰，而是续接位置和讲授节奏的依据。</div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottombar">
+      <div class="status">
+        <span class="kbd">←</span><span class="kbd">→</span><span class="tiny">切页</span>
+        <span class="kbd">N</span><span class="tiny">讲者备注</span>
+        <span class="kbd">P</span><span class="tiny">PNG</span>
+        <span class="kbd">X</span><span class="tiny">PPTX</span>
+      </div>
+      <div class="status">
+        <span id="slideLabel">方案设计 / 01 题目需求和内容梳理</span>
+      </div>
+      <div class="status">
+        <span class="tiny">16:9 HTML deck · 白底 / 蓝色主色 / 3 层抽象 · 4 slides</span>
+      </div>
+    </footer>
+  </div>
+
+  <aside id="notesDrawer" class="notes-drawer" aria-live="polite">
+    <div class="notes-head">
+      <h2 class="notes-title">讲者备注</h2>
+      <button class="icon-btn" id="closeNotesBtn" title="关闭备注">×</button>
+    </div>
+    <div id="notesBody" class="notes-body"></div>
+  </aside>
+
+  <script src="../../node_modules/html2canvas/dist/html2canvas.min.js"></script>
+  <script src="../../node_modules/pptxgenjs/dist/pptxgen.bundle.js"></script>
+  <script>
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const pills = Array.from(document.querySelectorAll('.pill'));
+    const slideLabel = document.getElementById('slideLabel');
+    const notesDrawer = document.getElementById('notesDrawer');
+    const notesBody = document.getElementById('notesBody');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const notesBtn = document.getElementById('notesBtn');
+    const closeNotesBtn = document.getElementById('closeNotesBtn');
+
+    let current = 0;
+    let notesOpen = false;
+
+    function syncUI() {
+      slides.forEach((slide, index) => slide.classList.toggle('active', index === current));
+      pills.forEach((pill, index) => pill.classList.toggle('active', index === current));
+      const title = slides[current].dataset.title;
+      slideLabel.textContent = `方案设计 / ${String(current + 1).padStart(2, '0')} ${title}`;
+      const noteText = slides[current].dataset.notes || '';
+      notesBody.textContent = noteText;
+      notesDrawer.classList.toggle('open', notesOpen);
+      history.replaceState(null, '', `#/${current + 1}`);
+    }
+
+    function goTo(index) {
+      current = (index + slides.length) % slides.length;
+      syncUI();
+    }
+
+    function toggleNotes(force) {
+      notesOpen = typeof force === 'boolean' ? force : !notesOpen;
+      notesDrawer.classList.toggle('open', notesOpen);
+      notesBody.textContent = slides[current].dataset.notes || '';
+    }
+
+    pills.forEach((pill, index) => pill.addEventListener('click', () => goTo(index)));
+    prevBtn.addEventListener('click', () => goTo(current - 1));
+    nextBtn.addEventListener('click', () => goTo(current + 1));
+    notesBtn.addEventListener('click', () => toggleNotes());
+    closeNotesBtn.addEventListener('click', () => toggleNotes(false));
+
+    window.addEventListener('keydown', async (event) => {
+      if (event.key === 'ArrowLeft') goTo(current - 1);
+      if (event.key === 'ArrowRight') goTo(current + 1);
+      if (event.key.toLowerCase() === 'n') toggleNotes();
+      if (event.key.toLowerCase() === 'p') await exportPNG();
+      if (event.key.toLowerCase() === 'x') await exportPPTX();
+      if (event.key === 'Escape') toggleNotes(false);
+    });
+
+    async function captureActiveSlide() {
+      const target = slides[current];
+      const canvas = await html2canvas(target, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      return canvas;
+    }
+
+    async function exportPNG() {
+      const canvas = await captureActiveSlide();
+      const link = document.createElement('a');
+      link.download = `solution-slide-${String(current + 1).padStart(2, '0')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    async function exportPPTX() {
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_WIDE';
+      const previous = current;
+      for (let index = 0; index < slides.length; index += 1) {
+        current = index;
+        syncUI();
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const canvas = await captureActiveSlide();
+        const slide = pptx.addSlide();
+        slide.background = { color: 'FFFFFF' };
+        slide.addImage({ data: canvas.toDataURL('image/png'), x: 0, y: 0, w: 13.333, h: 7.5 });
+      }
+      current = previous;
+      syncUI();
+      await pptx.writeFile({ fileName: 'solution-deck.pptx' });
+    }
+
+    function refreshProgress() {
+      slides.forEach((slide, index) => {
+        const fill = slide.querySelector('.progress-fill');
+        if (fill) {
+          fill.style.width = `${((index + 1) / slides.length) * 100}%`;
+        }
+      });
+    }
+
+    refreshProgress();
+    syncUI();
+  </script>
+</body>
+</html>

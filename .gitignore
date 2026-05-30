@@ -56,3 +56,4 @@ backend/config/config.local.yaml
 .DS_Store
 Thumbs.db
 *.sublime-workspace
+.deepseek/
