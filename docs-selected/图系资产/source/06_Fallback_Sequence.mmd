@@ -1,0 +1,43 @@
+%% D06 — 双引擎降级时序图
+%% 对应: PPT P05/P10 | 小册子 M03
+
+sequenceDiagram
+
+    participant F as 前端
+    participant O as 业务编排层
+    participant D as Dify主引擎
+    participant L as 本地Python引擎
+
+    Note over O: 统一AI能力接口<br/>先Dify→失败降级
+
+    %% 正常路径
+    rect rgb(232, 245, 233)
+        Note over F,D: ✅ 正常路径
+        F->>+O: SSE请求/API调用
+        O->>+D: POST /workflow/*
+        D-->>-O: HTTP 200 + result
+        O-->>-F: 流式/同步响应
+    end
+
+    %% 降级路径
+    rect rgb(255, 243, 224)
+        Note over F,L: 🔄 降级路径（Dify不可用）
+        F->>+O: SSE请求/API调用
+        O->>+D: POST /workflow/*
+        D-->>O: ❌ HTTP 5xx/超时
+        Note over O: 自动切换降级引擎
+        O->>+L: POST /same_endpoint<br/>(同请求体，127.0.0.1:8000)
+        L-->>-O: HTTP 200 + result
+        O-->>-F: 流式/同步响应
+        Note over O: 切换对用户完全透明
+    end
+
+    %% 双失败路径
+    rect rgb(255, 235, 238)
+        Note over F,O: ❌ 双引擎均不可用
+        F->>+O: API调用
+        O->>D: 尝试Dify → ❌
+        O->>L: 尝试本地 → ❌
+        O-->>-F: 降级状态码
+        Note over O: 业务层兜底处理
+    end

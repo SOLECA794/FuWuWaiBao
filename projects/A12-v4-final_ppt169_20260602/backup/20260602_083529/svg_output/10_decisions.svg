@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0D47A1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1565C0" font-weight="bold" letter-spacing="1">设计决策</text>
+  <text x="60" y="100" font-family="Georgia, KaiTi, serif" font-size="36" fill="#1A1A2E" font-weight="bold">架构设计决策：为什么这样组织</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#FF6F00"/>
+
+  <!-- 2x2 grid -->
+  <!-- Decision 1: 编排与能力分离 -->
+  <rect x="60" y="140" width="560" height="240" rx="12" fill="#FFFFFF" stroke="#1565C0" stroke-width="1.5"/>
+  <rect x="60" y="140" width="560" height="40" rx="12" fill="#1565C0"/>
+  <rect x="60" y="168" width="560" height="12" fill="#1565C0"/>
+  <text x="340" y="166" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">决策一：编排与能力分离</text>
+  <text x="80" y="210" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#6B7280">
+    <tspan x="80" dy="0">问题：AI推理延迟不可控（3-5秒），若编排层也承担</tspan>
+    <tspan x="80" dy="22">AI推理，整体响应将被拖慢到秒级。</tspan>
+    <tspan x="80" dy="30">方案：业务编排层只做状态管理和流式转发，所有AI能</tspan>
+    <tspan x="80" dy="22">力下沉至AI能力层，两层间通过HTTP接口调用。</tspan>
+    <tspan x="80" dy="30" fill="#1565C0" font-weight="bold">效果：编排层保持ms级响应，可独立水平扩展</tspan>
+  </text>
+
+  <!-- Decision 2: 能力可降级 -->
+  <rect x="650" y="140" width="570" height="240" rx="12" fill="#FFFFFF" stroke="#FF6F00" stroke-width="1.5"/>
+  <rect x="650" y="140" width="570" height="40" rx="12" fill="#FF6F00"/>
+  <rect x="650" y="168" width="570" height="12" fill="#FF6F00"/>
+  <text x="935" y="166" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">决策二：能力可降级</text>
+  <text x="670" y="210" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#6B7280">
+    <tspan x="670" dy="0">问题：Dify作为工作流编排引擎是单点依赖，一旦宕机</tspan>
+    <tspan x="670" dy="22">整个AI能力层不可用。教学场景要求高可用。</tspan>
+    <tspan x="670" dy="30">方案：双引擎注册——先发Dify，失败自动切本地</tspan>
+    <tspan x="670" dy="22">Python引擎（127.0.0.1:8000），切换对用户透明。</tspan>
+    <tspan x="670" dy="30" fill="#FF6F00" font-weight="bold">效果：单引擎故障不中断课堂，可用性大幅提升</tspan>
+  </text>
+
+  <!-- Decision 3: 节点化 -->
+  <rect x="60" y="405" width="560" height="240" rx="12" fill="#FFFFFF" stroke="#10B981" stroke-width="1.5"/>
+  <rect x="60" y="405" width="560" height="40" rx="12" fill="#10B981"/>
+  <rect x="60" y="433" width="560" height="12" fill="#10B981"/>
+  <text x="340" y="431" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">决策三：节点化统一语言</text>
+  <text x="80" y="475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#6B7280">
+    <tspan x="80" dy="0">问题：以"页"为操作单元粒度太粗——编辑讲稿无法精</tspan>
+    <tspan x="80" dy="22">确到页内段落，问答无法定位页内位置，续接无法</tspan>
+    <tspan x="80" dy="22">跨页恢复。</tspan>
+    <tspan x="80" dy="30">方案：定义"教学节点"为最小语义单元，所有业务链</tspan>
+    <tspan x="80" dy="22">路（脚本编辑/问答溯源/续接定位/学情统计）围绕</tspan>
+    <tspan x="80" dy="22">节点展开。</tspan>
+    <tspan x="80" dy="30" fill="#10B981" font-weight="bold">效果：四条业务链路共用同一套数据结构</tspan>
+  </text>
+
+  <!-- Decision 4: 课程知识优先 -->
+  <rect x="650" y="405" width="570" height="240" rx="12" fill="#FFFFFF" stroke="#7B1FA2" stroke-width="1.5"/>
+  <rect x="650" y="405" width="570" height="40" rx="12" fill="#7B1FA2"/>
+  <rect x="650" y="433" width="570" height="12" fill="#7B1FA2"/>
+  <text x="935" y="431" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">决策四：课程知识优先</text>
+  <text x="670" y="475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#6B7280">
+    <tspan x="670" dy="0">问题：通用大模型直接回答易产生偏离教材的"幻觉"答</tspan>
+    <tspan x="670" dy="22">案，教学场景要求每个回答都可溯源。</tspan>
+    <tspan x="670" dy="30">方案：问答时优先检索课件知识，大模型基于检索结</tspan>
+    <tspan x="670" dy="22">果生成回答。三级级联上下文：节点→页面→全</tspan>
+    <tspan x="670" dy="22">页。回答绑定溯源页码。</tspan>
+    <tspan x="670" dy="30" fill="#7B1FA2" font-weight="bold">效果：降低幻觉，学生可验证答案来源</tspan>
+  </text>
+
+  <!-- Bottom summary -->
+  <rect x="60" y="660" width="1160" height="1" fill="#E5E7EB"/>
+  <text x="640" y="680" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1565C0" text-anchor="middle">四个决策共同支撑了系统的韧性、可扩展性和教学一致性</text>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#E5E7EB"/>
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF" text-anchor="end">10</text>
+</svg>

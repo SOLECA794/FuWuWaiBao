@@ -1,0 +1,50 @@
+%% D10 — 任务调度状态机图
+%% 对应: PPT P15 | 小册子 M03
+
+graph LR
+
+    classDef initial fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef running fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef success fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef failed fill:#FFEBEE,stroke:#C62828,stroke-width:2px
+    classDef retry fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef metric fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+
+    %% ===== 状态定义 =====
+    PENDING["📥 pending<br/>等待调度<br/>创建时初始状态<br/>失败重试时回到此态"]:::initial
+    QUEUED["📋 queued<br/>已入队列<br/>等待worker消费"]:::initial
+    PROCESSING["⚙️ processing<br/>执行中<br/>更新 last_attempt<br/>写入 TaskStatus"]:::running
+    SUCCESS["✅ success<br/>执行成功<br/>标记完成"]:::success
+    FAILED["❌ failed<br/>执行失败<br/>记录 error_message"]:::failed
+    RETRY["🔄 重试决策<br/>检查 retry_count"]:::retry
+
+    %% ===== 状态流转 =====
+    PENDING -->|"入队"| QUEUED
+    QUEUED -->|"worker消费"| PROCESSING
+    PROCESSING -->|"执行成功"| SUCCESS
+    PROCESSING -->|"执行异常"| FAILED
+    FAILED -->|"判断重试次数"| RETRY
+    RETRY -->|"retry_count < 3<br/>指数退避等待"| PENDING
+    RETRY -->|"retry_count ≥ 3<br/>放弃重试"| FINAL_FAILED["⛔ failed (终态)<br/>不再自动恢复"]:::failed
+
+    %% ===== 调度机制 =====
+    subgraph SCHEDULER["调度器机制"]
+        DISPATCH["📡 dispatchLoop<br/>每分钟扫描到期任务"]
+        WORKER["👷 10个worker协程<br/>并发消费队列"]
+        QUEUE["📦 taskQueue<br/>容量 1000"]
+    end
+
+    DISPATCH -->|"扫描→入队"| QUEUE
+    QUEUE -->|"worker获取"| WORKER
+    WORKER -->|"执行"| PROCESSING
+
+    %% ===== 量化标注 =====
+    M1["最大重试: 3次"]:::metric
+    M2["退避: 2^retryCount 分钟<br/>第1次→2min / 第2次→4min / 第3次→8min"]:::metric
+    M3["并发: 10 worker 协程"]:::metric
+    M4["扫描周期: 1分钟"]:::metric
+
+    RETRY -.- M1
+    RETRY -.- M2
+    WORKER -.- M3
+    DISPATCH -.- M4

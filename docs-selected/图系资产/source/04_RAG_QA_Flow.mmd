@@ -1,0 +1,86 @@
+%% D04 — 本页优先RAG+问答流程图
+%% 对应: PPT P07/P13 | 小册子 M04
+
+graph TD
+
+    classDef input fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef process fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef context fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef constraint fill:#FFEBEE,stroke:#C62828,stroke-width:2px
+    classDef output fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef fallback fill:#FFF8E1,stroke:#F57F17,stroke-width:1px
+
+    %% ===== 输入 =====
+    Q["💬 学生提问<br/>+ 当前学习位置(页面/节点)"]:::input
+
+    %% ===== 上下文构建 =====
+    subgraph CONTEXT["三级级联上下文构建"]
+        L1["L1 目标节点优先<br/>提取目标节点ScriptSegments<br/>+ 前置依赖节点内容"]
+        L2["L2 当前页补充<br/>扩大到当前页<br/>全部TeachingNode"]
+        L3["L3 全页兜底<br/>取CoursePage<br/>SourceText拼接"]
+    end
+
+    Q --> CONTEXT
+    L1 -. "不足→" .-> L2
+    L2 -. "不足→" .-> L3
+    L3 -. "最终上下文" .-> CTX_OUT["📋 构建完成上下文"]
+
+    %% ===== 检索增强 =====
+    subgraph RETRIEVAL["检索增强生成"]
+        KB["📚 课程知识库<br/>课件解析后自动构建<br/>内容切片→向量化→索引"]
+        RETRIEVED["🎯 检索结果<br/>绑定溯源页码"]
+    end
+
+    CTX_OUT --> KB --> RETRIEVED
+
+    %% ===== 苏格拉底约束 =====
+    subgraph SOCRATIC["苏格拉底式教学约束"]
+        SOC1["🚫 严禁直接给最终答案"]
+        SOC2["1️⃣ 先确认学生卡点"]
+        SOC3["2️⃣ 逐步引导思路"]
+        SOC4["3️⃣ 以问题结尾推进思考"]
+    end
+
+    RETRIEVED --> SOCRATIC
+
+    %% ===== 理解度判定 =====
+    subgraph JUDGE["理解程度判定"]
+        JUDGE_LLM["🤖 LLM综合语义分析<br/>→ 判定 understandingLevel"]
+        JUDGE_KW["📖 关键词降级<br/>RETEACH_KEYWORDS匹配<br/>→ 中文教育关键词判定"]
+    end
+
+    SOCRATIC --> JUDGE_LLM
+    JUDGE_LLM -. "❌ LLM不可用\n自动降级" .-> JUDGE_KW
+
+    %% ===== 三态 =====
+    subgraph STATES["三态续接策略"]
+        NONE["none（未理解）<br/>➡ 回退重讲<br/>使用ReteachScript"]
+        PARTIAL["partial（部分理解）<br/>➡ 补充讲解<br/>ScriptText定位卡点"]
+        FULL["full（已理解）<br/>➡ 跳过继续<br/>下一节点正常推进"]
+    end
+
+    JUDGE_LLM --> STATES
+    JUDGE_KW --> STATES
+
+    %% ===== SSE输出 =====
+    subgraph SSE_OUT["SSE三事件流式推送"]
+        TOKEN["token 逐词推送<br/>首包 < 500ms"]
+        SENTENCE["sentence 完整回答<br/>苏格拉底式引导文本"]
+        FINAL["final 结构化元数据<br/>understanding_level<br/>resume_page / node_id / sec<br/>follow_up_suggestion"]
+    end
+
+    STATES --> SSE_OUT
+
+    %% ===== 输出 =====
+    RESPONSE["✅ 学生看到回答<br/>逐词呈现 + 完整文本<br/>+ 精确续接位置"]:::output
+
+    SSE_OUT --> RESPONSE
+
+    %% ===== 量化标注 =====
+    M1["⏱ 首包 < 500ms"]:::fallback
+    M2["📊 3级级联"]:::fallback
+    M3["🎯 3态判定"]:::fallback
+
+    TOKEN -.- M1
+    CONTEXT -.- M2
+    STATES -.- M3

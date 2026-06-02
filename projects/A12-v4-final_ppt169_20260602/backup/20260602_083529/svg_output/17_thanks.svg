@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565C0"/><stop offset="50%" stop-color="#0D47A1"/>
+      <stop offset="100%" stop-color="#0A2E6E"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bgGrad)"/>
+  <circle cx="160" cy="120" r="80" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5"/>
+  <circle cx="1100" cy="600" r="100" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5"/>
+  <circle cx="1200" cy="150" r="50" fill="none" stroke="#FFFFFF" stroke-opacity="0.04" stroke-width="1"/>
+
+  <!-- Main thank you -->
+  <text x="640" y="280" font-family="Georgia, KaiTi, serif" font-size="72" fill="#FFFFFF" text-anchor="middle" font-weight="bold" letter-spacing="4">谢谢观看</text>
+
+  <!-- Accent line -->
+  <rect x="540" y="310" width="200" height="3" rx="1.5" fill="#FF6F00"/>
+
+  <!-- Tech anchor statement -->
+  <text x="640" y="370" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#FFFFFF" fill-opacity="0.85" text-anchor="middle" letter-spacing="2">节点化底座 · 编排与能力分离 · 教学闭环</text>
+
+  <!-- Three tech pillars -->
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <rect x="250" y="420" width="220" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.1"/>
+    <text x="360" y="447" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle" font-size="13">三阶段解耦解析</text>
+    <rect x="530" y="420" width="220" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.1"/>
+    <text x="640" y="447" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle" font-size="13">双引擎自动降级</text>
+    <rect x="810" y="420" width="220" height="44" rx="22" fill="#FFFFFF" fill-opacity="0.1"/>
+    <text x="920" y="447" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle" font-size="13">节点级精确续接</text>
+  </g>
+
+  <!-- Team -->
+  <rect x="490" y="500" width="300" height="1" fill="#FFFFFF" fill-opacity="0.15"/>
+  <text x="640" y="530" font-family="Georgia, KaiTi, serif" font-size="24" fill="#FF8F00" text-anchor="middle" font-weight="bold" letter-spacing="6">DEEPCORE</text>
+  <text x="640" y="555" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF" fill-opacity="0.6" text-anchor="middle" letter-spacing="2">参赛团队</text>
+
+  <!-- Contact / questioning -->
+  <rect x="540" y="590" width="200" height="36" rx="18" fill="#FF6F00" fill-opacity="0.2" stroke="#FF6F00" stroke-width="1"/>
+  <text x="640" y="612" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#FF8F00" text-anchor="middle">欢迎各位评委提问</text>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="700" width="1280" height="20" fill="#FF6F00" fill-opacity="0.3"/>
+</svg>

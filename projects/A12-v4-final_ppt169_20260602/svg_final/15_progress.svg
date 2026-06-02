@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" /></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">项目进展</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">项目进展清晰，已进入学校推广阶段</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <text x="60" y="155" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">研发里程碑</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11">
+    <path fill="#1E6FE0" d="M78,175 H222 A18,18 0 0 1 240,193 V193 A18,18 0 0 1 222,211 H78 A18,18 0 0 1 60,193 V193 A18,18 0 0 1 78,175 Z" />
+    <text x="150" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">需求分析</text>
+    <polygon points="248,193 258,187 258,199" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M284,175 H428 A18,18 0 0 1 446,193 V193 A18,18 0 0 1 428,211 H284 A18,18 0 0 1 266,193 V193 A18,18 0 0 1 284,175 Z" />
+    <text x="356" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">架构设计</text>
+    <polygon points="454,193 464,187 464,199" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M490,175 H634 A18,18 0 0 1 652,193 V193 A18,18 0 0 1 634,211 H490 A18,18 0 0 1 472,193 V193 A18,18 0 0 1 490,175 Z" />
+    <text x="562" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">功能开发</text>
+    <polygon points="660,193 670,187 670,199" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M696,175 H840 A18,18 0 0 1 858,193 V193 A18,18 0 0 1 840,211 H696 A18,18 0 0 1 678,193 V193 A18,18 0 0 1 696,175 Z" />
+    <text x="768" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">测试联调</text>
+    <polygon points="866,193 876,187 876,199" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M902,175 H1046 A18,18 0 0 1 1064,193 V193 A18,18 0 0 1 1046,211 H902 A18,18 0 0 1 884,193 V193 A18,18 0 0 1 902,175 Z" />
+    <text x="974" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">部署落地</text>
+    <polygon points="1072,193 1082,187 1082,199" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M1108,175 H1222 A18,18 0 0 1 1240,193 V193 A18,18 0 0 1 1222,211 H1108 A18,18 0 0 1 1090,193 V193 A18,18 0 0 1 1108,175 Z" />
+    <text x="1165" y="198" fill="#FFFFFF" text-anchor="middle" font-weight="bold">学校推广</text>
+  </g>
+
+  
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M72,240 H608 A12,12 0 0 1 620,252 V508 A12,12 0 0 1 608,520 H72 A12,12 0 0 1 60,508 V252 A12,12 0 0 1 72,240 Z" />
+  <path fill="#1E6FE0" d="M62.50,240 H617.50 A2.50,2.50 0 0 1 620,242.50 V242.50 A2.50,2.50 0 0 1 617.50,245 H62.50 A2.50,2.50 0 0 1 60,242.50 V242.50 A2.50,2.50 0 0 1 62.50,240 Z" />
+  <text x="80" y="275" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">已完成</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">
+    
+  <g transform="translate(80.0, 300.0) scale(0.6666666666666666)" fill="#0E8C80">
+    <path d="M20.707 6.293a1 1 0 0 1 0 1.414l-10 10a1 1 0 0 1 -1.414 0l-5 -5a1 1 0 0 1 1.414 -1.414l4.293 4.293l9.293 -9.293a1 1 0 0 1 1.414 0" />
+  </g>
+    <text x="105" y="312">教师端与学生端功能链路已开发完成</text>
+    <text x="105" y="330" fill="#9AA3B5" font-size="11">通过学校真实教学环境验证</text>
+    
+  <g transform="translate(80.0, 355.0) scale(0.6666666666666666)" fill="#0E8C80">
+    <path d="M20.707 6.293a1 1 0 0 1 0 1.414l-10 10a1 1 0 0 1 -1.414 0l-5 -5a1 1 0 0 1 1.414 -1.414l4.293 4.293l9.293 -9.293a1 1 0 0 1 1.414 0" />
+  </g>
+    <text x="105" y="367">端到端全链路闭环打通</text>
+    <text x="105" y="385" fill="#9AA3B5" font-size="11">从课件上传→节点化解析→上下文问答→三态续接→学情回传</text>
+    
+  <g transform="translate(80.0, 410.0) scale(0.6666666666666666)" fill="#0E8C80">
+    <path d="M20.707 6.293a1 1 0 0 1 0 1.414l-10 10a1 1 0 0 1 -1.414 0l-5 -5a1 1 0 0 1 1.414 -1.414l4.293 4.293l9.293 -9.293a1 1 0 0 1 1.414 0" />
+  </g>
+    <text x="105" y="422">三大核心模块全覆盖赛题要求</text>
+    <text x="105" y="440" fill="#9AA3B5" font-size="11">智课生成 · 实时问答 · 进度续接</text>
+    
+  <g transform="translate(80.0, 465.0) scale(0.6666666666666666)" fill="#0E8C80">
+    <path d="M20.707 6.293a1 1 0 0 1 0 1.414l-10 10a1 1 0 0 1 -1.414 0l-5 -5a1 1 0 0 1 1.414 -1.414l4.293 4.293l9.293 -9.293a1 1 0 0 1 1.414 0" />
+  </g>
+    <text x="105" y="477">泛雅平台OpenAPI对接完成</text>
+    <text x="105" y="495" fill="#9AA3B5" font-size="11">课程同步 · 用户同步 · 课件解析</text>
+  </g>
+
+  
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M662,240 H1208 A12,12 0 0 1 1220,252 V508 A12,12 0 0 1 1208,520 H662 A12,12 0 0 1 650,508 V252 A12,12 0 0 1 662,240 Z" />
+  <path fill="#0E8C80" d="M652.50,240 H1217.50 A2.50,2.50 0 0 1 1220,242.50 V242.50 A2.50,2.50 0 0 1 1217.50,245 H652.50 A2.50,2.50 0 0 1 650,242.50 V242.50 A2.50,2.50 0 0 1 652.50,240 Z" />
+  <text x="670" y="275" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">学校推广</text>
+  
+  <g transform="translate(670.0, 300.0) scale(0.8333333333333334)" fill="#0E8C80">
+    <path d="M18 6a3 3 0 0 1 3 3v9a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2v-2a3 3 0 0 0 -6 0v2a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2v-9a3 3 0 0 1 3 -3z" />
+  </g>
+  <text x="700" y="316" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">已启动校园试点</text>
+  <text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="345">● 泛雅平台真实教学环境部署运行</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="369">● 真实教师和学生用户试用验证</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="393">● 学情数据采集与分析</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="417">● 迭代优化中</text><path fill="#F4F7FC" d="M70,540 H1210 A10,10 0 0 1 1220,550 V640 A10,10 0 0 1 1210,650 H70 A10,10 0 0 1 60,640 V550 A10,10 0 0 1 70,540 Z" />
+  <text x="80" y="570" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">测试验证概览</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
+    <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M88,585 H272 A8,8 0 0 1 280,593 V617 A8,8 0 0 1 272,625 H88 A8,8 0 0 1 80,617 V593 A8,8 0 0 1 88,585 Z" />
+    <text x="180" y="605" text-anchor="middle" fill="#1D2433" font-weight="bold">功能测试</text>
+    <text x="180" y="620" text-anchor="middle" font-size="10">三大模块全覆盖</text>
+    <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M308,585 H492 A8,8 0 0 1 500,593 V617 A8,8 0 0 1 492,625 H308 A8,8 0 0 1 300,617 V593 A8,8 0 0 1 308,585 Z" />
+    <text x="400" y="605" text-anchor="middle" fill="#1D2433" font-weight="bold">性能测试</text>
+    <text x="400" y="620" text-anchor="middle" font-size="10">SSE首包&lt;500ms</text>
+    <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M528,585 H712 A8,8 0 0 1 720,593 V617 A8,8 0 0 1 712,625 H528 A8,8 0 0 1 520,617 V593 A8,8 0 0 1 528,585 Z" />
+    <text x="620" y="605" text-anchor="middle" fill="#1D2433" font-weight="bold">压力测试</text>
+    <text x="620" y="620" text-anchor="middle" font-size="10">10协程并发</text>
+    <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M748,585 H932 A8,8 0 0 1 940,593 V617 A8,8 0 0 1 932,625 H748 A8,8 0 0 1 740,617 V593 A8,8 0 0 1 748,585 Z" />
+    <text x="840" y="605" text-anchor="middle" fill="#1D2433" font-weight="bold">降级测试</text>
+    <text x="840" y="620" text-anchor="middle" font-size="10">双引擎自动切换</text>
+    <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M968,585 H1182 A8,8 0 0 1 1190,593 V617 A8,8 0 0 1 1182,625 H968 A8,8 0 0 1 960,617 V593 A8,8 0 0 1 968,585 Z" />
+    <text x="1075" y="605" text-anchor="middle" fill="#1D2433" font-weight="bold">AI能力专项验证</text>
+    <text x="1075" y="620" text-anchor="middle" font-size="10">解析/问答/续接</text>
+  </g>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">15</text>
+</svg>

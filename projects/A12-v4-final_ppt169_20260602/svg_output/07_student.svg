@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">学生端</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">学生端：边听讲边提问，问完自动接着学</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- 3 feature cards -->
+  <!-- Card 1: QA -->
+  <rect x="60" y="140" width="370" height="330" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="60" y="140" width="370" height="5" rx="2.5" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/message" x="90" y="165" width="24" height="24" fill="#1E6FE0"/>
+  <text x="125" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">上下文问答</text>
+  <text x="80" y="220" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">
+    <tspan x="80" dy="0">三级级联上下文构建：</tspan>
+    <tspan x="80" dy="24">L1 目标节点脚本 &#8594; 精确聚焦</tspan>
+    <tspan x="80" dy="24">L2 当前页面全部节点 &#8594; 范围扩大</tspan>
+    <tspan x="80" dy="24">L3 全页文本拼接 &#8594; 最终兜底</tspan>
+    <tspan x="80" dy="24">苏格拉底式引导：禁止直接给答案，</tspan>
+    <tspan x="80" dy="24">先确认学生卡点，再逐步引导</tspan>
+  </text>
+  <rect x="80" y="400" width="330" height="1" fill="#D0D7E2"/>
+  <text x="80" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0">核心：课程知识优先，回答绑定溯源页码</text>
+
+  <!-- Card 2: Resume -->
+  <rect x="455" y="140" width="370" height="330" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="455" y="140" width="370" height="5" rx="2.5" fill="#0E8C80"/>
+  <use data-icon="tabler-filled/player-play" x="485" y="165" width="24" height="24" fill="#0E8C80"/>
+  <text x="520" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">断点续学</text>
+  <text x="475" y="220" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">
+    <tspan x="475" dy="0">理解程度三态判定驱动续接策略：</tspan>
+    <tspan x="475" dy="24">&#x25CF; none（未理解）&#8594; 回退重讲</tspan>
+    <tspan x="475" dy="24">&#x25CF; partial（部分理解）&#8594; 补充讲解</tspan>
+    <tspan x="475" dy="24">&#x25CF; full（已理解）&#8594; 跳过继续</tspan>
+    <tspan x="475" dy="24">精确定位到续接页码与节点，</tspan>
+    <tspan x="475" dy="24">确保学习主线不中断</tspan>
+  </text>
+  <rect x="475" y="400" width="330" height="1" fill="#D0D7E2"/>
+  <text x="475" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80">核心：节点级续接 vs 传统页级翻页</text>
+
+  <!-- Card 3: Weak points -->
+  <rect x="850" y="140" width="370" height="330" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="850" y="140" width="370" height="5" rx="2.5" fill="#0E8C80"/>
+  <use data-icon="tabler-filled/graph" x="880" y="165" width="24" height="24" fill="#0E8C80"/>
+  <text x="915" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">薄弱点强化</text>
+  <text x="870" y="220" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">
+    <tspan x="870" dy="0">知识点掌握度追踪：</tspan>
+    <tspan x="870" dy="24">答对 +0.08 / 答错 -0.06</tspan>
+    <tspan x="870" dy="24">快速响应(&#8804;5000ms) +0.02</tspan>
+    <tspan x="870" dy="24">掌握度区间维持在 [0, 1]</tspan>
+    <tspan x="870" dy="24">薄弱点自动检测，生成针对性练习题，</tspan>
+    <tspan x="870" dy="24">复习计划智能排期</tspan>
+  </text>
+  <rect x="870" y="400" width="330" height="1" fill="#D0D7E2"/>
+  <text x="870" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80">核心：全量掌握度+薄弱点+复习闭环</text>
+
+  <!-- Bottom: SSE flow -->
+  <rect x="60" y="490" width="1160" height="150" rx="10" fill="#F4F7FC"/>
+  <text x="80" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">SSE三事件流式协议</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12">
+    <rect x="80" y="540" width="200" height="36" rx="6" fill="#1E6FE0"/>
+    <text x="180" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">token 逐词推送</text>
+    <polygon points="290,558 302,551 302,565" fill="#9AA3B5"/>
+    <rect x="310" y="540" width="200" height="36" rx="6" fill="#1E6FE0"/>
+    <text x="410" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">sentence 完整文本</text>
+    <polygon points="520,558 532,551 532,565" fill="#9AA3B5"/>
+    <rect x="540" y="540" width="250" height="36" rx="6" fill="#0E8C80"/>
+    <text x="665" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">final 结构化元数据</text>
+  </g>
+  <text x="80" y="600" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">首包 &lt; 500ms | final事件携带：understanding_level | resume_page | resume_node_id | resume_sec | follow_up_suggestion</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">07</text>
+</svg>

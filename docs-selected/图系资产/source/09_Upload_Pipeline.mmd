@@ -1,0 +1,49 @@
+%% D09 — 课件上传容错管道图
+%% 对应: PPT P12 | 小册子 M03
+
+graph TD
+
+    classDef main fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef storage fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+    classDef fallback fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef error fill:#FFEBEE,stroke:#C62828,stroke-width:1px
+
+    %% ===== 主流程 =====
+    UPLOAD["📤 教师上传课件<br/>PPT / PDF"]:::main
+    VALIDATE["🔍 格式校验<br/>文件类型 · 大小"]:::main
+    SAVE_MINIO["💾 存入MinIO<br/>对象存储"]:::storage
+    AI_PARSE["🤖 AI解析课件<br/>Dify 工作流 或 本地引擎"]:::main
+
+    UPLOAD --> VALIDATE
+    VALIDATE -->|通过| SAVE_MINIO
+    SAVE_MINIO -->|文件路径| AI_PARSE
+
+    %% ===== 解析产出 =====
+    GEN_PAGES["📄 生成CoursePage<br/>逐页文本+预览图"]:::main
+    GEN_NODES["🔗 生成TeachingNode<br/>节点化内容底座"]:::main
+
+    AI_PARSE --> GEN_PAGES
+    AI_PARSE --> GEN_NODES
+
+    GEN_PAGES --> DONE["✅ 课件发布完成"]
+    GEN_NODES --> DONE
+
+    %% ===== 三级预览图降级 =====
+    subgraph PREVIEW["三级预览图降级保障"]
+        L1["L1 实时渲染<br/>源文件→LibreOffice→PNG<br/>上传 MinIO"]:::fallback
+        L2["L2 占位预览<br/>渲染失败→使用占位图"]:::fallback
+        L3["L3 空状态<br/>占位也失败→标空<br/>前端按需加载"]:::fallback
+    end
+
+    GEN_PAGES -.->|"渲染预览图"| L1
+    L1 -.->|"❌ 失败"| L2
+    L2 -.->|"❌ 失败"| L3
+
+    %% ===== AI解析降级 =====
+    AI_FAIL["❌ AI解析失败<br/>不阻塞上传主流程<br/>保留已存数据<br/>标记解析状态"]:::error
+    AI_PARSE -.->|"异常"| AI_FAIL
+    AI_FAIL --> DONE
+
+    %% ===== 节点生成容错 =====
+    NODE_FAIL["❌ 节点生成失败<br/>逐节点独立容错<br/>单节点失败不影响其他"]:::error
+    GEN_NODES -.->|"单节点异常"| NODE_FAIL

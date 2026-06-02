@@ -1,0 +1,72 @@
+%% D02 — 系统技术编排架构全景图
+%% 四层架构 + 双引擎降级 + 中间件拓扑展开
+%% 对应: PPT P09-P10 | 小册子 M03
+
+graph TB
+
+    %% ===== 层样式定义 =====
+    classDef frontend fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef orchestration fill:#FFF3E0,stroke:#E65100,stroke-width:2px,stroke-dasharray: 5 5
+    classDef ai fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef data fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef principle fill:#FFEBEE,stroke:#C62828,stroke-width:2px
+    classDef middleware fill:#E0F7FA,stroke:#00695C,stroke-width:2px
+
+    %% ===== 前端交互层 =====
+    subgraph FRONTEND["前端交互层 · Vue 3 + TypeScript"]
+        T["👨‍🏫 教师端<br/>课件管理 · 脚本编辑 · 学情看板"]
+        S["🧑‍🎓 学生端<br/>课程学习 · 上下文问答 · 断点续学"]
+        P["🔗 泛雅集成入口<br/>OpenAPI对接 · 鉴权代理 · 数据同步"]
+    end
+
+    %% ===== 业务编排层 =====
+    subgraph ORCHESTRATION["业务编排层 · Go 后端"]
+        SM["学习状态机<br/>讲授─▶问答─▶三态续接─▶回讲"]
+        SSEProto["SSE流式协议<br/>token ─▶ sentence ─▶ final"]
+        UP["课件上传管道<br/>DB→MinIO→AI解析→节点生成→三级预览降级"]
+        TS["任务调度引擎<br/>状态机 + 10协程池 + 指数退避重试"]
+        OA["OpenAPI兼容适配层<br/>多键名兼容 · 字段级加密 · 异步任务"]
+    end
+
+    %% ===== AI能力层 =====
+    subgraph AI["AI能力层"]
+        direction TB
+        subgraph PRIMARY["主引擎 · Dify 工作流编排"]
+            W1["📄 课件解析工作流"]
+            W2["📚 知识入库工作流"]
+            W3["💬 智能问答工作流"]
+            W4["📝 脚本生成工作流"]
+            W5["🔊 语音生成工作流"]
+        end
+        subgraph FALLBACK["降级引擎 · Python 本地服务"]
+            LE["三阶段解耦管线<br/>Stage1: Markdown理解<br/>Stage2: 节点树构建<br/>Stage3: 逐节点脚本生成<br/>+ JSON Schema结构化约束<br/>+ 苏格拉底式问答"]
+        end
+    end
+
+    %% ===== 数据支撑层 =====
+    subgraph DATA["数据支撑层"]
+        PG["PostgreSQL<br/>关系型 · 事务一致 · JSONB扩展<br/>课程 · 节点 · 用户 · 学习记录 · 会话"]
+        R["Redis<br/>高吞吐 · 低延迟<br/>SSE会话状态 · 任务队列 · 进度游标 · 语义缓存"]
+        M["MinIO<br/>对象存储 · S3兼容 · 私有化部署<br/>课件源文件 · 页预览图 · 音频文件 · 解析结果JSON"]
+    end
+
+    %% ===== 连接 =====
+    T -->|"HTTPS / SSE"| ORCHESTRATION
+    S -->|"HTTPS / SSE"| ORCHESTRATION
+    P -->|"RESTful API"| ORCHESTRATION
+
+    ORCHESTRATION -->|"内部HTTP调用<br/>先Dify→失败降级"| AI
+    PRIMARY -- "❌ 不可用自动降级" --> FALLBACK
+
+    ORCHESTRATION -->|"GORM ORM"| PG
+    ORCHESTRATION -->|"go-redis"| R
+    AI -->|"S3 SDK"| M
+    ORCHESTRATION -->|"文件路径引用"| M
+    ORCHESTRATION -->|"API调用"| P
+
+    %% ===== 核心原则标注 =====
+    PRIN["★ 编排与能力分离<br/>编排层只做状态控制与流转<br/>不承担AI推理<br/>→ 保证响应延迟可控"]
+    PRIN2["★ 能力可降级<br/>Dify不可用时<br/>自动切换到本地引擎<br/>→ 保障系统可用性"]
+
+    PRIN -.-> ORCHESTRATION
+    PRIN2 -.-> AI

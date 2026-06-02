@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#3A7BED"/></linearGradient>
+    <marker id="arrBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#1E6FE0"/></marker>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <rect x="55" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/>
+  <text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <rect x="345" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/>
+  <text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <rect x="635" y="45" width="280" height="32" rx="4" fill="#1E6FE0"/>
+  <text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <rect x="925" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/>
+  <text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">核心业务数据流图</text>
+  <rect x="55" y="118" width="50" height="3" rx="1.5" fill="#0E8C80"/>
+  <text x="55" y="140" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478">数据产生 &#8594; 流转 &#8594; 存储 &#8594; 消费 全链路</text>
+
+  <!-- 5-step horizontal flow -->
+  <rect x="55" y="170" width="180" height="80" rx="8" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <text x="145" y="202" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">&#x2460; 数据产生</text>
+  <text x="145" y="222" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">教师上传课件(PPT/PDF)</text>
+  <text x="145" y="237" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">学生提问触发问答</text>
+  <line x1="235" y1="210" x2="265" y2="210" stroke="#1E6FE0" stroke-width="2" marker-end="url(#arrBlue)"/>
+
+  <rect x="275" y="170" width="180" height="80" rx="8" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <text x="365" y="202" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">&#x2461; 编排分发</text>
+  <text x="365" y="222" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">Go编排层接收请求</text>
+  <text x="365" y="237" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">任务队列排队分发</text>
+  <line x1="455" y1="210" x2="485" y2="210" stroke="#1E6FE0" stroke-width="2" marker-end="url(#arrBlue)"/>
+
+  <rect x="495" y="170" width="200" height="80" rx="8" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <text x="595" y="202" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">&#x2462; 引擎处理</text>
+  <text x="595" y="222" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">AI引擎解析/问答/生成</text>
+  <text x="595" y="237" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">备用引擎故障切换</text>
+  <line x1="695" y1="210" x2="725" y2="210" stroke="#1E6FE0" stroke-width="2" marker-end="url(#arrBlue)"/>
+
+  <rect x="735" y="170" width="180" height="80" rx="8" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <text x="825" y="202" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">&#x2463; 数据持久化</text>
+  <text x="825" y="222" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">PostgreSQL结构化存储</text>
+  <text x="825" y="237" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">MinIO文件对象存储</text>
+  <line x1="915" y1="210" x2="945" y2="210" stroke="#1E6FE0" stroke-width="2" marker-end="url(#arrBlue)"/>
+
+  <rect x="955" y="170" width="180" height="80" rx="8" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <text x="1045" y="202" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">&#x2464; 数据消费</text>
+  <text x="1045" y="222" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">教师端学情查看</text>
+  <text x="1045" y="237" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#5A6478" text-anchor="middle">学生端断点恢复</text>
+
+  <!-- Data flow detail table -->
+  <text x="55" y="290" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">数据流转明细</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11">
+    <rect x="55" y="305" width="1170" height="30" rx="6" fill="#1E6FE0"/>
+    <text x="150" y="325" fill="#FFFFFF" text-anchor="middle" font-weight="bold">步骤</text>
+    <text x="380" y="325" fill="#FFFFFF" text-anchor="middle" font-weight="bold">数据内容</text>
+    <text x="650" y="325" fill="#FFFFFF" text-anchor="middle" font-weight="bold">存储介质</text>
+    <text x="900" y="325" fill="#FFFFFF" text-anchor="middle" font-weight="bold">消费方</text>
+    <rect x="55" y="338" width="1170" height="34" fill="#F4F7FC"/>
+    <text x="150" y="359" fill="#1D2433" text-anchor="middle">课件上传</text>
+    <text x="380" y="359" fill="#5A6478" text-anchor="middle">课件源文件 + 元数据</text>
+    <text x="650" y="359" fill="#5A6478" text-anchor="middle">MinIO</text>
+    <text x="900" y="359" fill="#1E6FE0" text-anchor="middle">AI解析引擎</text>
+    <rect x="55" y="375" width="1170" height="34" fill="#FFFFFF"/>
+    <text x="150" y="396" fill="#1D2433" text-anchor="middle">AI解析完成</text>
+    <text x="380" y="396" fill="#5A6478" text-anchor="middle">结构化页面 + 教学节点</text>
+    <text x="650" y="396" fill="#5A6478" text-anchor="middle">PostgreSQL</text>
+    <text x="900" y="396" fill="#1E6FE0" text-anchor="middle">教师端/学生端</text>
+    <rect x="55" y="412" width="1170" height="34" fill="#F4F7FC"/>
+    <text x="150" y="433" fill="#1D2433" text-anchor="middle">学生提问</text>
+    <text x="380" y="433" fill="#5A6478" text-anchor="middle">问题文本 + 上下文定位</text>
+    <text x="650" y="433" fill="#5A6478" text-anchor="middle">Redis(会话缓存)</text>
+    <text x="900" y="433" fill="#1E6FE0" text-anchor="middle">AI问答引擎</text>
+    <rect x="55" y="449" width="1170" height="34" fill="#FFFFFF"/>
+    <text x="150" y="470" fill="#1D2433" text-anchor="middle">问答完成</text>
+    <text x="380" y="470" fill="#5A6478" text-anchor="middle">回答文本 + 理解程度 + 续接位置</text>
+    <text x="650" y="470" fill="#5A6478" text-anchor="middle">PostgreSQL</text>
+    <text x="900" y="470" fill="#1E6FE0" text-anchor="middle">学生前端(SSE流式)</text>
+    <rect x="55" y="486" width="1170" height="34" fill="#F4F7FC"/>
+    <text x="150" y="507" fill="#1D2433" text-anchor="middle">学情回传</text>
+    <text x="380" y="507" fill="#5A6478" text-anchor="middle">掌握度 + 提问统计 + 卡点分布</text>
+    <text x="650" y="507" fill="#5A6478" text-anchor="middle">PostgreSQL</text>
+    <text x="900" y="507" fill="#1E6FE0" text-anchor="middle">教师学情看板</text>
+  </g>
+
+  <rect x="55" y="690" width="1170" height="1" fill="#D0D7E2"/>
+  <text x="55" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">09a</text>
+</svg>

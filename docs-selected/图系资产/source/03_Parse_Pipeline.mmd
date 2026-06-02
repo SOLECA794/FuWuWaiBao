@@ -1,0 +1,75 @@
+%% D03 — 课件解析管线·三阶段解耦解析图
+%% 对应: PPT P06/P11/P12 | 小册子 M04
+
+graph LR
+
+    classDef stage fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef io fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+    classDef fallback fill:#FFEBEE,stroke:#C62828,stroke-width:1px
+    classDef schema fill:#FFF8E1,stroke:#F57F17,stroke-width:1px
+    classDef metric fill:#E8F5E9,stroke:#2E7D32,stroke-width:1px
+
+    %% ===== 输入 =====
+    INPUT["📄 原始课件<br/>PPT / PDF / Markdown"]:::io
+
+    %% ===== Stage1: Markdown理解 =====
+    subgraph S1["Stage 1 · Markdown理解"]
+        S1_PROMPT["大模型解析<br/>温度: 0.2 | 上限: 3500字符"]
+        S1_SCHEMA["Schema约束<br/>normalized_markdown + key_points<br/>🛡️ additionalProperties: false"]
+        S1_OUTPUT["📋 输出<br/>规范化Markdown + 关键知识点列表"]
+    end
+
+    INPUT --> S1
+    S1_PROMPT --> S1_SCHEMA --> S1_OUTPUT
+
+    %% ===== Stage2: 节点树构建 =====
+    subgraph S2["Stage 2 · 节点树构建"]
+        S2_PROMPT["语义分析<br/>识别教学单元边界"]
+        S2_SCHEMA["Schema约束<br/>node_id / title / summary<br/>source_span / prerequisites<br/>🛡️ 节点ID唯一性"]
+        S2_OUTPUT["🌳 输出<br/>层级化知识节点树<br/>nodes[{node_id, title, summary, ...}]"]
+    end
+
+    S1_OUTPUT --> S2
+    S2_PROMPT --> S2_SCHEMA --> S2_OUTPUT
+
+    %% ===== Stage3: 逐节点脚本生成 =====
+    subgraph S3["Stage 3 · 逐节点脚本生成"]
+        S3_PROMPT["讲稿生成<br/>每节点2-4段脚本"]
+        S3_SCHEMA["Schema约束<br/>segment: opening/exclamation/<br/>example/interaction/transition/summary<br/>🛡️ 必填字段校验"]
+        S3_OUTPUT["📜 输出<br/>结构化讲稿脚本<br/>scripts[{node_id, segments[...]}]"]
+    end
+
+    S2_OUTPUT --> S3
+    S3_PROMPT --> S3_SCHEMA --> S3_OUTPUT
+
+    %% ===== 最终输出 =====
+    OUTPUT["✅ 结构化讲稿<br/>节点化内容底座<br/>知识图谱 + 脚本片段双重结构"]:::io
+
+    S3_OUTPUT --> OUTPUT
+
+    %% ===== 降级路径 =====
+    S1_FAIL["❌ LLM异常"]:::fallback
+    S2_FAIL["❌ 节点树为空"]:::fallback
+    S3_FAIL["❌ 脚本为空"]:::fallback
+
+    S1 -. "降级" .-> S1_FAIL
+    S2 -. "降级" .-> S2_FAIL
+    S3 -. "降级" .-> S3_FAIL
+
+    FALLBACK_TEMPLATE["📋 预置模板<br/>_fallback_pipeline"]:::fallback
+    S1_FAIL --> FALLBACK_TEMPLATE
+    S2_FAIL --> FALLBACK_TEMPLATE
+    S3_FAIL --> FALLBACK_TEMPLATE
+
+    %% ===== 引用修复 =====
+    FIX["🔧 引用一致性修复<br/>normalize + align<br/>自动映射无效node_id<br/>双向对齐 KG↔Script"]:::schema
+    S3 --> FIX --> OUTPUT
+
+    %% ===== 量化标注 =====
+    M1["⏱ 解析效率<br/>≤2 min / 份"]:::metric
+    M2["🛡️ Schema兜底率<br/>不可控→格式受控"]:::metric
+    M3["🧩 阶段独立性<br/>单阶段失败不影响整体"]:::metric
+
+    S1 -.- M1
+    S2 -.- M2
+    S3 -.- M3

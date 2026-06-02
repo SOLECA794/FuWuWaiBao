@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">问答续接</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">问答续接链：回答问题，但不打断学习主线</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Left: QA flow -->
+  <rect x="60" y="140" width="560" height="280" rx="12" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <rect x="60" y="140" width="560" height="36" rx="12" fill="#1E6FE0"/>
+  <rect x="60" y="164" width="560" height="12" fill="#1E6FE0"/>
+  <text x="340" y="163" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">问答流</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
+    <text x="80" y="205" fill="#1D2433" font-weight="bold">三级级联上下文构建</text>
+    <rect x="80" y="215" width="240" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="200" y="235" fill="#1E6FE0" text-anchor="middle">L1 目标节点脚本优先</text>
+    <rect x="330" y="215" width="270" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="465" y="235" fill="#1E6FE0" text-anchor="middle">L2 当前页全部节点补充</text>
+    <rect x="80" y="255" width="270" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="215" y="275" fill="#1E6FE0" text-anchor="middle">L3 全页文本拼接兜底</text>
+  </g>
+
+  <text x="80" y="310" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">苏格拉底式教学约束</text>
+  <text x="80" y="335" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">
+    <tspan x="80" dy="0">&#x2716; 严禁直接给最终答案</tspan>
+    <tspan x="80" dy="22">&#x2714; 先确认学生卡点 &#8594; 逐步引导思路 &#8594; 以问题结尾</tspan>
+    <tspan x="80" dy="22">&#x2714; 回答绑定课件溯源页码，降低幻觉</tspan>
+  </text>
+  <rect x="80" y="385" width="520" height="1" fill="#D0D7E2"/>
+  <text x="80" y="400" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#1E6FE0">SSE三事件推送：token 逐词 &#8594; sentence 完整回答 &#8594; final 结构化元数据</text>
+
+  <!-- Right: Resume flow -->
+  <rect x="650" y="140" width="570" height="280" rx="12" fill="#FFFFFF" stroke="#0E8C80" stroke-width="1.5"/>
+  <rect x="650" y="140" width="570" height="36" rx="12" fill="#0E8C80"/>
+  <rect x="650" y="164" width="570" height="12" fill="#0E8C80"/>
+  <text x="935" y="163" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">续接流</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <text x="670" y="205" fill="#1D2433" font-size="12" font-weight="bold">理解程度判定（双路策略）</text>
+    <rect x="670" y="215" width="250" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="795" y="235" fill="#0E8C80" text-anchor="middle" font-size="11">&#x2776; LLM综合语义分析（优先）</text>
+    <rect x="940" y="215" width="260" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="1070" y="235" fill="#0E8C80" text-anchor="middle" font-size="11">&#x2777; 关键词匹配降级（兜底）</text>
+  </g>
+
+  <!-- Three state cards -->
+  <rect x="670" y="265" width="170" height="65" rx="8" fill="#FFEbee"/>
+  <text x="755" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#E8553C" text-anchor="middle" font-weight="bold">&#x25CF; none</text>
+  <text x="755" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#E8553C" text-anchor="middle">未理解</text>
+  <text x="755" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#E8553C" fill-opacity="0.7" text-anchor="middle">&#8594; 回退重讲</text>
+
+  <rect x="860" y="265" width="170" height="65" rx="8" fill="#E8EDF5"/>
+  <text x="945" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle" font-weight="bold">&#x25CF; partial</text>
+  <text x="945" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80" text-anchor="middle">部分理解</text>
+  <text x="945" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80" fill-opacity="0.7" text-anchor="middle">&#8594; 补充讲解</text>
+
+  <rect x="1050" y="265" width="150" height="65" rx="8" fill="#DDE6FF"/>
+  <text x="1125" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle" font-weight="bold">&#x25CF; full</text>
+  <text x="1125" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80" text-anchor="middle">已理解</text>
+  <text x="1125" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80" fill-opacity="0.7" text-anchor="middle">&#8594; 跳过继续</text>
+
+  <text x="670" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">打断时保存三元组：resumePage | resumeNodeID | resumeSec（精确到音频秒数）</text>
+
+  <!-- Bottom: flow comparison -->
+  <rect x="60" y="450" width="1160" height="210" rx="12" fill="#F4F7FC"/>
+  <text x="640" y="480" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" text-anchor="middle" font-weight="bold">完整问答续接流程</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <!-- Flow -->
+    <rect x="80" y="505" width="120" height="36" rx="18" fill="#1E6FE0"/>
+    <text x="140" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">学生提问</text>
+    <polygon points="208,523 218,517 218,529" fill="#9AA3B5"/>
+    <rect x="226" y="505" width="120" height="36" rx="18" fill="#1E6FE0"/>
+    <text x="286" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">上下文构建</text>
+    <polygon points="354,523 364,517 364,529" fill="#9AA3B5"/>
+    <rect x="372" y="505" width="120" height="36" rx="18" fill="#1E6FE0"/>
+    <text x="432" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">知识检索</text>
+    <polygon points="500,523 510,517 510,529" fill="#9AA3B5"/>
+    <rect x="518" y="505" width="130" height="36" rx="18" fill="#0E8C80"/>
+    <text x="583" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">苏格拉底回答</text>
+    <polygon points="656,523 666,517 666,529" fill="#9AA3B5"/>
+    <rect x="674" y="505" width="120" height="36" rx="18" fill="#0E8C80"/>
+    <text x="734" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">理解判定</text>
+    <polygon points="802,523 812,517 812,529" fill="#9AA3B5"/>
+    <rect x="820" y="505" width="120" height="36" rx="18" fill="#0E8C80"/>
+    <text x="880" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">三态续接</text>
+    <polygon points="948,523 958,517 958,529" fill="#9AA3B5"/>
+    <rect x="966" y="505" width="130" height="36" rx="18" fill="#0E8C80"/>
+    <text x="1031" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">返回学习</text>
+  </g>
+
+  <!-- Detail for each step -->
+  <text x="80" y="570" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#9AA3B5">
+    <tspan x="80" dy="0">输入：question + page + nodeID</tspan>
+    <tspan x="300" dy="0">L1→L2→L3</tspan>
+    <tspan x="500" dy="0">课程知识优先</tspan>
+    <tspan x="660" dy="0">SSE三事件</tspan>
+    <tspan x="820" dy="0">LLM/关键词</tspan>
+    <tspan x="970" dy="0">none/partial/full</tspan>
+  </text>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">13</text>
+</svg>

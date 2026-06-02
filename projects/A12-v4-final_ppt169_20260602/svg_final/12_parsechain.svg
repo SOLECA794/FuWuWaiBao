@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" /></linearGradient>
+  <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#9AA3B5" /></marker></defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">课件解析</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">课件解析链：把静态文件变成可讲授节点</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    
+    <path fill="#F4F7FC" stroke="#9AA3B5" stroke-width="1.5" d="M68,150 H172 A8,8 0 0 1 180,158 V202 A8,8 0 0 1 172,210 H68 A8,8 0 0 1 60,202 V158 A8,8 0 0 1 68,150 Z" />
+    <text x="120" y="186" fill="#5A6478" text-anchor="middle" font-size="12">原始课件</text>
+    <line x1="180" y1="180" x2="210" y2="180" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arr)" />
+
+    
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M230,140 H410 A10,10 0 0 1 420,150 V210 A10,10 0 0 1 410,220 H230 A10,10 0 0 1 220,210 V150 A10,10 0 0 1 230,140 Z" />
+    <text x="320" y="170" fill="#1E6FE0" text-anchor="middle" font-size="14" font-weight="bold">多模态识别</text>
+    <text x="320" y="190" fill="#1E6FE0" text-anchor="middle" font-size="10">VLM渐进增强</text>
+    <text x="320" y="205" fill="#1E6FE0" text-anchor="middle" font-size="10">文本提取始终可用</text>
+    <line x1="420" y1="180" x2="450" y2="180" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arr)" />
+
+    
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M470,140 H650 A10,10 0 0 1 660,150 V210 A10,10 0 0 1 650,220 H470 A10,10 0 0 1 460,210 V150 A10,10 0 0 1 470,140 Z" />
+    <text x="560" y="170" fill="#1E6FE0" text-anchor="middle" font-size="14" font-weight="bold">标准化校验</text>
+    <text x="560" y="190" fill="#1E6FE0" text-anchor="middle" font-size="10">JSON Schema约束</text>
+    <text x="560" y="205" fill="#1E6FE0" text-anchor="middle" font-size="10">additionalProperties: false</text>
+    <line x1="660" y1="180" x2="690" y2="180" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arr)" />
+
+    
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M710,140 H890 A10,10 0 0 1 900,150 V210 A10,10 0 0 1 890,220 H710 A10,10 0 0 1 700,210 V150 A10,10 0 0 1 710,140 Z" />
+    <text x="800" y="170" fill="#1E6FE0" text-anchor="middle" font-size="14" font-weight="bold">引用一致性修复</text>
+    <text x="800" y="190" fill="#1E6FE0" text-anchor="middle" font-size="10">自动修复无效node_id</text>
+    <text x="800" y="205" fill="#1E6FE0" text-anchor="middle" font-size="10">KG↔Script双向对齐</text>
+    <line x1="900" y1="180" x2="930" y2="180" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arr)" />
+
+    
+    <path fill="#DDE6FF" stroke="#0E8C80" stroke-width="1.5" d="M948,140 H1112 A8,8 0 0 1 1120,148 V212 A8,8 0 0 1 1112,220 H948 A8,8 0 0 1 940,212 V148 A8,8 0 0 1 948,140 Z" />
+    <text x="1030" y="170" fill="#0E8C80" text-anchor="middle" font-size="14" font-weight="bold">结构化讲稿</text>
+    <text x="1030" y="190" fill="#0E8C80" text-anchor="middle" font-size="10">节点化内容底座</text>
+    <text x="1030" y="205" fill="#0E8C80" text-anchor="middle" font-size="10">知识图谱+脚本片段</text>
+  </g>
+
+  
+  <text x="60" y="270" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">关键机制</text>
+
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M70,290 H610 A10,10 0 0 1 620,300 V460 A10,10 0 0 1 610,470 H70 A10,10 0 0 1 60,460 V300 A10,10 0 0 1 70,290 Z" />
+  <path fill="#1E6FE0" d="M62.50,290 H617.50 A2.50,2.50 0 0 1 620,292.50 V292.50 A2.50,2.50 0 0 1 617.50,295 H62.50 A2.50,2.50 0 0 1 60,292.50 V292.50 A2.50,2.50 0 0 1 62.50,290 Z" />
+  
+  <g transform="translate(85.0, 315.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M4 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" />
+    <path d="M12 2a1 1 0 0 1 .993 .883l.007 .117v1a1 1 0 0 1 -1.993 .117l-.007 -.117v-1a1 1 0 0 1 1 -1z" />
+    <path d="M21 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" />
+    <path d="M4.893 4.893a1 1 0 0 1 1.32 -.083l.094 .083l.7 .7a1 1 0 0 1 -1.32 1.497l-.094 -.083l-.7 -.7a1 1 0 0 1 0 -1.414z" />
+    <path d="M17.693 4.893a1 1 0 0 1 1.497 1.32l-.083 .094l-.7 .7a1 1 0 0 1 -1.497 -1.32l.083 -.094l.7 -.7z" />
+    <path d="M14 18a1 1 0 0 1 1 1a3 3 0 0 1 -6 0a1 1 0 0 1 .883 -.993l.117 -.007h4z" />
+    <path d="M12 6a6 6 0 0 1 3.6 10.8a1 1 0 0 1 -.471 .192l-.129 .008h-6a1 1 0 0 1 -.6 -.2a6 6 0 0 1 3.6 -10.8z" />
+  </g>
+  <text x="115" y="330" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">VLM渐进增强</text>
+  <text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="360">文本提取作为默认能力始终可用，视觉多模态理解</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="382">（VLM）作为可选增强特性。</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="412">● 关闭VLM：纯文本解析，系统正常运行</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="434">● 开启VLM：增加版面布局理解、图表识别、</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="456">公式结构识别</text><path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M660,290 H1210 A10,10 0 0 1 1220,300 V460 A10,10 0 0 1 1210,470 H660 A10,10 0 0 1 650,460 V300 A10,10 0 0 1 660,290 Z" />
+  <path fill="#0E8C80" d="M652.50,290 H1217.50 A2.50,2.50 0 0 1 1220,292.50 V292.50 A2.50,2.50 0 0 1 1217.50,295 H652.50 A2.50,2.50 0 0 1 650,292.50 V292.50 A2.50,2.50 0 0 1 652.50,290 Z" />
+  
+  <g transform="translate(675.0, 315.0) scale(0.8333333333333334)" fill="#0E8C80">
+    <path d="M11.884 2.007l.114 -.007l.118 .007l.059 .008l.061 .013l.111 .034a.993 .993 0 0 1 .217 .112l.104 .082l.255 .218a11 11 0 0 0 7.189 2.537l.342 -.01a1 1 0 0 1 1.005 .717a13 13 0 0 1 -9.208 16.25a1 1 0 0 1 -.502 0a13 13 0 0 1 -9.209 -16.25a1 1 0 0 1 1.005 -.717a11 11 0 0 0 7.531 -2.527l.263 -.225l.096 -.075a.993 .993 0 0 1 .217 -.112l.112 -.034a.97 .97 0 0 1 .119 -.021z" />
+  </g>
+  <text x="705" y="330" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">容错与修复</text>
+  <text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="360">● LLM输出格式异常→Schema校验+自动映射修复</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="384">● 节点引用破损→align双向对齐修复</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="408">● 孤立节点引用→跨11表扫描监测</text><text fill="#5A6478" font-size="12" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="670" y="432">● 上传过程失败→保留已存数据，不阻塞主流程</text><text x="60" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">课件上传容错管道</text>
+  <path fill="#F4F7FC" d="M70,540 H1210 A10,10 0 0 1 1220,550 V640 A10,10 0 0 1 1210,650 H70 A10,10 0 0 1 60,640 V550 A10,10 0 0 1 70,540 Z" />
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11">
+    <path fill="#1E6FE0" d="M86,560 H204 A6,6 0 0 1 210,566 V590 A6,6 0 0 1 204,596 H86 A6,6 0 0 1 80,590 V566 A6,6 0 0 1 86,560 Z" />
+    <text x="145" y="583" fill="#FFFFFF" text-anchor="middle">上传课件</text>
+    <polygon points="218,578 228,572 228,584" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M242,560 H360 A6,6 0 0 1 366,566 V590 A6,6 0 0 1 360,596 H242 A6,6 0 0 1 236,590 V566 A6,6 0 0 1 242,560 Z" />
+    <text x="301" y="583" fill="#FFFFFF" text-anchor="middle">MinIO存储</text>
+    <polygon points="374,578 384,572 384,584" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M398,560 H516 A6,6 0 0 1 522,566 V590 A6,6 0 0 1 516,596 H398 A6,6 0 0 1 392,590 V566 A6,6 0 0 1 398,560 Z" />
+    <text x="457" y="583" fill="#FFFFFF" text-anchor="middle">AI解析</text>
+    <polygon points="530,578 540,572 540,584" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M554,560 H692 A6,6 0 0 1 698,566 V590 A6,6 0 0 1 692,596 H554 A6,6 0 0 1 548,590 V566 A6,6 0 0 1 554,560 Z" />
+    <text x="623" y="583" fill="#FFFFFF" text-anchor="middle">生成CoursePage</text>
+    <polygon points="706,578 716,572 716,584" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M730,560 H888 A6,6 0 0 1 894,566 V590 A6,6 0 0 1 888,596 H730 A6,6 0 0 1 724,590 V566 A6,6 0 0 1 730,560 Z" />
+    <text x="809" y="583" fill="#FFFFFF" text-anchor="middle">生成TeachingNode</text>
+    <polygon points="902,578 912,572 912,584" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M926,560 H1044 A6,6 0 0 1 1050,566 V590 A6,6 0 0 1 1044,596 H926 A6,6 0 0 1 920,590 V566 A6,6 0 0 1 926,560 Z" />
+    <text x="985" y="583" fill="#FFFFFF" text-anchor="middle">发布完成</text>
+  </g>
+  <text x="80" y="620" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#9AA3B5">三级预览图降级：L1 实时渲染 → L2 占位预览 → L3 空状态前端加载 | AI解析失败不阻塞上传主流程</text>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">12</text>
+</svg>

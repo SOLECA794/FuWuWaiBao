@@ -1,0 +1,39 @@
+%% D01 — 五环业务闭环总览图
+%% 对应: PPT P02 | 小册子 M02
+
+graph LR
+
+    classDef action fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef data fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+    classDef teacher fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef student fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef value fill:#F3E5F5,stroke:#7B1FA2,stroke-width:1px
+
+    %% ===== 五环主流程 =====
+    UPLOAD["📤 ① 可讲<br/>课件上传即智课"]:::teacher
+    PARSE["⚙️ 三阶段解耦解析<br/>Markdown理解─▶节点树─▶脚本生成<br/>+ 语音合成"]:::action
+    LEARN["📖 ② 可学<br/>学生端播放学习"]:::student
+    QA["💬 ③ 可问<br/>上下文问答<br/>苏格拉底式引导"]:::student
+    RESUME["▶️ ④ 可续<br/>断点续学<br/>三态续接决策"]:::student
+    STAT["📊 ⑤ 可评+可优<br/>四维学情回传<br/>教师优化讲稿"]:::teacher
+
+    UPLOAD -->|"自动触发"| PARSE
+    PARSE -->|"发布后"| LEARN
+    LEARN -->|"遇疑"| QA
+    QA -->|"判定完成"| RESUME
+    RESUME -->|"学习继续"| LEARN
+    RESUME -.->|"学情数据"| STAT
+    STAT -.->|"修改讲稿"| UPLOAD
+
+    %% ===== 标注：关键数据回传 =====
+    STAT_DATA["📋 四维数据<br/>提问频次 · 需重讲次数<br/>会话数 · 停留时长"]:::data
+    STAT === STAT_DATA
+
+    %% ===== 标注：核心支撑 =====
+    NODE_BASE["🔩 节点化底座支撑全链路<br/>脚本编辑 · 问答溯源 · 续接定位 · 学情统计<br/>共用同一套数据结构"]:::value
+
+    PARSE -.- NODE_BASE
+
+    %% ===== 价值标注 =====
+    V1["🎯 降本：备课人力降60%+<br/>🎯 增效：答疑响应<500ms<br/>🎯 提质：节点级续接"]:::value
+    STAT -.- V1

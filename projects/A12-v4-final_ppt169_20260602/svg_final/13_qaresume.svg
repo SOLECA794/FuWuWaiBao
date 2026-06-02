@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" /></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">问答续接</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">问答续接链：回答问题，但不打断学习主线</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1.5" d="M72,140 H608 A12,12 0 0 1 620,152 V408 A12,12 0 0 1 608,420 H72 A12,12 0 0 1 60,408 V152 A12,12 0 0 1 72,140 Z" />
+  <path fill="#1E6FE0" d="M72,140 H608 A12,12 0 0 1 620,152 V164 A12,12 0 0 1 608,176 H72 A12,12 0 0 1 60,164 V152 A12,12 0 0 1 72,140 Z" />
+  <rect x="60" y="164" width="560" height="12" fill="#1E6FE0" />
+  <text x="340" y="163" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">问答流</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
+    <text x="80" y="205" fill="#1D2433" font-weight="bold">三级级联上下文构建</text>
+    <path fill="#DDE6FF" d="M86,215 H314 A6,6 0 0 1 320,221 V241 A6,6 0 0 1 314,247 H86 A6,6 0 0 1 80,241 V221 A6,6 0 0 1 86,215 Z" />
+    <text x="200" y="235" fill="#1E6FE0" text-anchor="middle">L1 目标节点脚本优先</text>
+    <path fill="#DDE6FF" d="M336,215 H594 A6,6 0 0 1 600,221 V241 A6,6 0 0 1 594,247 H336 A6,6 0 0 1 330,241 V221 A6,6 0 0 1 336,215 Z" />
+    <text x="465" y="235" fill="#1E6FE0" text-anchor="middle">L2 当前页全部节点补充</text>
+    <path fill="#DDE6FF" d="M86,255 H344 A6,6 0 0 1 350,261 V281 A6,6 0 0 1 344,287 H86 A6,6 0 0 1 80,281 V261 A6,6 0 0 1 86,255 Z" />
+    <text x="215" y="275" fill="#1E6FE0" text-anchor="middle">L3 全页文本拼接兜底</text>
+  </g>
+
+  <text x="80" y="310" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">苏格拉底式教学约束</text>
+  <text fill="#5A6478" font-size="11" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="335">✖ 严禁直接给最终答案</text><text fill="#5A6478" font-size="11" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="357">✔ 先确认学生卡点 → 逐步引导思路 → 以问题结尾</text><text fill="#5A6478" font-size="11" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="379">✔ 回答绑定课件溯源页码，降低幻觉</text><rect x="80" y="385" width="520" height="1" fill="#D0D7E2" />
+  <text x="80" y="400" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#1E6FE0">SSE三事件推送：token 逐词 → sentence 完整回答 → final 结构化元数据</text>
+
+  
+  <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="1.5" d="M662,140 H1208 A12,12 0 0 1 1220,152 V408 A12,12 0 0 1 1208,420 H662 A12,12 0 0 1 650,408 V152 A12,12 0 0 1 662,140 Z" />
+  <path fill="#0E8C80" d="M662,140 H1208 A12,12 0 0 1 1220,152 V164 A12,12 0 0 1 1208,176 H662 A12,12 0 0 1 650,164 V152 A12,12 0 0 1 662,140 Z" />
+  <rect x="650" y="164" width="570" height="12" fill="#0E8C80" />
+  <text x="935" y="163" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">续接流</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <text x="670" y="205" fill="#1D2433" font-size="12" font-weight="bold">理解程度判定（双路策略）</text>
+    <path fill="#D6DEF5" d="M676,215 H914 A6,6 0 0 1 920,221 V241 A6,6 0 0 1 914,247 H676 A6,6 0 0 1 670,241 V221 A6,6 0 0 1 676,215 Z" />
+    <text x="795" y="235" fill="#0E8C80" text-anchor="middle" font-size="11">❶ LLM综合语义分析（优先）</text>
+    <path fill="#D6DEF5" d="M946,215 H1194 A6,6 0 0 1 1200,221 V241 A6,6 0 0 1 1194,247 H946 A6,6 0 0 1 940,241 V221 A6,6 0 0 1 946,215 Z" />
+    <text x="1070" y="235" fill="#0E8C80" text-anchor="middle" font-size="11">❷ 关键词匹配降级（兜底）</text>
+  </g>
+
+  
+  <path fill="#FFEbee" d="M678,265 H832 A8,8 0 0 1 840,273 V322 A8,8 0 0 1 832,330 H678 A8,8 0 0 1 670,322 V273 A8,8 0 0 1 678,265 Z" />
+  <text x="755" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#E8553C" text-anchor="middle" font-weight="bold">● none</text>
+  <text x="755" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#E8553C" text-anchor="middle">未理解</text>
+  <text x="755" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#E8553C" fill-opacity="0.7" text-anchor="middle">→ 回退重讲</text>
+
+  <path fill="#E8EDF5" d="M868,265 H1022 A8,8 0 0 1 1030,273 V322 A8,8 0 0 1 1022,330 H868 A8,8 0 0 1 860,322 V273 A8,8 0 0 1 868,265 Z" />
+  <text x="945" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle" font-weight="bold">● partial</text>
+  <text x="945" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80" text-anchor="middle">部分理解</text>
+  <text x="945" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80" fill-opacity="0.7" text-anchor="middle">→ 补充讲解</text>
+
+  <path fill="#DDE6FF" d="M1058,265 H1192 A8,8 0 0 1 1200,273 V322 A8,8 0 0 1 1192,330 H1058 A8,8 0 0 1 1050,322 V273 A8,8 0 0 1 1058,265 Z" />
+  <text x="1125" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle" font-weight="bold">● full</text>
+  <text x="1125" y="308" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80" text-anchor="middle">已理解</text>
+  <text x="1125" y="322" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80" fill-opacity="0.7" text-anchor="middle">→ 跳过继续</text>
+
+  <text x="670" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">打断时保存三元组：resumePage | resumeNodeID | resumeSec（精确到音频秒数）</text>
+
+  
+  <path fill="#F4F7FC" d="M72,450 H1208 A12,12 0 0 1 1220,462 V648 A12,12 0 0 1 1208,660 H72 A12,12 0 0 1 60,648 V462 A12,12 0 0 1 72,450 Z" />
+  <text x="640" y="480" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" text-anchor="middle" font-weight="bold">完整问答续接流程</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    
+    <path fill="#1E6FE0" d="M98,505 H182 A18,18 0 0 1 200,523 V523 A18,18 0 0 1 182,541 H98 A18,18 0 0 1 80,523 V523 A18,18 0 0 1 98,505 Z" />
+    <text x="140" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">学生提问</text>
+    <polygon points="208,523 218,517 218,529" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M244,505 H328 A18,18 0 0 1 346,523 V523 A18,18 0 0 1 328,541 H244 A18,18 0 0 1 226,523 V523 A18,18 0 0 1 244,505 Z" />
+    <text x="286" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">上下文构建</text>
+    <polygon points="354,523 364,517 364,529" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M390,505 H474 A18,18 0 0 1 492,523 V523 A18,18 0 0 1 474,541 H390 A18,18 0 0 1 372,523 V523 A18,18 0 0 1 390,505 Z" />
+    <text x="432" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">知识检索</text>
+    <polygon points="500,523 510,517 510,529" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M536,505 H630 A18,18 0 0 1 648,523 V523 A18,18 0 0 1 630,541 H536 A18,18 0 0 1 518,523 V523 A18,18 0 0 1 536,505 Z" />
+    <text x="583" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">苏格拉底回答</text>
+    <polygon points="656,523 666,517 666,529" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M692,505 H776 A18,18 0 0 1 794,523 V523 A18,18 0 0 1 776,541 H692 A18,18 0 0 1 674,523 V523 A18,18 0 0 1 692,505 Z" />
+    <text x="734" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">理解判定</text>
+    <polygon points="802,523 812,517 812,529" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M838,505 H922 A18,18 0 0 1 940,523 V523 A18,18 0 0 1 922,541 H838 A18,18 0 0 1 820,523 V523 A18,18 0 0 1 838,505 Z" />
+    <text x="880" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">三态续接</text>
+    <polygon points="948,523 958,517 958,529" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M984,505 H1078 A18,18 0 0 1 1096,523 V523 A18,18 0 0 1 1078,541 H984 A18,18 0 0 1 966,523 V523 A18,18 0 0 1 984,505 Z" />
+    <text x="1031" y="528" fill="#FFFFFF" text-anchor="middle" font-size="11">返回学习</text>
+  </g>
+
+  
+  <text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="570">输入：question + page + nodeID</text><text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="300" y="570">L1→L2→L3</text><text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="500" y="570">课程知识优先</text><text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="660" y="570">SSE三事件</text><text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="820" y="570">LLM/关键词</text><text fill="#9AA3B5" font-size="10" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="970" y="570">none/partial/full</text><rect x="60" y="698" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">13</text>
+</svg>

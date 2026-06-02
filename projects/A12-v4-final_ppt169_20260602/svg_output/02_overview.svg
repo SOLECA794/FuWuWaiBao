@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0"/>
+      <stop offset="100%" stop-color="#1E6FE0"/>
+    </linearGradient>
+    <linearGradient id="cardBg1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F8FAFC"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="5" fill="url(#topBar)"/>
+
+  <!-- Top accent stripe -->
+  <rect x="0" y="0" width="1280" height="4" fill="#1E6FE0"/>
+
+  <!-- Title area -->
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">方案总览</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">一份课件，秒变会讲课、能答疑、可续接的智课</text>
+  <rect x="60" y="115" width="80" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Three cards -->
+  <!-- Card 1: 传即生成讲稿 -->
+  <rect x="60" y="150" width="360" height="280" rx="12" fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="60" y="150" width="360" height="6" rx="3" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/file-description" x="90" y="180" width="28" height="28" fill="#1E6FE0"/>
+  <text x="130" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">传即生成讲稿</text>
+  <text x="90" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478">
+    <tspan x="90" dy="0">三阶段解耦解析，从文本提取到跨页</tspan>
+    <tspan x="90" dy="24">语义聚合，自动生成可编辑的结构化</tspan>
+    <tspan x="90" dy="24">讲授脚本</tspan>
+  </text>
+  <rect x="90" y="340" width="300" height="1" fill="#D0D7E2"/>
+  <text x="90" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三阶段解耦管线</text>
+  <text x="90" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">Markdown理解 → 节点树构建 → 逐节点脚本生成</text>
+
+  <!-- Card 2: 问答秒级响应 -->
+  <rect x="460" y="150" width="360" height="280" rx="12" fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="460" y="150" width="360" height="6" rx="3" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/message" x="490" y="180" width="28" height="28" fill="#1E6FE0"/>
+  <text x="530" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">问答秒级响应</text>
+  <text x="490" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478">
+    <tspan x="490" dy="0">本页优先检索 + 溯源生成，回答绑定</tspan>
+    <tspan x="490" dy="24">课件页码，避免退化成开放聊天</tspan>
+  </text>
+  <rect x="490" y="340" width="300" height="1" fill="#D0D7E2"/>
+  <text x="490" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三级级联上下文</text>
+  <text x="490" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">节点脚本 → 页面内容 → 全页拼接</text>
+
+  <!-- Card 3: 打断后自动续接 -->
+  <rect x="860" y="150" width="360" height="280" rx="12" fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="860" y="150" width="360" height="6" rx="3" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/player-play" x="890" y="180" width="28" height="28" fill="#1E6FE0"/>
+  <text x="930" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">打断后自动续接</text>
+  <text x="890" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478">
+    <tspan x="890" dy="0">理解程度三态判定 + 节点级续接定位，</tspan>
+    <tspan x="890" dy="24">确保学习主线不中断</tspan>
+  </text>
+  <rect x="890" y="340" width="300" height="1" fill="#D0D7E2"/>
+  <text x="890" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三态续接模式</text>
+  <text x="890" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">none→重讲 / partial→补充 / full→跳过</text>
+
+  <!-- Bottom: five-ring chain -->
+  <rect x="60" y="470" width="1160" height="110" rx="10" fill="#F4F7FC"/>
+  <text x="640" y="495" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle" letter-spacing="2">五环教学闭环</text>
+
+  <!-- Flow circles -->
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">
+    <circle cx="200" cy="540" r="36" fill="#1E6FE0"/><text x="200" y="545">可讲</text>
+    <polygon points="248,540 260,533 260,547" fill="#9AA3B5"/>
+    <circle cx="340" cy="540" r="36" fill="#1E6FE0"/><text x="340" y="545">可学</text>
+    <polygon points="388,540 400,533 400,547" fill="#9AA3B5"/>
+    <circle cx="480" cy="540" r="36" fill="#1E6FE0"/><text x="480" y="545">可问</text>
+    <polygon points="528,540 540,533 540,547" fill="#9AA3B5"/>
+    <circle cx="620" cy="540" r="36" fill="#1E6FE0"/><text x="620" y="545">可续</text>
+    <polygon points="668,540 680,533 680,547" fill="#9AA3B5"/>
+    <circle cx="760" cy="540" r="36" fill="#0E8C80"/><text x="760" y="545">可评</text>
+    <polygon points="808,540 820,533 820,547" fill="#9AA3B5"/>
+    <circle cx="900" cy="540" r="36" fill="#0E8C80"/><text x="900" y="545">可优</text>
+  </g>
+
+  <!-- Bottom annotation -->
+  <text x="640" y="565" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="middle">五环不是孤立环节——解析是问答的前提，问答产出是续接的输入</text>
+
+  <!-- Footer -->
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">02</text>
+</svg>

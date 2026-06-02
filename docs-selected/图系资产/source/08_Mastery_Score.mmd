@@ -1,0 +1,65 @@
+%% D08 — 学情多维加权指数示意图
+%% 对应: PPT P06 | 小册子 M04
+
+graph LR
+
+    classDef input fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef process fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef output fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef model fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef metric fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+
+    %% ===== 四个输入维度 =====
+    Q_COUNT["提问频次<br/>某知识点被提问次数"]:::input
+    R_COUNT["需重讲次数<br/>理解程度≠full的次数"]:::input
+    S_COUNT["会话数<br/>围绕该知识点对话轮数"]:::input
+    S_TIME["停留时长/基准时长<br/>学习耗时 vs 预期耗时"]:::input
+
+    %% ===== 加权计算 =====
+    subgraph WEIGHT["多维加权计算"]
+        W1["提问频次 × 权重"]
+        W2["需重讲次数 × 权重"]
+        W3["会话数 × 权重"]
+        W4["停留时长比 × 权重"]
+        SUM["∑ 综合评分 → 难度指数 (0-10)"]
+    end
+
+    Q_COUNT --> W1
+    R_COUNT --> W2
+    S_COUNT --> W3
+    S_TIME --> W4
+    W1 --> SUM
+    W2 --> SUM
+    W3 --> SUM
+    W4 --> SUM
+
+    %% ===== 掌握度追踪模型 =====
+    subgraph MASTERY["掌握度追踪模型 (0~1)"]
+        CORRECT["✅ 答对 → +0.08"]
+        WRONG["❌ 答错 → -0.06"]
+        FAST["⚡ 快速响应(≤5000ms)<br/>额外 +0.02"]
+        CLAMP["📊 区间约束 [0, 1]<br/>保证单次波动可控"]
+    end
+
+    CORRECT --> CLAMP
+    WRONG --> CLAMP
+    FAST --> CLAMP
+
+    %% ===== 输出 =====
+    subgraph RESULTS["输出"]
+        CLASS_GAP["📊 班级共性卡点定位<br/>哪些知识点全班都难"]
+        PERSONAL_GAP["👤 个人薄弱知识点<br/>哪些知识点个体未掌握"]
+    end
+
+    SUM --> CLASS_GAP
+    SUM --> PERSONAL_GAP
+    CLAMP --> PERSONAL_GAP
+
+    %% ===== 量化标注 =====
+    Q1["初始值: 0.5"]:::metric
+    Q2["区间: [0, 1]"]:::metric
+    Q3["4个加权维度"]:::metric
+
+    CLAMP -.- Q1
+    CLAMP -.- Q2
+    SUM -.- Q3

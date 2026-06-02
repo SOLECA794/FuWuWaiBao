@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" />
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  <rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">学生端</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">学生端：边听讲边提问，问完自动接着学</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M72,140 H418 A12,12 0 0 1 430,152 V458 A12,12 0 0 1 418,470 H72 A12,12 0 0 1 60,458 V152 A12,12 0 0 1 72,140 Z" />
+  <path fill="#1E6FE0" d="M62.50,140 H427.50 A2.50,2.50 0 0 1 430,142.50 V142.50 A2.50,2.50 0 0 1 427.50,145 H62.50 A2.50,2.50 0 0 1 60,142.50 V142.50 A2.50,2.50 0 0 1 62.50,140 Z" />
+  
+  <g transform="translate(90.0, 165.0)" fill="#1E6FE0">
+    <path d="M18 3a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-4.724l-4.762 2.857a1 1 0 0 1 -1.508 -.743l-.006 -.114v-2h-1a4 4 0 0 1 -3.995 -3.8l-.005 -.2v-8a4 4 0 0 1 4 -4zm-4 9h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m2 -4h-8a1 1 0 1 0 0 2h8a1 1 0 0 0 0 -2" />
+  </g>
+  <text x="125" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">上下文问答</text>
+  <text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="220">三级级联上下文构建：</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="244">L1 目标节点脚本 → 精确聚焦</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="268">L2 当前页面全部节点 → 范围扩大</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="292">L3 全页文本拼接 → 最终兜底</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="316">苏格拉底式引导：禁止直接给答案，</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="340">先确认学生卡点，再逐步引导</text><rect x="80" y="400" width="330" height="1" fill="#D0D7E2" />
+  <text x="80" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0">核心：课程知识优先，回答绑定溯源页码</text>
+
+  
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M467,140 H813 A12,12 0 0 1 825,152 V458 A12,12 0 0 1 813,470 H467 A12,12 0 0 1 455,458 V152 A12,12 0 0 1 467,140 Z" />
+  <path fill="#0E8C80" d="M457.50,140 H822.50 A2.50,2.50 0 0 1 825,142.50 V142.50 A2.50,2.50 0 0 1 822.50,145 H457.50 A2.50,2.50 0 0 1 455,142.50 V142.50 A2.50,2.50 0 0 1 457.50,140 Z" />
+  
+  <g transform="translate(485.0, 165.0)" fill="#0E8C80">
+    <path d="M6 4v16a1 1 0 0 0 1.524 .852l13 -8a1 1 0 0 0 0 -1.704l-13 -8a1 1 0 0 0 -1.524 .852z" />
+  </g>
+  <text x="520" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">断点续学</text>
+  <text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="220">理解程度三态判定驱动续接策略：</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="244">● none（未理解）→ 回退重讲</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="268">● partial（部分理解）→ 补充讲解</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="292">● full（已理解）→ 跳过继续</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="316">精确定位到续接页码与节点，</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="475" y="340">确保学习主线不中断</text><rect x="475" y="400" width="330" height="1" fill="#D0D7E2" />
+  <text x="475" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80">核心：节点级续接 vs 传统页级翻页</text>
+
+  
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M862,140 H1208 A12,12 0 0 1 1220,152 V458 A12,12 0 0 1 1208,470 H862 A12,12 0 0 1 850,458 V152 A12,12 0 0 1 862,140 Z" />
+  <path fill="#0E8C80" d="M852.50,140 H1217.50 A2.50,2.50 0 0 1 1220,142.50 V142.50 A2.50,2.50 0 0 1 1217.50,145 H852.50 A2.50,2.50 0 0 1 850,142.50 V142.50 A2.50,2.50 0 0 1 852.50,140 Z" />
+  
+  <g transform="translate(880.0, 165.0)" fill="#0E8C80">
+    <path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3h12zm-2.293 6.293a1 1 0 0 0 -1.414 0l-2.293 2.292l-1.293 -1.292a1 1 0 0 0 -1.414 0l-3 3a1 1 0 0 0 0 1.414l.094 .083a1 1 0 0 0 1.32 -.083l2.293 -2.292l1.293 1.292l.094 .083a1 1 0 0 0 1.32 -.083l2.293 -2.292l1.293 1.292a1 1 0 0 0 1.414 -1.414l-2 -2z" />
+  </g>
+  <text x="915" y="183" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="17" fill="#1D2433" font-weight="bold">薄弱点强化</text>
+  <text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="220">知识点掌握度追踪：</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="244">答对 +0.08 / 答错 -0.06</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="268">快速响应(≤5000ms) +0.02</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="292">掌握度区间维持在 [0, 1]</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="316">薄弱点自动检测，生成针对性练习题，</text><text fill="#5A6478" font-size="13" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="870" y="340">复习计划智能排期</text><rect x="870" y="400" width="330" height="1" fill="#D0D7E2" />
+  <text x="870" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80">核心：全量掌握度+薄弱点+复习闭环</text>
+
+  
+  <path fill="#F4F7FC" d="M70,490 H1210 A10,10 0 0 1 1220,500 V630 A10,10 0 0 1 1210,640 H70 A10,10 0 0 1 60,630 V500 A10,10 0 0 1 70,490 Z" />
+  <text x="80" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">SSE三事件流式协议</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12">
+    <path fill="#1E6FE0" d="M86,540 H274 A6,6 0 0 1 280,546 V570 A6,6 0 0 1 274,576 H86 A6,6 0 0 1 80,570 V546 A6,6 0 0 1 86,540 Z" />
+    <text x="180" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">token 逐词推送</text>
+    <polygon points="290,558 302,551 302,565" fill="#9AA3B5" />
+    <path fill="#1E6FE0" d="M316,540 H504 A6,6 0 0 1 510,546 V570 A6,6 0 0 1 504,576 H316 A6,6 0 0 1 310,570 V546 A6,6 0 0 1 316,540 Z" />
+    <text x="410" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">sentence 完整文本</text>
+    <polygon points="520,558 532,551 532,565" fill="#9AA3B5" />
+    <path fill="#0E8C80" d="M546,540 H784 A6,6 0 0 1 790,546 V570 A6,6 0 0 1 784,576 H546 A6,6 0 0 1 540,570 V546 A6,6 0 0 1 546,540 Z" />
+    <text x="665" y="563" fill="#FFFFFF" text-anchor="middle" font-weight="bold">final 结构化元数据</text>
+  </g>
+  <text x="80" y="600" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">首包 &lt; 500ms | final事件携带：understanding_level | resume_page | resume_node_id | resume_sec | follow_up_suggestion</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">07</text>
+</svg>

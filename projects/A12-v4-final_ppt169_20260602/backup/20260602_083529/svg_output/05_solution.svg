@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0D47A1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1565C0" font-weight="bold" letter-spacing="1">方案概述</text>
+  <text x="60" y="100" font-family="Georgia, KaiTi, serif" font-size="36" fill="#1A1A2E" font-weight="bold">一套底座，两端分工</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#FF6F00"/>
+
+  <!-- Left side: concept description -->
+  <rect x="60" y="150" width="400" height="500" rx="12" fill="#F0F4F8"/>
+  <text x="80" y="190" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1A1A2E" font-weight="bold">设计思路</text>
+  <text x="80" y="225" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#6B7280">
+    <tspan x="80" dy="0">&#8220;一套底座，两端分工&#8221;——底层是</tspan>
+    <tspan x="80" dy="26">统一的AI能力中台，上层分别为教师和</tspan>
+    <tspan x="80" dy="26">学生提供专属功能入口</tspan>
+  </text>
+  <rect x="80" y="310" width="360" height="1" fill="#E5E7EB"/>
+  <text x="80" y="340" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1A1A2E" font-weight="bold">两个关键设计</text>
+  <rect x="80" y="370" width="360" height="36" rx="6" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+  <text x="100" y="393" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1565C0">&#x2776; 编排层不做AI推理，保证响应延迟可控</text>
+  <rect x="80" y="415" width="360" height="36" rx="6" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+  <text x="100" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1565C0">&#x2777; 双引擎降级，Dify不可用时自动切本地引擎</text>
+
+  <!-- Right side: architecture SVG -->
+  <rect x="490" y="150" width="730" height="500" rx="12" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="1.5"/>
+  <text x="510" y="185" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1A1A2E" font-weight="bold">底座架构示意</text>
+
+  <!-- Three-layer boxes -->
+  <rect x="530" y="210" width="670" height="46" rx="8" fill="#1565C0"/>
+  <text x="865" y="238" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">业务编排层 · Go后端</text>
+  <text x="865" y="252" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">学习状态机 | SSE流式转发 | 课件上传管道 | 任务调度 | OpenAPI适配</text>
+  <text x="550" y="222" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FF8F00">&#x2605;</text>
+
+  <polygon points="865,260 855,270 875,270" fill="#9CA3AF"/>
+
+  <rect x="530" y="275" width="670" height="46" rx="8" fill="#0D47A1"/>
+  <text x="865" y="303" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">AI能力中台 · Dify工作流 + Python本地引擎</text>
+  <text x="865" y="317" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">课件解析 | 知识入库 | 智能问答 | 脚本生成 | 语音合成</text>
+
+  <polygon points="865,325 855,335 875,335" fill="#9CA3AF"/>
+
+  <rect x="530" y="340" width="670" height="46" rx="8" fill="#6B7280"/>
+  <text x="865" y="368" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">数据支撑层</text>
+  <text x="865" y="382" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">PostgreSQL（结构化） | Redis（缓存/队列） | MinIO（对象存储）</text>
+
+  <!-- Dual-engine annotation -->
+  <rect x="530" y="410" width="670" height="36" rx="6" fill="#FFF8E1" stroke="#FF6F00" stroke-width="1"/>
+  <text x="550" y="433" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FF6F00">&#x21BB; 双引擎降级：Dify主引擎 → 故障自动切换 → 本地Python引擎（127.0.0.1:8000）</text>
+
+  <!-- Two end columns -->
+  <rect x="530" y="465" width="325" height="70" rx="8" fill="#E3F2FD"/>
+  <use data-icon="tabler-filled/user" x="550" y="485" width="20" height="20" fill="#1565C0"/>
+  <text x="580" y="500" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1A1A2E" font-weight="bold">教师端</text>
+  <text x="580" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#6B7280">课件管理 · 脚本编辑 · 发布授课 · 学情分析</text>
+
+  <rect x="875" y="465" width="325" height="70" rx="8" fill="#FFF3E0"/>
+  <use data-icon="tabler-filled/user" x="895" y="485" width="20" height="20" fill="#FF6F00"/>
+  <text x="925" y="500" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1A1A2E" font-weight="bold">学生端</text>
+  <text x="925" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#6B7280">课程学习 · 上下文问答 · 断点续学 · 掌握度分析</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#E5E7EB"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF" text-anchor="end">05</text>
+</svg>

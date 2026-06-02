@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#3A7BED" /></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <path fill="#E8EDF5" d="M59,45 H331 A4,4 0 0 1 335,49 V73 A4,4 0 0 1 331,77 H59 A4,4 0 0 1 55,73 V49 A4,4 0 0 1 59,45 Z" /><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <path fill="#E8EDF5" d="M349,45 H621 A4,4 0 0 1 625,49 V73 A4,4 0 0 1 621,77 H349 A4,4 0 0 1 345,73 V49 A4,4 0 0 1 349,45 Z" /><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <path fill="#1E6FE0" d="M639,45 H911 A4,4 0 0 1 915,49 V73 A4,4 0 0 1 911,77 H639 A4,4 0 0 1 635,73 V49 A4,4 0 0 1 639,45 Z" /><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <path fill="#E8EDF5" d="M929,45 H1201 A4,4 0 0 1 1205,49 V73 A4,4 0 0 1 1201,77 H929 A4,4 0 0 1 925,73 V49 A4,4 0 0 1 929,45 Z" /><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">AI能力中台内部架构</text>
+  <path fill="#0E8C80" d="M56.50,118 H103.50 A1.50,1.50 0 0 1 105,119.50 V119.50 A1.50,1.50 0 0 1 103.50,121 H56.50 A1.50,1.50 0 0 1 55,119.50 V119.50 A1.50,1.50 0 0 1 56.50,118 Z" />
+
+  
+  <g font-family="Arial, Microsoft YaHei, sans-serif">
+    
+    <path fill="#F4F7FC" stroke="#1E6FE0" stroke-width="1" d="M63,140 H1217 A8,8 0 0 1 1225,148 V292 A8,8 0 0 1 1217,300 H63 A8,8 0 0 1 55,292 V148 A8,8 0 0 1 63,140 Z" />
+    <path fill="#1E6FE0" d="M63,140 H1217 A8,8 0 0 1 1225,148 V164 A8,8 0 0 1 1217,172 H63 A8,8 0 0 1 55,164 V148 A8,8 0 0 1 63,140 Z" />
+    <rect x="55" y="164" width="1170" height="8" fill="#1E6FE0" />
+    <text x="640" y="160" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">上层：Dify工作流编排层 — 5大工作流</text>
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M81,185 H199 A6,6 0 0 1 205,191 V269 A6,6 0 0 1 199,275 H81 A6,6 0 0 1 75,269 V191 A6,6 0 0 1 81,185 Z" />
+    <text x="140" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">课件解析</text>
+    <text x="140" y="228" fill="#5A6478" text-anchor="middle" font-size="9">文件提取</text>
+    <text x="140" y="243" fill="#5A6478" text-anchor="middle" font-size="9">VLM识别</text>
+    <text x="140" y="258" fill="#5A6478" text-anchor="middle" font-size="9">结构化</text>
+    <line x1="205" y1="230" x2="228" y2="230" stroke="#D0D7E2" stroke-width="1.5" />
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M244,185 H362 A6,6 0 0 1 368,191 V269 A6,6 0 0 1 362,275 H244 A6,6 0 0 1 238,269 V191 A6,6 0 0 1 244,185 Z" />
+    <text x="303" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">知识入库</text>
+    <text x="303" y="228" fill="#5A6478" text-anchor="middle" font-size="9">内容切片</text>
+    <text x="303" y="243" fill="#5A6478" text-anchor="middle" font-size="9">向量化</text>
+    <text x="303" y="258" fill="#5A6478" text-anchor="middle" font-size="9">索引构建</text>
+    <line x1="368" y1="230" x2="391" y2="230" stroke="#D0D7E2" stroke-width="1.5" />
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M407,185 H525 A6,6 0 0 1 531,191 V269 A6,6 0 0 1 525,275 H407 A6,6 0 0 1 401,269 V191 A6,6 0 0 1 407,185 Z" />
+    <text x="466" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">智能问答</text>
+    <text x="466" y="228" fill="#5A6478" text-anchor="middle" font-size="9">意图识别</text>
+    <text x="466" y="243" fill="#5A6478" text-anchor="middle" font-size="9">知识检索</text>
+    <text x="466" y="258" fill="#5A6478" text-anchor="middle" font-size="9">回答生成</text>
+    <line x1="531" y1="230" x2="554" y2="230" stroke="#D0D7E2" stroke-width="1.5" />
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M570,185 H688 A6,6 0 0 1 694,191 V269 A6,6 0 0 1 688,275 H570 A6,6 0 0 1 564,269 V191 A6,6 0 0 1 570,185 Z" />
+    <text x="629" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">脚本生成</text>
+    <text x="629" y="228" fill="#5A6478" text-anchor="middle" font-size="9">结构理解</text>
+    <text x="629" y="243" fill="#5A6478" text-anchor="middle" font-size="9">节点构建</text>
+    <text x="629" y="258" fill="#5A6478" text-anchor="middle" font-size="9">脚本输出</text>
+    <line x1="694" y1="230" x2="717" y2="230" stroke="#D0D7E2" stroke-width="1.5" />
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M733,185 H851 A6,6 0 0 1 857,191 V269 A6,6 0 0 1 851,275 H733 A6,6 0 0 1 727,269 V191 A6,6 0 0 1 733,185 Z" />
+    <text x="792" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">语音合成</text>
+    <text x="792" y="228" fill="#5A6478" text-anchor="middle" font-size="9">文本处理</text>
+    <text x="792" y="243" fill="#5A6478" text-anchor="middle" font-size="9">TTS转换</text>
+    <text x="792" y="258" fill="#5A6478" text-anchor="middle" font-size="9">音频输出</text>
+
+    
+    <path fill="#F4F7FC" stroke="#0E8C80" stroke-width="1" d="M63,315 H847 A8,8 0 0 1 855,323 V437 A8,8 0 0 1 847,445 H63 A8,8 0 0 1 55,437 V323 A8,8 0 0 1 63,315 Z" />
+    <path fill="#0E8C80" d="M63,315 H847 A8,8 0 0 1 855,323 V339 A8,8 0 0 1 847,347 H63 A8,8 0 0 1 55,339 V323 A8,8 0 0 1 63,315 Z" />
+    <rect x="55" y="339" width="800" height="8" fill="#0E8C80" />
+    <text x="455" y="335" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">中层：RAG检索增强生成链路</text>
+
+    <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5" d="M79,360 H181 A4,4 0 0 1 185,364 V386 A4,4 0 0 1 181,390 H79 A4,4 0 0 1 75,386 V364 A4,4 0 0 1 79,360 Z" />
+    <text x="130" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">用户提问</text>
+    <polygon points="190,375 198,371 198,379" fill="#5A6478" />
+    <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5" d="M209,360 H311 A4,4 0 0 1 315,364 V386 A4,4 0 0 1 311,390 H209 A4,4 0 0 1 205,386 V364 A4,4 0 0 1 209,360 Z" />
+    <text x="260" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">意图理解</text>
+    <polygon points="320,375 328,371 328,379" fill="#5A6478" />
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="0.5" d="M339,360 H451 A4,4 0 0 1 455,364 V386 A4,4 0 0 1 451,390 H339 A4,4 0 0 1 335,386 V364 A4,4 0 0 1 339,360 Z" />
+    <text x="395" y="379" fill="#1E6FE0" text-anchor="middle" font-size="10">课程知识检索</text>
+    <polygon points="460,375 468,371 468,379" fill="#5A6478" />
+    <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5" d="M479,360 H611 A4,4 0 0 1 615,364 V386 A4,4 0 0 1 611,390 H479 A4,4 0 0 1 475,386 V364 A4,4 0 0 1 479,360 Z" />
+    <text x="545" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">上下文增强</text>
+    <polygon points="620,375 628,371 628,379" fill="#5A6478" />
+    <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5" d="M639,360 H741 A4,4 0 0 1 745,364 V386 A4,4 0 0 1 741,390 H639 A4,4 0 0 1 635,386 V364 A4,4 0 0 1 639,360 Z" />
+    <text x="690" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">答案生成</text>
+
+    <path fill="#E8EDF5" d="M79,400 H831 A4,4 0 0 1 835,404 V426 A4,4 0 0 1 831,430 H79 A4,4 0 0 1 75,426 V404 A4,4 0 0 1 79,400 Z" />
+    <text x="455" y="420" fill="#5A6478" text-anchor="middle" font-size="10">三级级联检索范围：L1 目标节点 → L2 当前页 → L3 全页拼接</text>
+
+    
+    <path fill="#F4F7FC" stroke="#7B5BE0" stroke-width="1" d="M888,315 H1217 A8,8 0 0 1 1225,323 V437 A8,8 0 0 1 1217,445 H888 A8,8 0 0 1 880,437 V323 A8,8 0 0 1 888,315 Z" />
+    <path fill="#7B5BE0" d="M888,315 H1217 A8,8 0 0 1 1225,323 V339 A8,8 0 0 1 1217,347 H888 A8,8 0 0 1 880,339 V323 A8,8 0 0 1 888,315 Z" />
+    <rect x="880" y="339" width="345" height="8" fill="#7B5BE0" />
+    <text x="1052" y="335" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">下层：模型适配与管理</text>
+
+    <path fill="#FFFFFF" stroke="#7B5BE0" stroke-width="0.5" d="M899,360 H1201 A4,4 0 0 1 1205,364 V378 A4,4 0 0 1 1201,382 H899 A4,4 0 0 1 895,378 V364 A4,4 0 0 1 899,360 Z" />
+    <text x="1050" y="375" fill="#5A6478" text-anchor="middle" font-size="9">大模型适配层（统一接口，引擎无关）</text>
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="0.5" d="M899,390 H1041 A4,4 0 0 1 1045,394 V408 A4,4 0 0 1 1041,412 H899 A4,4 0 0 1 895,408 V394 A4,4 0 0 1 899,390 Z" />
+    <text x="970" y="405" fill="#1E6FE0" text-anchor="middle" font-size="9">通义千问（当前）</text>
+    <path fill="#DDE6FF" stroke="#0E8C80" stroke-width="0.5" d="M1059,390 H1201 A4,4 0 0 1 1205,394 V408 A4,4 0 0 1 1201,412 H1059 A4,4 0 0 1 1055,408 V394 A4,4 0 0 1 1059,390 Z" />
+    <text x="1130" y="405" fill="#0E8C80" text-anchor="middle" font-size="9">备用推理引擎</text>
+    <path fill="#E8EDF5" d="M899,418 H1201 A4,4 0 0 1 1205,422 V432 A4,4 0 0 1 1201,436 H899 A4,4 0 0 1 895,432 V422 A4,4 0 0 1 899,418 Z" />
+    <text x="1050" y="431" fill="#9AA3B5" text-anchor="middle" font-size="9">模型切换零改动 — 适配层配置化</text>
+
+    
+    <path fill="#F4F7FC" stroke="#E8553C" stroke-width="1" d="M63,460 H1217 A8,8 0 0 1 1225,468 V552 A8,8 0 0 1 1217,560 H63 A8,8 0 0 1 55,552 V468 A8,8 0 0 1 63,460 Z" />
+    <path fill="#E8553C" d="M63,460 H1217 A8,8 0 0 1 1225,468 V484 A8,8 0 0 1 1217,492 H63 A8,8 0 0 1 55,484 V468 A8,8 0 0 1 63,460 Z" />
+    <rect x="55" y="484" width="1170" height="8" fill="#E8553C" />
+    <text x="640" y="480" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">降级容错机制</text>
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M86,500 H274 A6,6 0 0 1 280,506 V534 A6,6 0 0 1 274,540 H86 A6,6 0 0 1 80,534 V506 A6,6 0 0 1 86,500 Z" />
+    <text x="180" y="525" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">Dify工作流正常</text>
+    <polygon points="290,520 300,514 300,526" fill="#5A6478" />
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1" d="M316,500 H504 A6,6 0 0 1 510,506 V534 A6,6 0 0 1 504,540 H316 A6,6 0 0 1 310,534 V506 A6,6 0 0 1 316,500 Z" />
+    <text x="410" y="525" fill="#1E6FE0" text-anchor="middle" font-size="11">直通处理</text>
+    <path d="M520,520 L555,520 L555,550 L580,550" fill="none" stroke="#E8553C" stroke-width="1.5" stroke-dasharray="4,2" />
+    <path fill="#FFFFFF" stroke="#E8553C" stroke-width="1" d="M596,500 H784 A6,6 0 0 1 790,506 V534 A6,6 0 0 1 784,540 H596 A6,6 0 0 1 590,534 V506 A6,6 0 0 1 596,500 Z" />
+    <text x="690" y="525" fill="#E8553C" text-anchor="middle" font-size="11" font-weight="bold">主引擎不可用</text>
+    <polygon points="800,520 810,514 810,526" fill="#E8553C" />
+    <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="1" d="M826,500 H1034 A6,6 0 0 1 1040,506 V534 A6,6 0 0 1 1034,540 H826 A6,6 0 0 1 820,534 V506 A6,6 0 0 1 826,500 Z" />
+    <text x="930" y="525" fill="#0E8C80" text-anchor="middle" font-size="11" font-weight="bold">备用推理引擎自动接管</text>
+    <text x="640" y="565" font-family="Arial, Microsoft YaHei, sans-serif" font-size="9" fill="#9AA3B5" text-anchor="middle">主引擎（Dify工作流编排）↔ 备用推理引擎（Python实现完整功能子集）— 切换对前端完全透明</text>
+  </g>
+
+  <rect x="55" y="690" width="1170" height="1" fill="#D0D7E2" />
+  <text x="55" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">09c</text>
+</svg>

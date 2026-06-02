@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" />
+    </linearGradient>
+    <linearGradient id="layer1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1976D2" />
+    </linearGradient>
+    <linearGradient id="layer2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1D4ED8" /><stop offset="100%" stop-color="#3A7BED" />
+    </linearGradient>
+    <linearGradient id="layer3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7B1FA2" /><stop offset="100%" stop-color="#9C27B0" />
+    </linearGradient>
+    <linearGradient id="layer4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#37474F" /><stop offset="100%" stop-color="#546E7A" />
+    </linearGradient>
+    <marker id="arrowDown" viewBox="0 0 10 10" refX="5" refY="8" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L5,10 L10,0 Z" fill="#90CAF9" />
+    </marker>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  <rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">系统架构</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">核心架构：编排与能力分离，三层协同</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <path fill="url(#layer1)" d="M70,135 H1210 A10,10 0 0 1 1220,145 V195 A10,10 0 0 1 1210,205 H70 A10,10 0 0 1 60,195 V145 A10,10 0 0 1 70,135 Z" />
+  
+  <g transform="translate(85.0, 155.0) scale(0.75)" fill="#FFFFFF">
+    <path d="M7 21a1 1 0 0 1 0 -2h1v-2h-4a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-4v2h1a1 1 0 0 1 0 2zm7 -4h-4v2h4z" />
+  </g>
+  <text x="115" y="168" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">前端交互层</text>
+  <text x="115" y="185" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8">Vue 3 + TypeScript</text>
+  <path fill="#FFFFFF" fill-opacity="0.15" d="M266,150 H454 A6,6 0 0 1 460,156 V186 A6,6 0 0 1 454,192 H266 A6,6 0 0 1 260,186 V156 A6,6 0 0 1 266,150 Z" />
+  <text x="360" y="176" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle">(教师) 教师端</text>
+  <path fill="#FFFFFF" fill-opacity="0.15" d="M486,150 H674 A6,6 0 0 1 680,156 V186 A6,6 0 0 1 674,192 H486 A6,6 0 0 1 480,186 V156 A6,6 0 0 1 486,150 Z" />
+  <text x="580" y="176" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle">(学生) 学生端</text>
+  <path fill="#FFFFFF" fill-opacity="0.15" d="M706,150 H944 A6,6 0 0 1 950,156 V186 A6,6 0 0 1 944,192 H706 A6,6 0 0 1 700,186 V156 A6,6 0 0 1 706,150 Z" />
+  <text x="825" y="176" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle">[集成] 泛雅集成入口（OpenAPI）</text>
+  <text x="1050" y="176" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.6">HTTPS/SSE</text>
+
+  
+  <line x1="640" y1="205" x2="640" y2="220" stroke="#90CAF9" stroke-width="2" marker-end="url(#arrowDown)" />
+
+  
+  <path fill="url(#layer2)" d="M70,225 H1210 A10,10 0 0 1 1220,235 V355 A10,10 0 0 1 1210,365 H70 A10,10 0 0 1 60,355 V235 A10,10 0 0 1 70,225 Z" />
+  <path fill="#0E8C80" fill-opacity="0.6" d="M65,225 H1215 A5,5 0 0 1 1220,230 V230 A5,5 0 0 1 1215,235 H65 A5,5 0 0 1 60,230 V230 A5,5 0 0 1 65,225 Z" />
+  
+  <g transform="translate(85.0, 250.0) scale(0.75)" fill="#0E8C80">
+    <path d="M6 3a1 1 0 0 1 .993 .883l.007 .117v3.171a3.001 3.001 0 0 1 0 5.658v7.171a1 1 0 0 1 -1.993 .117l-.007 -.117v-7.17a3.002 3.002 0 0 1 -1.995 -2.654l-.005 -.176l.005 -.176a3.002 3.002 0 0 1 1.995 -2.654v-3.17a1 1 0 0 1 1 -1z" />
+    <path d="M12 3a1 1 0 0 1 .993 .883l.007 .117v9.171a3.001 3.001 0 0 1 0 5.658v1.171a1 1 0 0 1 -1.993 .117l-.007 -.117v-1.17a3.002 3.002 0 0 1 -1.995 -2.654l-.005 -.176l.005 -.176a3.002 3.002 0 0 1 1.995 -2.654v-9.17a1 1 0 0 1 1 -1z" />
+    <path d="M18 3a1 1 0 0 1 .993 .883l.007 .117v.171a3.001 3.001 0 0 1 0 5.658v10.171a1 1 0 0 1 -1.993 .117l-.007 -.117v-10.17a3.002 3.002 0 0 1 -1.995 -2.654l-.005 -.176l.005 -.176a3.002 3.002 0 0 1 1.995 -2.654v-.17a1 1 0 0 1 1 -1z" />
+  </g>
+  <text x="115" y="263" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">业务编排层</text>
+  <text x="115" y="280" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80" fill-opacity="0.9">★ 编排层只做状态控制与流转，不承担AI推理</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#FFFFFF">
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M86,295 H254 A6,6 0 0 1 260,301 V315 A6,6 0 0 1 254,321 H86 A6,6 0 0 1 80,315 V301 A6,6 0 0 1 86,295 Z" />
+    <text x="170" y="313" text-anchor="middle">学习状态机</text>
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M281,295 H449 A6,6 0 0 1 455,301 V315 A6,6 0 0 1 449,321 H281 A6,6 0 0 1 275,315 V301 A6,6 0 0 1 281,295 Z" />
+    <text x="365" y="313" text-anchor="middle">SSE三事件协议</text>
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M476,295 H644 A6,6 0 0 1 650,301 V315 A6,6 0 0 1 644,321 H476 A6,6 0 0 1 470,315 V301 A6,6 0 0 1 476,295 Z" />
+    <text x="560" y="313" text-anchor="middle">课件上传管道</text>
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M671,295 H809 A6,6 0 0 1 815,301 V315 A6,6 0 0 1 809,321 H671 A6,6 0 0 1 665,315 V301 A6,6 0 0 1 671,295 Z" />
+    <text x="740" y="313" text-anchor="middle">任务调度引擎</text>
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M836,295 H1024 A6,6 0 0 1 1030,301 V315 A6,6 0 0 1 1024,321 H836 A6,6 0 0 1 830,315 V301 A6,6 0 0 1 836,295 Z" />
+    <text x="930" y="313" text-anchor="middle">OpenAPI兼容适配层</text>
+  </g>
+  <text x="80" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.6">Go后端 | 学习状态机：讲授→问答→三态续接→回讲 | SSE：token→sentence→final | 三级预览降级</text>
+
+  
+  <line x1="640" y1="365" x2="640" y2="380" stroke="#90CAF9" stroke-width="2" marker-end="url(#arrowDown)" />
+
+  
+  <path fill="url(#layer3)" d="M70,385 H1210 A10,10 0 0 1 1220,395 V515 A10,10 0 0 1 1210,525 H70 A10,10 0 0 1 60,515 V395 A10,10 0 0 1 70,385 Z" />
+  
+  <g transform="translate(85.0, 410.0) scale(0.75)" fill="#FFFFFF">
+    <path d="M17 3.34a10 10 0 1 1 -15 8.66l.005 -.324a10 10 0 0 1 14.995 -8.336m-6.293 5.953a1 1 0 0 0 -1.414 0l-2 2a1 1 0 0 0 0 1.414l2 2a1 1 0 0 0 1.414 0l.083 -.094a1 1 0 0 0 -.083 -1.32l-1.292 -1.293l1.292 -1.293a1 1 0 0 0 0 -1.414m4 0a1 1 0 0 0 -1.414 0l-.083 .094a1 1 0 0 0 .083 1.32l1.292 1.293l-1.292 1.293a1 1 0 0 0 1.414 1.414l2 -2a1 1 0 0 0 0 -1.414z" />
+  </g>
+  <text x="115" y="423" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">AI能力层</text>
+
+  
+  <path fill="#FFFFFF" fill-opacity="0.12" d="M258,400 H702 A8,8 0 0 1 710,408 V502 A8,8 0 0 1 702,510 H258 A8,8 0 0 1 250,502 V408 A8,8 0 0 1 258,400 Z" />
+  <text x="480" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#FFFFFF" text-anchor="middle" font-weight="bold">主引擎：Dify 工作流编排</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF">
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M269,435 H346 A4,4 0 0 1 350,439 V457 A4,4 0 0 1 346,461 H269 A4,4 0 0 1 265,457 V439 A4,4 0 0 1 269,435 Z" />
+    <text x="307" y="452" text-anchor="middle">课件解析</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M364,435 H441 A4,4 0 0 1 445,439 V457 A4,4 0 0 1 441,461 H364 A4,4 0 0 1 360,457 V439 A4,4 0 0 1 364,435 Z" />
+    <text x="402" y="452" text-anchor="middle">知识入库</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M459,435 H536 A4,4 0 0 1 540,439 V457 A4,4 0 0 1 536,461 H459 A4,4 0 0 1 455,457 V439 A4,4 0 0 1 459,435 Z" />
+    <text x="497" y="452" text-anchor="middle">智能问答</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M554,435 H631 A4,4 0 0 1 635,439 V457 A4,4 0 0 1 631,461 H554 A4,4 0 0 1 550,457 V439 A4,4 0 0 1 554,435 Z" />
+    <text x="592" y="452" text-anchor="middle">脚本生成</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M649,435 H691 A4,4 0 0 1 695,439 V457 A4,4 0 0 1 691,461 H649 A4,4 0 0 1 645,457 V439 A4,4 0 0 1 649,435 Z" />
+    <text x="670" y="452" text-anchor="middle">TTS</text>
+  </g>
+
+  
+  <path d="M710,450 L750,450 L750,480 L730,480" fill="none" stroke="#0E8C80" stroke-width="1.5" stroke-dasharray="4,2" />
+  <text x="750" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80">不可用↓</text>
+
+  <path fill="#E8EDF5" stroke="#0E8C80" stroke-width="1" d="M748,400 H1032 A8,8 0 0 1 1040,408 V502 A8,8 0 0 1 1032,510 H748 A8,8 0 0 1 740,502 V408 A8,8 0 0 1 748,400 Z" />
+  <text x="890" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80" text-anchor="middle" font-weight="bold">降级引擎：备用推理引擎</text>
+  <text x="770" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#5A6478">三阶段解耦管线</text>
+  <text x="770" y="460" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#5A6478">+ JSON Schema结构化约束</text>
+  <text x="770" y="475" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#5A6478">+ 苏格拉底式问答</text>
+  <text x="770" y="495" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="9" fill="#0E8C80" />
+
+  
+  <line x1="640" y1="525" x2="640" y2="540" stroke="#90CAF9" stroke-width="2" marker-end="url(#arrowDown)" />
+
+  
+  <path fill="url(#layer4)" d="M70,545 H1210 A10,10 0 0 1 1220,555 V630 A10,10 0 0 1 1210,640 H70 A10,10 0 0 1 60,630 V555 A10,10 0 0 1 70,545 Z" />
+  
+  <g transform="translate(85.0, 570.0) scale(0.75)" fill="#FFFFFF">
+    <path d="M3 15.731c1.968 1.507 5.234 2.269 9 2.269c3.76 0 7.025 -.76 9 -2.252v2.252c0 2.425 -3.895 3.936 -8.693 3.998l-.307 .002c-4.938 0 -9 -1.523 -9 -4z" />
+    <path d="M3 9.731c1.968 1.507 5.234 2.269 9 2.269c3.76 0 7.025 -.76 9 -2.252v2.252c0 2.477 -4.062 4 -9 4c-4.798 0 -8.77 -1.438 -8.979 -3.795l-.016 -.101l-.005 -.104z" />
+    <path d="M12 2c1.041 0 2.044 .068 2.977 .198l.469 .071q .84 .14 1.586 .348l.44 .131l.075 .024a11 11 0 0 1 .805 .3l.199 .086q .535 .242 .967 .53q .165 .11 .313 .225a3.8 3.8 0 0 1 .669 .668l.091 .128q .07 .105 .129 .211l.07 .139q .163 .35 .2 .73l.01 .211c0 2.477 -4.062 4 -9 4c-4.798 0 -8.77 -1.438 -8.979 -3.795a1 1 0 0 1 -.021 -.205l.005 -.104l.016 -.1c.205 -2.306 4.01 -3.733 8.667 -3.794z" />
+  </g>
+  <text x="115" y="583" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" font-weight="bold">数据支撑层</text>
+
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#FFFFFF">
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M266,560 H534 A6,6 0 0 1 540,566 V619 A6,6 0 0 1 534,625 H266 A6,6 0 0 1 260,619 V566 A6,6 0 0 1 266,560 Z" />
+    <text x="400" y="580" text-anchor="middle" font-weight="bold">PostgreSQL</text>
+    <text x="400" y="596" text-anchor="middle" font-size="10" fill-opacity="0.7">课程·节点·用户·学习记录·会话</text>
+    <text x="400" y="612" text-anchor="middle" font-size="9" fill-opacity="0.5">关系型 | 事务一致 | JSONB扩展</text>
+
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M566,560 H814 A6,6 0 0 1 820,566 V619 A6,6 0 0 1 814,625 H566 A6,6 0 0 1 560,619 V566 A6,6 0 0 1 566,560 Z" />
+    <text x="690" y="580" text-anchor="middle" font-weight="bold">Redis</text>
+    <text x="690" y="596" text-anchor="middle" font-size="10" fill-opacity="0.7">会话状态·任务队列·进度游标·缓存</text>
+    <text x="690" y="612" text-anchor="middle" font-size="9" fill-opacity="0.5">高吞吐 | 低延迟</text>
+
+    <path fill="#FFFFFF" fill-opacity="0.12" d="M846,560 H1094 A6,6 0 0 1 1100,566 V619 A6,6 0 0 1 1094,625 H846 A6,6 0 0 1 840,619 V566 A6,6 0 0 1 846,560 Z" />
+    <text x="970" y="580" text-anchor="middle" font-weight="bold">MinIO</text>
+    <text x="970" y="596" text-anchor="middle" font-size="10" fill-opacity="0.7">课件源文件·预览图·音频</text>
+    <text x="970" y="612" text-anchor="middle" font-size="9" fill-opacity="0.5">S3兼容 | 私有化部署</text>
+  </g>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">09</text>
+</svg>

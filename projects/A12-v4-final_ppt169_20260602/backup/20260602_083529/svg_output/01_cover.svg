@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1565C0"/>
+      <stop offset="50%" stop-color="#0D47A1"/>
+      <stop offset="100%" stop-color="#0A2E6E"/>
+    </linearGradient>
+    <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6F00"/>
+      <stop offset="100%" stop-color="#FF8F00"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="720" fill="url(#bgGrad)"/>
+
+  <!-- Decorative circles -->
+  <circle cx="150" cy="100" r="60" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="2"/>
+  <circle cx="180" cy="80" r="120" fill="none" stroke="#FFFFFF" stroke-opacity="0.04" stroke-width="1"/>
+  <circle cx="1100" cy="600" r="80" fill="none" stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="2"/>
+  <circle cx="1050" cy="580" r="140" fill="none" stroke="#FFFFFF" stroke-opacity="0.04" stroke-width="1"/>
+  <circle cx="1200" cy="120" r="40" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5"/>
+  <circle cx="60" cy="650" r="30" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5"/>
+
+  <!-- Decorative dots grid -->
+  <g fill="#FFFFFF" fill-opacity="0.03">
+    <circle cx="100" cy="200" r="3"/><circle cx="200" cy="250" r="2"/><circle cx="300" cy="180" r="3"/>
+    <circle cx="1000" cy="150" r="2"/><circle cx="1100" cy="200" r="3"/><circle cx="900" cy="250" r="2"/>
+    <circle cx="1050" cy="500" r="2"/><circle cx="1150" cy="550" r="3"/><circle cx="950" cy="650" r="2"/>
+  </g>
+
+  <!-- Top tag -->
+  <rect x="490" y="120" width="300" height="32" rx="16" fill="#FFFFFF" fill-opacity="0.12"/>
+  <text x="640" y="141" font-family="Arial, sans-serif" font-size="14" fill="#FFFFFF" fill-opacity="0.85" text-anchor="middle" letter-spacing="2">服创大赛 A12 · 智能计算赛道</text>
+
+  <!-- Main title -->
+  <text x="640" y="250" font-family="Georgia, KaiTi, serif" font-size="64" fill="#FFFFFF" text-anchor="middle" font-weight="bold" letter-spacing="3">泛雅 AI 互动智课系统</text>
+
+  <!-- Accent line -->
+  <rect x="540" y="275" width="200" height="3" rx="1.5" fill="url(#accentLine)"/>
+
+  <!-- Subtitle -->
+  <text x="640" y="330" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#FFFFFF" fill-opacity="0.85" text-anchor="middle" letter-spacing="1">
+    <tspan x="640" dy="0">以节点化内容底座为核心，实现课件解析→智能讲授→上下文问答→断点续接的教学闭环</tspan>
+  </text>
+
+  <!-- Bottom info -->
+  <rect x="200" y="450" width="880" height="1" fill="#FFFFFF" fill-opacity="0.15"/>
+
+  <text x="640" y="490" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" fill-opacity="0.7" text-anchor="middle">命题企业：超星集团</text>
+  <text x="640" y="515" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#FFFFFF" fill-opacity="0.7" text-anchor="middle">应用场景：高校通识课自主学习</text>
+  <text x="640" y="555" font-family="Georgia, KaiTi, serif" font-size="22" fill="#FF8F00" text-anchor="middle" font-weight="bold" letter-spacing="4">DEEPCORE</text>
+  <text x="640" y="575" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF" fill-opacity="0.6" text-anchor="middle" letter-spacing="2">参赛团队</text>
+
+  <!-- Bottom accent bar -->
+  <rect x="0" y="700" width="1280" height="20" fill="#FF6F00" fill-opacity="0.3"/>
+</svg>

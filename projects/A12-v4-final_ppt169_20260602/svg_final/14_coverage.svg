@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" /></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">赛题对标</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">三大模块全覆盖</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    
+    <path fill="#1E6FE0" d="M68,140 H332 A8,8 0 0 1 340,148 V176 A8,8 0 0 1 332,184 H68 A8,8 0 0 1 60,176 V148 A8,8 0 0 1 68,140 Z" />
+    <text x="200" y="167" fill="#FFFFFF" text-anchor="middle" font-size="15" font-weight="bold">赛题模块</text>
+    <path fill="#1E6FE0" d="M348,140 H912 A8,8 0 0 1 920,148 V176 A8,8 0 0 1 912,184 H348 A8,8 0 0 1 340,176 V148 A8,8 0 0 1 348,140 Z" />
+    <text x="630" y="167" fill="#FFFFFF" text-anchor="middle" font-size="15" font-weight="bold">项目实现（机制描述）</text>
+    <path fill="#1E6FE0" d="M928,140 H1212 A8,8 0 0 1 1220,148 V176 A8,8 0 0 1 1212,184 H928 A8,8 0 0 1 920,176 V148 A8,8 0 0 1 928,140 Z" />
+    <text x="1070" y="167" fill="#FFFFFF" text-anchor="middle" font-size="15" font-weight="bold">对应算法</text>
+
+    
+    <rect x="60" y="195" width="280" height="140" rx="0" fill="#DDE6FF" />
+    
+  <g transform="translate(80.0, 230.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M12 2l.117 .007a1 1 0 0 1 .876 .876l.007 .117v4l.005 .15a2 2 0 0 0 1.838 1.844l.157 .006h4l.117 .007a1 1 0 0 1 .876 .876l.007 .117v9a3 3 0 0 1 -2.824 2.995l-.176 .005h-10a3 3 0 0 1 -2.995 -2.824l-.005 -.176v-14a3 3 0 0 1 2.824 -2.995l.176 -.005zm3 14h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m0 -4h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2" />
+    <path d="M19 7h-4l-.001 -4.001z" />
+  </g>
+    <text x="110" y="245" fill="#1E6FE0" font-size="15" font-weight="bold">智课生成</text>
+    <text x="110" y="270" fill="#1E6FE0" font-size="11">从课件上传到脚本</text>
+    <text x="110" y="290" fill="#1E6FE0" font-size="11">生成全流程</text>
+    <rect x="340" y="195" width="580" height="140" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5" />
+    <text fill="#1D2433" font-size="12" x="360" y="225">✔ 三阶段解耦解析：Markdown理解→节点树构建→</text><text fill="#1D2433" font-size="12" x="360" y="247">逐节点脚本生成</text><text fill="#1D2433" font-size="12" x="360" y="269">✔ 节点双重结构：知识图谱定义+脚本片段映射</text><text fill="#1D2433" font-size="12" x="360" y="291">✔ JSON Schema强制结构化输出</text><text fill="#1D2433" font-size="12" x="360" y="313">✔ 逐节点TTS语音合成+内容哈希缓存</text><rect x="920" y="195" width="300" height="140" rx="0" fill="#F4F7FC" />
+    <text x="940" y="225" fill="#5A6478" font-size="11">三阶段解耦管线</text>
+    <path fill="#DDE6FF" d="M944,240 H1036 A4,4 0 0 1 1040,244 V260 A4,4 0 0 1 1036,264 H944 A4,4 0 0 1 940,260 V244 A4,4 0 0 1 944,240 Z" />
+    <text x="990" y="257" fill="#1E6FE0" text-anchor="middle" font-size="10">generator.py</text>
+    <text x="940" y="280" fill="#5A6478" font-size="11">JSON Schema约束</text>
+    <path fill="#DDE6FF" d="M944,295 H1036 A4,4 0 0 1 1040,299 V315 A4,4 0 0 1 1036,319 H944 A4,4 0 0 1 940,315 V299 A4,4 0 0 1 944,295 Z" />
+    <text x="990" y="312" fill="#1E6FE0" text-anchor="middle" font-size="10">schema.py</text>
+
+    
+    <rect x="60" y="340" width="280" height="140" rx="0" fill="#D6DEF5" />
+    
+  <g transform="translate(80.0, 375.0) scale(0.8333333333333334)" fill="#0E8C80">
+    <path d="M18 3a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-4.724l-4.762 2.857a1 1 0 0 1 -1.508 -.743l-.006 -.114v-2h-1a4 4 0 0 1 -3.995 -3.8l-.005 -.2v-8a4 4 0 0 1 4 -4zm-4 9h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m2 -4h-8a1 1 0 1 0 0 2h8a1 1 0 0 0 0 -2" />
+  </g>
+    <text x="110" y="390" fill="#0E8C80" font-size="15" font-weight="bold">实时问答</text>
+    <text x="110" y="415" fill="#0E8C80" font-size="11">基于课程知识约束</text>
+    <text x="110" y="435" fill="#0E8C80" font-size="11">的上下文问答</text>
+    <rect x="340" y="340" width="580" height="140" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5" />
+    <text fill="#1D2433" font-size="12" x="360" y="370">✔ 三级级联上下文构建：节点→页面→全页</text><text fill="#1D2433" font-size="12" x="360" y="392">✔ 苏格拉底式引导：禁止直接给答案</text><text fill="#1D2433" font-size="12" x="360" y="414">✔ 理解程度三态判定：none/partial/full</text><text fill="#1D2433" font-size="12" x="360" y="436">✔ SSE三事件流式协议：token/sentence/final</text><rect x="920" y="340" width="300" height="140" rx="0" fill="#F4F7FC" />
+    <text x="940" y="370" fill="#5A6478" font-size="11">苏格拉底约束</text>
+    <path fill="#D6DEF5" d="M944,385 H1036 A4,4 0 0 1 1040,389 V405 A4,4 0 0 1 1036,409 H944 A4,4 0 0 1 940,405 V389 A4,4 0 0 1 944,385 Z" />
+    <text x="990" y="402" fill="#0E8C80" text-anchor="middle" font-size="10">qa.py</text>
+    <text x="940" y="425" fill="#5A6478" font-size="11">SSE流式协议</text>
+    <path fill="#D6DEF5" d="M944,440 H1036 A4,4 0 0 1 1040,444 V460 A4,4 0 0 1 1036,464 H944 A4,4 0 0 1 940,460 V444 A4,4 0 0 1 944,440 Z" />
+    <text x="990" y="457" fill="#0E8C80" text-anchor="middle" font-size="10">student.go</text>
+
+    
+    <rect x="60" y="485" width="280" height="140" rx="0" fill="#DDE6FF" />
+    
+  <g transform="translate(80.0, 520.0) scale(0.8333333333333334)" fill="#0E8C80">
+    <path d="M6 4v16a1 1 0 0 0 1.524 .852l13 -8a1 1 0 0 0 0 -1.704l-13 -8a1 1 0 0 0 -1.524 .852z" />
+  </g>
+    <text x="110" y="535" fill="#0E8C80" font-size="15" font-weight="bold">进度续接</text>
+    <text x="110" y="560" fill="#0E8C80" font-size="11">打断后自动精确</text>
+    <text x="110" y="580" fill="#0E8C80" font-size="11">恢复学习进度</text>
+    <rect x="340" y="485" width="580" height="140" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5" />
+    <text fill="#1D2433" font-size="12" x="360" y="515">✔ 大模型综合语义判定（LLM优先）</text><text fill="#1D2433" font-size="12" x="360" y="537">✔ 关键词降级兜底（RETEACH_KEYWORDS）</text><text fill="#1D2433" font-size="12" x="360" y="559">✔ 节点级续接定位：node_id精确恢复</text><text fill="#1D2433" font-size="12" x="360" y="581">✔ 学习状态机驱动：讲授→问答→续接→回讲</text><rect x="920" y="485" width="300" height="140" rx="0" fill="#F4F7FC" />
+    <text x="940" y="515" fill="#5A6478" font-size="11">理解度判定</text>
+    <path fill="#DDE6FF" d="M944,530 H1046 A4,4 0 0 1 1050,534 V550 A4,4 0 0 1 1046,554 H944 A4,4 0 0 1 940,550 V534 A4,4 0 0 1 944,530 Z" />
+    <text x="995" y="547" fill="#0E8C80" text-anchor="middle" font-size="10">student.go</text>
+    <text x="940" y="570" fill="#5A6478" font-size="11">掌握度模型</text>
+    <path fill="#DDE6FF" d="M944,585 H1046 A4,4 0 0 1 1050,589 V605 A4,4 0 0 1 1046,609 H944 A4,4 0 0 1 940,605 V589 A4,4 0 0 1 944,585 Z" />
+    <text x="995" y="602" fill="#0E8C80" text-anchor="middle" font-size="10">knowledge_map.go</text>
+  </g>
+
+  <path fill="#1E6FE0" fill-opacity="0.3" d="M61.50,640 H1218.50 A1.50,1.50 0 0 1 1220,641.50 V641.50 A1.50,1.50 0 0 1 1218.50,643 H61.50 A1.50,1.50 0 0 1 60,641.50 V641.50 A1.50,1.50 0 0 1 61.50,640 Z" />
+  <text x="640" y="665" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1E6FE0" text-anchor="middle">三大模块完整覆盖赛题要求，每个模块对应独立的算法实现和代码验证</text>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">14</text>
+</svg>

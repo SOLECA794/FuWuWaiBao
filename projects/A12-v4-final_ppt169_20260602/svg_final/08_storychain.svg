@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" />
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#9AA3B5" />
+    </marker>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF" />
+  <rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">业务闭环</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">一条故事链，把两端串成真实学习闭环</text>
+  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+
+  
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M70,160 H190 A10,10 0 0 1 200,170 V250 A10,10 0 0 1 190,260 H70 A10,10 0 0 1 60,250 V170 A10,10 0 0 1 70,160 Z" />
+    <text x="130" y="195" fill="#1E6FE0" text-anchor="middle" font-size="13" font-weight="bold">教师上传课件</text>
+    <text x="130" y="215" fill="#1E6FE0" text-anchor="middle" font-size="10">PPT / PDF</text>
+    <text x="130" y="235" fill="#1E6FE0" text-anchor="middle" font-size="10">原始文件</text>
+    <line x1="200" y1="210" x2="230" y2="210" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arrow)" />
+
+    
+    <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M250,160 H390 A10,10 0 0 1 400,170 V250 A10,10 0 0 1 390,260 H250 A10,10 0 0 1 240,250 V170 A10,10 0 0 1 250,160 Z" />
+    <text x="320" y="190" fill="#1E6FE0" text-anchor="middle" font-size="13" font-weight="bold">三阶段解耦解析</text>
+    <text x="320" y="210" fill="#1E6FE0" text-anchor="middle" font-size="10">Markdown理解</text>
+    <text x="320" y="225" fill="#1E6FE0" text-anchor="middle" font-size="10">↓ 节点树构建</text>
+    <text x="320" y="240" fill="#1E6FE0" text-anchor="middle" font-size="10">↓ 逐节点脚本生成</text>
+    <line x1="400" y1="210" x2="430" y2="210" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arrow)" />
+
+    
+    <path fill="#D6DEF5" stroke="#0E8C80" stroke-width="1.5" d="M450,160 H570 A10,10 0 0 1 580,170 V250 A10,10 0 0 1 570,260 H450 A10,10 0 0 1 440,250 V170 A10,10 0 0 1 450,160 Z" />
+    <text x="510" y="195" fill="#0E8C80" text-anchor="middle" font-size="13" font-weight="bold">学生播放学习</text>
+    <text x="510" y="215" fill="#0E8C80" text-anchor="middle" font-size="10">节点级播放器</text>
+    <text x="510" y="235" fill="#0E8C80" text-anchor="middle" font-size="10">语音+文本同步</text>
+    <line x1="580" y1="210" x2="610" y2="210" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arrow)" />
+
+    
+    <path fill="#D6DEF5" stroke="#0E8C80" stroke-width="1.5" d="M630,160 H750 A10,10 0 0 1 760,170 V250 A10,10 0 0 1 750,260 H630 A10,10 0 0 1 620,250 V170 A10,10 0 0 1 630,160 Z" />
+    <text x="690" y="190" fill="#0E8C80" text-anchor="middle" font-size="13" font-weight="bold">遇疑提问</text>
+    <text x="690" y="210" fill="#0E8C80" text-anchor="middle" font-size="10">三级级联上下文</text>
+    <text x="690" y="225" fill="#0E8C80" text-anchor="middle" font-size="10">苏格拉底式回答</text>
+    <text x="690" y="240" fill="#0E8C80" text-anchor="middle" font-size="10">SSE三事件推送</text>
+    <line x1="760" y1="210" x2="790" y2="210" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arrow)" />
+
+    
+    <path fill="#D6DEF5" stroke="#0E8C80" stroke-width="1.5" d="M810,160 H950 A10,10 0 0 1 960,170 V250 A10,10 0 0 1 950,260 H810 A10,10 0 0 1 800,250 V170 A10,10 0 0 1 810,160 Z" />
+    <text x="880" y="190" fill="#0E8C80" text-anchor="middle" font-size="13" font-weight="bold">理解程度判定</text>
+    <text x="880" y="210" fill="#0E8C80" text-anchor="middle" font-size="10">LLM判定优先</text>
+    <text x="880" y="225" fill="#0E8C80" text-anchor="middle" font-size="10">关键词降级兜底</text>
+    <text x="880" y="240" fill="#0E8C80" text-anchor="middle" font-size="10">none/partial/full</text>
+    <line x1="960" y1="210" x2="990" y2="210" stroke="#9AA3B5" stroke-width="2" marker-end="url(#arrow)" />
+
+    
+    <path fill="#DDE6FF" stroke="#0E8C80" stroke-width="1.5" d="M1010,160 H1150 A10,10 0 0 1 1160,170 V250 A10,10 0 0 1 1150,260 H1010 A10,10 0 0 1 1000,250 V170 A10,10 0 0 1 1010,160 Z" />
+    <text x="1080" y="190" fill="#0E8C80" text-anchor="middle" font-size="13" font-weight="bold">三态续接</text>
+    <text x="1080" y="210" fill="#0E8C80" text-anchor="middle" font-size="10">none→重讲</text>
+    <text x="1080" y="225" fill="#0E8C80" text-anchor="middle" font-size="10">partial→补充</text>
+    <text x="1080" y="240" fill="#0E8C80" text-anchor="middle" font-size="10">full→跳过</text>
+  </g>
+
+  
+  <path d="M1080,260 L1080,310 L510,310 L510,260" fill="none" stroke="#9AA3B5" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)" />
+  <text x="800" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="middle">续接后继续学习</text>
+
+  
+  <path fill="#F4F7FC" d="M70,380 H1210 A10,10 0 0 1 1220,390 V530 A10,10 0 0 1 1210,540 H70 A10,10 0 0 1 60,530 V390 A10,10 0 0 1 70,380 Z" />
+  <text x="80" y="415" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" font-weight="bold">四维学情数据回传教师端</text>
+
+  
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M88,435 H332 A8,8 0 0 1 340,443 V467 A8,8 0 0 1 332,475 H88 A8,8 0 0 1 80,467 V443 A8,8 0 0 1 88,435 Z" />
+    
+  <g transform="translate(95.0, 445.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M18 3a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-4.724l-4.762 2.857a1 1 0 0 1 -1.508 -.743l-.006 -.114v-2h-1a4 4 0 0 1 -3.995 -3.8l-.005 -.2v-8a4 4 0 0 1 4 -4zm-4 9h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m2 -4h-8a1 1 0 1 0 0 2h8a1 1 0 0 0 0 -2" />
+  </g>
+    <text x="125" y="460" fill="#1D2433" font-size="13">提问记录</text>
+    <text x="230" y="460" fill="#5A6478" font-size="11">每页提问频次分布</text>
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M368,435 H612 A8,8 0 0 1 620,443 V467 A8,8 0 0 1 612,475 H368 A8,8 0 0 1 360,467 V443 A8,8 0 0 1 368,435 Z" />
+    
+  <g transform="translate(375.0, 445.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M4 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" />
+    <path d="M12 2a1 1 0 0 1 .993 .883l.007 .117v1a1 1 0 0 1 -1.993 .117l-.007 -.117v-1a1 1 0 0 1 1 -1z" />
+    <path d="M21 11a1 1 0 0 1 .117 1.993l-.117 .007h-1a1 1 0 0 1 -.117 -1.993l.117 -.007h1z" />
+    <path d="M4.893 4.893a1 1 0 0 1 1.32 -.083l.094 .083l.7 .7a1 1 0 0 1 -1.32 1.497l-.094 -.083l-.7 -.7a1 1 0 0 1 0 -1.414z" />
+    <path d="M17.693 4.893a1 1 0 0 1 1.497 1.32l-.083 .094l-.7 .7a1 1 0 0 1 -1.497 -1.32l.083 -.094l.7 -.7z" />
+    <path d="M14 18a1 1 0 0 1 1 1a3 3 0 0 1 -6 0a1 1 0 0 1 .883 -.993l.117 -.007h4z" />
+    <path d="M12 6a6 6 0 0 1 3.6 10.8a1 1 0 0 1 -.471 .192l-.129 .008h-6a1 1 0 0 1 -.6 -.2a6 6 0 0 1 3.6 -10.8z" />
+  </g>
+    <text x="405" y="460" fill="#1D2433" font-size="13">理解程度</text>
+    <text x="510" y="460" fill="#5A6478" font-size="11">none/partial/full统计</text>
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M648,435 H892 A8,8 0 0 1 900,443 V467 A8,8 0 0 1 892,475 H648 A8,8 0 0 1 640,467 V443 A8,8 0 0 1 648,435 Z" />
+    
+  <g transform="translate(655.0, 445.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M18 3a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3h12zm-2.293 6.293a1 1 0 0 0 -1.414 0l-2.293 2.292l-1.293 -1.292a1 1 0 0 0 -1.414 0l-3 3a1 1 0 0 0 0 1.414l.094 .083a1 1 0 0 0 1.32 -.083l2.293 -2.292l1.293 1.292l.094 .083a1 1 0 0 0 1.32 -.083l2.293 -2.292l1.293 1.292a1 1 0 0 0 1.414 -1.414l-2 -2z" />
+  </g>
+    <text x="685" y="460" fill="#1D2433" font-size="13">卡点分布</text>
+    <text x="790" y="460" fill="#5A6478" font-size="11">班级难点知识点定位</text>
+
+    <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M928,435 H1192 A8,8 0 0 1 1200,443 V467 A8,8 0 0 1 1192,475 H928 A8,8 0 0 1 920,467 V443 A8,8 0 0 1 928,435 Z" />
+    
+  <g transform="translate(935.0, 445.0) scale(0.8333333333333334)" fill="#1E6FE0">
+    <path d="M17 3.34a10 10 0 1 1 -14.995 8.984l-.005 -.324l.005 -.324a10 10 0 0 1 14.995 -8.336zm-5 2.66a1 1 0 0 0 -.993 .883l-.007 .117v5l.009 .131a1 1 0 0 0 .197 .477l.087 .1l3 3l.094 .082a1 1 0 0 0 1.226 0l.094 -.083l.083 -.094a1 1 0 0 0 0 -1.226l-.083 -.094l-2.707 -2.708v-4.585l-.007 -.117a1 1 0 0 0 -.993 -.883z" />
+  </g>
+    <text x="965" y="460" fill="#1D2433" font-size="13">停留时间</text>
+    <text x="1070" y="460" fill="#5A6478" font-size="11">每页平均学习时长</text>
+  </g>
+
+  
+  <path d="M640,540 L640,570 L130,570 L130,500" fill="none" stroke="#0E8C80" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)" />
+  <text x="400" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle" font-weight="bold">学情数据驱动教师修改讲稿，重新发布</text>
+
+  
+  <path fill="#1E6FE0" fill-opacity="0.3" d="M61.50,600 H1218.50 A1.50,1.50 0 0 1 1220,601.50 V601.50 A1.50,1.50 0 0 1 1218.50,603 H61.50 A1.50,1.50 0 0 1 60,601.50 V601.50 A1.50,1.50 0 0 1 61.50,600 Z" />
+  <text x="640" y="630" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle">完整闭环：教师上传 → AI解析 → 学生学习 → 遇疑提问 → 判定续接 → 学情回传 → 教师优化</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">08</text>
+</svg>

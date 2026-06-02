@@ -1,0 +1,63 @@
+%% D05 — 多态断点续学状态机图
+%% 对应: PPT P08/P13 | 小册子 M04
+
+graph LR
+
+    classDef state fill:#E3F2FD,stroke:#1565C0,stroke-width:2px
+    classDef action fill:#FFF3E0,stroke:#E65100,stroke-width:2px
+    classDef decision fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px
+    classDef resume fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px
+    classDef data fill:#F5F5F5,stroke:#9E9E9E,stroke-width:1px
+
+    %% ===== 学习主状态 =====
+    TEACHING["📖 讲授中<br/>节点级播放器<br/>语音+文本同步"]:::state
+    ASKING["💬 问答中<br/>学生提问触发<br/>SSE流式回答"]:::state
+    JUDGING["⚖️ 判定理解程度<br/>understandingLevel分析"]:::decision
+
+    TEACHING -->|"学生提问"| ASKING
+    ASKING -->|"回答完成"| JUDGING
+
+    %% ===== 打断保存 =====
+    INTERRUPT["⏸ 打断/退出<br/>保存现场"]:::action
+    TEACHING -.->|"随时可能"| INTERRUPT
+    ASKING -.->|"随时可能"| INTERRUPT
+
+    INTERRUPT -->|"存入Redis"| SAVED["💾 保存三元组<br/>resumePage<br/>resumeNodeID<br/>resumeSec"]:::data
+
+    %% ===== 恢复 =====
+    RESTORE["▶ 学生回来<br/>加载三元组"]:::action
+    SAVED -->|"从Redis读取"| RESTORE
+
+    %% ===== 三态续接 =====
+    subgraph RESUME["三态续接决策"]
+        R_NONE["🔴 none 未理解<br/>➡ 回退重讲节点"]:::resume
+        R_PARTIAL["🟡 partial 部分理解<br/>➡ 卡点补充讲解"]:::resume
+        R_FULL["🟢 full 已理解<br/>➡ 跳过继续前进"]:::resume
+    end
+
+    JUDGING -->|"判定结果"| RESUME
+    RESTORE -->|"恢复上下文"| RESUME
+
+    R_NONE -->|"使用ReteachScript"| RE_TEACH["重讲节点<br/>从头讲授该知识点"]:::action
+    R_PARTIAL -->|"ScriptText定位"| SUP_TEACH["补充讲解<br/>聚焦卡点段落"]:::action
+    R_FULL -->|"下一节点开始"| NEXT["正常推进<br/>继续主线学习"]:::action
+
+    RE_TEACH --> TEACHING
+    SUP_TEACH -.->|"补充完成后"| NEXT
+    NEXT --> TEACHING
+
+    %% ===== 状态持久化 =====
+    PROGRESS["📊 学习进度更新<br/>UpdateProgress<br/>写入数据库"]:::data
+    NEXT --> PROGRESS
+    RE_TEACH --> PROGRESS
+
+    PROGRESS --> TEACHING
+
+    %% ===== 量化标注 =====
+    M1["🎯 精度级别：节点级<br/>vs 传统页级"]:::decision
+    M2["💾 三元组恢复<br/>精确到音频秒数"]:::decision
+    M3["🔄 状态闭环<br/>讲授→问答→判定→续接→讲授"]:::decision
+
+    TEACHING -.- M1
+    SAVED -.- M2
+    TEACHING -.-> M3

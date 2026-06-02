@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#3A7BED"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <rect x="55" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <rect x="345" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <rect x="635" y="45" width="280" height="32" rx="4" fill="#1E6FE0"/><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <rect x="925" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">关键业务场景泳道图：跨模块协同</text>
+  <rect x="55" y="118" width="50" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Swimlane headers -->
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="10">
+    <rect x="55" y="135" width="240" height="24" rx="4" fill="#1E6FE0"/>
+    <text x="175" y="151" fill="#FFFFFF" text-anchor="middle" font-weight="bold">泳道：教师端</text>
+    <rect x="295" y="135" width="280" height="24" rx="4" fill="#7B5BE0"/>
+    <text x="435" y="151" fill="#FFFFFF" text-anchor="middle" font-weight="bold">泳道：Go编排层</text>
+    <rect x="575" y="135" width="320" height="24" rx="4" fill="#0E8C80"/>
+    <text x="735" y="151" fill="#FFFFFF" text-anchor="middle" font-weight="bold">泳道：AI能力中台</text>
+    <rect x="895" y="135" width="330" height="24" rx="4" fill="#7B5BE0"/>
+    <text x="1060" y="151" fill="#FFFFFF" text-anchor="middle" font-weight="bold">泳道：学生端</text>
+
+    <!-- Horizontal swimlane dividers -->
+    <line x1="55" y1="220" x2="1225" y2="220" stroke="#D0D7E2" stroke-width="1"/>
+    <line x1="55" y1="350" x2="1225" y2="350" stroke="#D0D7E2" stroke-width="1"/>
+    <line x1="55" y1="480" x2="1225" y2="480" stroke="#D0D7E2" stroke-width="1"/>
+    <line x1="55" y1="610" x2="1225" y2="610" stroke="#D0D7E2" stroke-width="1"/>
+
+    <!-- Scene labels -->
+    <rect x="55" y="195" width="110" height="170" rx="4" fill="#F4F7FC"/>
+    <text x="110" y="240" fill="#1D2433" font-weight="bold" text-anchor="middle" font-size="11">课件解析</text>
+    <text x="110" y="260" fill="#9AA3B5" text-anchor="middle" font-size="9">场景1</text>
+
+    <rect x="55" y="325" width="110" height="170" rx="4" fill="#F4F7FC"/>
+    <text x="110" y="370" fill="#1D2433" font-weight="bold" text-anchor="middle" font-size="11">智能问答</text>
+    <text x="110" y="390" fill="#9AA3B5" text-anchor="middle" font-size="9">场景2</text>
+
+    <rect x="55" y="455" width="110" height="170" rx="4" fill="#F4F7FC"/>
+    <text x="110" y="500" fill="#1D2433" font-weight="bold" text-anchor="middle" font-size="11">断点续学</text>
+    <text x="110" y="520" fill="#9AA3B5" text-anchor="middle" font-size="9">场景3</text>
+
+    <!-- Scene 1: Parse -->
+    <rect x="180" y="200" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="230" y="220" fill="#1E6FE0" text-anchor="middle" font-weight="bold" font-size="10">上传课件</text>
+    <text x="230" y="235" fill="#5A6478" text-anchor="middle" font-size="9">PPT/PDF</text>
+    <line x1="280" y1="225" x2="305" y2="225" stroke="#1E6FE0" stroke-width="1.5"/>
+    <rect x="315" y="200" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="365" y="220" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">解析请求</text>
+    <text x="365" y="235" fill="#5A6478" text-anchor="middle" font-size="9">任务入队</text>
+    <line x1="415" y1="225" x2="440" y2="225" stroke="#7B5BE0" stroke-width="1.5"/>
+    <rect x="450" y="195" width="130" height="60" rx="6" fill="#DDE6FF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="515" y="215" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="10">三阶段解析</text>
+    <text x="515" y="232" fill="#5A6478" text-anchor="middle" font-size="9">Stage1&#8594;2&#8594;3</text>
+    <text x="515" y="247" fill="#5A6478" text-anchor="middle" font-size="9">节点树构建</text>
+
+    <!-- Scene 2: QA -->
+    <rect x="315" y="355" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="365" y="375" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">SSE流式转发</text>
+    <text x="365" y="390" fill="#5A6478" text-anchor="middle" font-size="9">token/sentence/final</text>
+    <line x1="250" y1="380" x2="220" y2="380" stroke="#1E6FE0" stroke-width="1.5"/>
+    <rect x="140" y="355" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="190" y="375" fill="#1E6FE0" text-anchor="middle" font-weight="bold" font-size="10">发起提问</text>
+    <text x="190" y="390" fill="#5A6478" text-anchor="middle" font-size="9">HTTP请求</text>
+    <line x1="415" y1="380" x2="450" y2="380" stroke="#7B5BE0" stroke-width="1.5"/>
+    <rect x="460" y="350" width="130" height="60" rx="6" fill="#DDE6FF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="525" y="370" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="10">问答问答&amp;苏格拉底amp;苏格拉底</text>
+    <text x="525" y="387" fill="#5A6478" text-anchor="middle" font-size="9">课程知识优先</text>
+    <text x="525" y="402" fill="#5A6478" text-anchor="middle" font-size="9">禁止直接给答案</text>
+    <rect x="610" y="350" width="130" height="60" rx="6" fill="#DDE6FF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="675" y="370" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="10">理解度判定</text>
+    <text x="675" y="387" fill="#5A6478" text-anchor="middle" font-size="9">LLM/关键词降级</text>
+    <text x="675" y="402" fill="#5A6478" text-anchor="middle" font-size="9">none/partial/full</text>
+    <line x1="590" y1="380" x2="608" y2="380" stroke="#0E8C80" stroke-width="1.5"/>
+    <rect x="920" y="355" width="130" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="985" y="375" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">接收回答</text>
+    <text x="985" y="390" fill="#5A6478" text-anchor="middle" font-size="9">SSE流式展示</text>
+    <line x1="890" y1="380" x2="918" y2="380" stroke="#7B5BE0" stroke-width="1.5"/>
+    <rect x="760" y="350" width="120" height="60" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="820" y="370" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">续接决策</text>
+    <text x="820" y="387" fill="#5A6478" text-anchor="middle" font-size="9">三态判定</text>
+    <text x="820" y="402" fill="#5A6478" text-anchor="middle" font-size="9">续讲/补充/重讲</text>
+
+    <!-- Scene 3: Resume -->
+    <rect x="920" y="485" width="130" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="985" y="505" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">恢复学习</text>
+    <text x="985" y="520" fill="#5A6478" text-anchor="middle" font-size="9">节点级续接</text>
+    <line x1="890" y1="510" x2="918" y2="510" stroke="#7B5BE0" stroke-width="1.5"/>
+    <rect x="760" y="485" width="120" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="820" y="505" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">更新进度</text>
+    <text x="820" y="520" fill="#5A6478" text-anchor="middle" font-size="9">保存三元组</text>
+    <line x1="740" y1="510" x2="758" y2="510" stroke="#0E8C80" stroke-width="1.5"/>
+    <rect x="610" y="485" width="120" height="50" rx="6" fill="#DDE6FF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="670" y="505" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="10">查询上下文</text>
+    <text x="670" y="520" fill="#5A6478" text-anchor="middle" font-size="9">Redis读取</text>
+    <line x1="600" y1="510" x2="608" y2="510" stroke="#0E8C80" stroke-width="1.5"/>
+    <rect x="470" y="485" width="120" height="50" rx="6" fill="#DDE6FF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="530" y="505" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="10">加载断点</text>
+    <text x="530" y="520" fill="#5A6478" text-anchor="middle" font-size="9">恢复位置</text>
+    <line x1="415" y1="510" x2="468" y2="510" stroke="#7B5BE0" stroke-width="1.5"/>
+    <rect x="315" y="485" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#7B5BE0" stroke-width="1"/>
+    <text x="365" y="505" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="10">请求续接</text>
+    <text x="365" y="520" fill="#5A6478" text-anchor="middle" font-size="9">参数</text>
+    <line x1="250" y1="510" x2="220" y2="510" stroke="#1E6FE0" stroke-width="1.5"/>
+    <rect x="140" y="485" width="100" height="50" rx="6" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="190" y="505" fill="#1E6FE0" text-anchor="middle" font-weight="bold" font-size="10">重新进入</text>
+    <text x="190" y="520" fill="#5A6478" text-anchor="middle" font-size="9">学习页面</text>
+  </g>
+
+  <rect x="55" y="690" width="1170" height="1" fill="#D0D7E2"/>
+  <text x="55" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">09b</text>
+</svg>

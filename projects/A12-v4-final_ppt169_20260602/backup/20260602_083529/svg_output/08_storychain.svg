@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0D47A1"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#9CA3AF"/>
+    </marker>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1565C0" font-weight="bold" letter-spacing="1">业务闭环</text>
+  <text x="60" y="100" font-family="Georgia, KaiTi, serif" font-size="36" fill="#1A1A2E" font-weight="bold">一条故事链，把两端串成真实学习闭环</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#FF6F00"/>
+
+  <!-- Flow chain - horizontal -->
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <!-- Node 1: Teacher upload -->
+    <rect x="60" y="160" width="140" height="100" rx="10" fill="#E3F2FD" stroke="#1565C0" stroke-width="1.5"/>
+    <text x="130" y="195" fill="#1565C0" text-anchor="middle" font-size="13" font-weight="bold">教师上传课件</text>
+    <text x="130" y="215" fill="#1565C0" text-anchor="middle" font-size="10">PPT / PDF</text>
+    <text x="130" y="235" fill="#1565C0" text-anchor="middle" font-size="10">原始文件</text>
+    <line x1="200" y1="210" x2="230" y2="210" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Node 2: AI parse -->
+    <rect x="240" y="160" width="160" height="100" rx="10" fill="#E3F2FD" stroke="#1565C0" stroke-width="1.5"/>
+    <text x="320" y="190" fill="#1565C0" text-anchor="middle" font-size="13" font-weight="bold">三阶段解耦解析</text>
+    <text x="320" y="210" fill="#1565C0" text-anchor="middle" font-size="10">Markdown理解</text>
+    <text x="320" y="225" fill="#1565C0" text-anchor="middle" font-size="10">&#8595; 节点树构建</text>
+    <text x="320" y="240" fill="#1565C0" text-anchor="middle" font-size="10">&#8595; 逐节点脚本生成</text>
+    <line x1="400" y1="210" x2="430" y2="210" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Node 3: Student learn -->
+    <rect x="440" y="160" width="140" height="100" rx="10" fill="#FFF3E0" stroke="#FF6F00" stroke-width="1.5"/>
+    <text x="510" y="195" fill="#FF6F00" text-anchor="middle" font-size="13" font-weight="bold">学生播放学习</text>
+    <text x="510" y="215" fill="#FF6F00" text-anchor="middle" font-size="10">节点级播放器</text>
+    <text x="510" y="235" fill="#FF6F00" text-anchor="middle" font-size="10">语音+文本同步</text>
+    <line x1="580" y1="210" x2="610" y2="210" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Node 4: Student ask -->
+    <rect x="620" y="160" width="140" height="100" rx="10" fill="#FFF3E0" stroke="#FF6F00" stroke-width="1.5"/>
+    <text x="690" y="190" fill="#FF6F00" text-anchor="middle" font-size="13" font-weight="bold">遇疑提问</text>
+    <text x="690" y="210" fill="#FF6F00" text-anchor="middle" font-size="10">三级级联上下文</text>
+    <text x="690" y="225" fill="#FF6F00" text-anchor="middle" font-size="10">苏格拉底式回答</text>
+    <text x="690" y="240" fill="#FF6F00" text-anchor="middle" font-size="10">SSE三事件推送</text>
+    <line x1="760" y1="210" x2="790" y2="210" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Node 5: Judge -->
+    <rect x="800" y="160" width="160" height="100" rx="10" fill="#FFF3E0" stroke="#FF6F00" stroke-width="1.5"/>
+    <text x="880" y="190" fill="#FF6F00" text-anchor="middle" font-size="13" font-weight="bold">理解程度判定</text>
+    <text x="880" y="210" fill="#FF6F00" text-anchor="middle" font-size="10">LLM判定优先</text>
+    <text x="880" y="225" fill="#FF6F00" text-anchor="middle" font-size="10">关键词降级兜底</text>
+    <text x="880" y="240" fill="#FF6F00" text-anchor="middle" font-size="10">none/partial/full</text>
+    <line x1="960" y1="210" x2="990" y2="210" stroke="#9CA3AF" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Node 6: Resume -->
+    <rect x="1000" y="160" width="160" height="100" rx="10" fill="#E8F5E9" stroke="#10B981" stroke-width="1.5"/>
+    <text x="1080" y="190" fill="#10B981" text-anchor="middle" font-size="13" font-weight="bold">三态续接</text>
+    <text x="1080" y="210" fill="#10B981" text-anchor="middle" font-size="10">none&#8594;重讲</text>
+    <text x="1080" y="225" fill="#10B981" text-anchor="middle" font-size="10">partial&#8594;补充</text>
+    <text x="1080" y="240" fill="#10B981" text-anchor="middle" font-size="10">full&#8594;跳过</text>
+  </g>
+
+  <!-- Return arrow from resume back to learn -->
+  <path d="M1080,260 L1080,310 L510,310 L510,260" fill="none" stroke="#9CA3AF" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+  <text x="800" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF" text-anchor="middle">续接后继续学习</text>
+
+  <!-- Data flow back to teacher -->
+  <rect x="60" y="380" width="1160" height="160" rx="10" fill="#F0F4F8"/>
+  <text x="80" y="415" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1A1A2E" font-weight="bold">四维学情数据回传教师端</text>
+
+  <!-- 4 data dimensions -->
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <rect x="80" y="435" width="260" height="40" rx="8" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+    <use data-icon="tabler-filled/message" x="95" y="445" width="20" height="20" fill="#1565C0"/>
+    <text x="125" y="460" fill="#1A1A2E" font-size="13">提问记录</text>
+    <text x="230" y="460" fill="#6B7280" font-size="11">每页提问频次分布</text>
+
+    <rect x="360" y="435" width="260" height="40" rx="8" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+    <use data-icon="tabler-filled/bulb" x="375" y="445" width="20" height="20" fill="#1565C0"/>
+    <text x="405" y="460" fill="#1A1A2E" font-size="13">理解程度</text>
+    <text x="510" y="460" fill="#6B7280" font-size="11">none/partial/full统计</text>
+
+    <rect x="640" y="435" width="260" height="40" rx="8" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+    <use data-icon="tabler-filled/graph" x="655" y="445" width="20" height="20" fill="#1565C0"/>
+    <text x="685" y="460" fill="#1A1A2E" font-size="13">卡点分布</text>
+    <text x="790" y="460" fill="#6B7280" font-size="11">班级难点知识点定位</text>
+
+    <rect x="920" y="435" width="280" height="40" rx="8" fill="#FFFFFF" stroke="#1565C0" stroke-width="1"/>
+    <use data-icon="tabler-filled/clock" x="935" y="445" width="20" height="20" fill="#1565C0"/>
+    <text x="965" y="460" fill="#1A1A2E" font-size="13">停留时间</text>
+    <text x="1070" y="460" fill="#6B7280" font-size="11">每页平均学习时长</text>
+  </g>
+
+  <!-- Connect data flow back to teacher -->
+  <path d="M640,540 L640,570 L130,570 L130,500" fill="none" stroke="#FF6F00" stroke-width="1.5" stroke-dasharray="6,3" marker-end="url(#arrow)"/>
+  <text x="400" y="550" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#FF6F00" text-anchor="middle" font-weight="bold">学情数据驱动教师修改讲稿，重新发布</text>
+
+  <!-- Bottom summary -->
+  <rect x="60" y="600" width="1160" height="3" rx="1.5" fill="#1565C0" fill-opacity="0.3"/>
+  <text x="640" y="630" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1565C0" text-anchor="middle">完整闭环：教师上传 &#8594; AI解析 &#8594; 学生学习 &#8594; 遇疑提问 &#8594; 判定续接 &#8594; 学情回传 &#8594; 教师优化</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#E5E7EB"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9CA3AF" text-anchor="end">08</text>
+</svg>

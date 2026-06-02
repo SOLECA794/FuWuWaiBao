@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">背景分析</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">泛雅沉淀海量课件，却&#8220;可看不可讲&#8221;</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Left decorative -->
+  <rect x="60" y="150" width="480" height="470" rx="12" fill="#F4F7FC"/>
+  <circle cx="180" cy="250" r="80" fill="#1E6FE0" fill-opacity="0.1"/>
+  <circle cx="300" cy="280" r="50" fill="#1E6FE0" fill-opacity="0.08"/>
+  <circle cx="220" cy="350" r="60" fill="#1E6FE0" fill-opacity="0.06"/>
+  <use data-icon="tabler-filled/book" x="165" y="235" width="30" height="30" fill="#1E6FE0"/>
+  <text x="280" y="255" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">泛雅平台现状</text>
+  <text x="100" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
+    <tspan x="100" dy="0">泛雅平台沉淀了海量课件资源</tspan>
+    <tspan x="100" dy="28">但当前仅支持静态浏览和下载</tspan>
+    <tspan x="100" dy="28">&#8220;可看不可讲&#8221;——缺少AI交互能力</tspan>
+  </text>
+  <rect x="100" y="400" width="400" height="1" fill="#D0D7E2"/>
+  <text x="100" y="425" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">三大技术基础已具备</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1D2433">
+    <text x="120" y="455">&#x2713; 大模型推理能力</text>
+    <text x="120" y="480">&#x2713; 多模态理解能力</text>
+    <text x="120" y="505">&#x2713; 语音合成能力</text>
+  </g>
+
+  <!-- Right insight -->
+  <rect x="580" y="150" width="640" height="470" rx="12" fill="#E8EDF5" stroke="#0E8C80" stroke-width="1.5"/>
+  <text x="620" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">核心判断</text>
+  <text x="620" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478">
+    <tspan x="620" dy="0">单点调用大模型无法支撑完整教学闭环——</tspan>
+    <tspan x="620" dy="28">需要可编排、可降级、可续接的</tspan>
+    <tspan x="620" dy="28">系统能力</tspan>
+  </text>
+  <rect x="620" y="330" width="560" height="1" fill="#D0D7E2"/>
+  <text x="620" y="360" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" font-weight="bold">三大技术缺口</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
+    <rect x="620" y="385" width="530" height="36" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+    <text x="640" y="408">缺口一：编排能力</text>
+    <text x="900" y="408" fill="#0E8C80">多阶段流程N/A编排</text>
+    <rect x="620" y="430" width="530" height="36" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+    <text x="640" y="453">缺口二：容错能力</text>
+    <text x="900" y="453" fill="#0E8C80">单引擎故障无法降级</text>
+    <rect x="620" y="475" width="530" height="36" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+    <text x="640" y="498">缺口三：续接能力</text>
+    <text x="900" y="498" fill="#0E8C80">打断后无法精确恢复</text>
+  </g>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">03</text>
+</svg>
