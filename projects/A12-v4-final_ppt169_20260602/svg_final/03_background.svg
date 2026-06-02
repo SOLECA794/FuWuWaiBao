@@ -20,7 +20,7 @@
     <path d="M21.5 5.134a1 1 0 0 1 .493 .748l.007 .118v13a1 1 0 0 1 -1.5 .866a8 8 0 0 0 -7.5 -.266v-15.174a10 10 0 0 1 8.5 .708m-10.5 -.707l.001 15.174a8 8 0 0 0 -7.234 .117l-.327 .18l-.103 .044l-.049 .016l-.11 .026l-.061 .01l-.117 .006h-.042l-.11 -.012l-.077 -.014l-.108 -.032l-.126 -.056l-.095 -.056l-.089 -.067l-.06 -.056l-.073 -.082l-.064 -.089l-.022 -.036l-.032 -.06l-.044 -.103l-.016 -.049l-.026 -.11l-.01 -.061l-.004 -.049l-.002 -13.068a1 1 0 0 1 .5 -.866a10 10 0 0 1 8.5 -.707" />
   </g>
   <text x="280" y="255" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">泛雅平台现状</text>
-  <text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="100" y="300">泛雅平台沉淀了海量课件资源</text><text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="100" y="328">但当前仅支持静态浏览和下载</text><text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="100" y="356">“可看不可讲”——缺少AI交互能力</text><rect x="100" y="400" width="400" height="1" fill="#D0D7E2" />
+  <text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478" x="100" y="300">泛雅平台沉淀了海量课件资源</text><text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478" x="100" y="328">但当前仅支持静态浏览和下载</text><text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478" x="100" y="356">“可看不可讲”——缺少AI交互能力</text><rect x="100" y="400" width="400" height="1" fill="#D0D7E2" />
   <text x="100" y="425" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">三大技术基础已具备</text>
   <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1D2433">
     <text x="120" y="455">✓ 大模型推理能力</text>
@@ -31,7 +31,7 @@
   
   <path fill="#E8EDF5" stroke="#0E8C80" stroke-width="1.5" d="M592,150 H1208 A12,12 0 0 1 1220,162 V608 A12,12 0 0 1 1208,620 H592 A12,12 0 0 1 580,608 V162 A12,12 0 0 1 592,150 Z" />
   <text x="620" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">核心判断</text>
-  <text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="620" y="240">单点调用大模型无法支撑完整教学闭环——</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="620" y="268">需要可编排、可降级、可续接的</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="620" y="296">系统能力</text><rect x="620" y="330" width="560" height="1" fill="#D0D7E2" />
+  <text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478" x="620" y="240">单点调用大模型无法支撑完整教学闭环——</text><text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478" x="620" y="268">需要可编排、可降级、可续接的</text><text font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#5A6478" x="620" y="296">系统能力</text><rect x="620" y="330" width="560" height="1" fill="#D0D7E2" />
   <text x="620" y="360" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" font-weight="bold">三大技术缺口</text>
   <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
     <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1" d="M626,385 H1144 A6,6 0 0 1 1150,391 V415 A6,6 0 0 1 1144,421 H626 A6,6 0 0 1 620,415 V391 A6,6 0 0 1 626,385 Z" />

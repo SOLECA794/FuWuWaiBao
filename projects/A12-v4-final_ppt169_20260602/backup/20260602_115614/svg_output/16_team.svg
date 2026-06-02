@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">团队</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">DeepCore 团队 · 五人在线，全员攻坚</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+  <text x="60" y="145" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">5人小团队 · ALL IN 一线开发 · 主责锚点 + 全员协同</text>
+
+  <!-- 5 columns -->
+  <!-- Card 1: PM -->
+  <rect x="60" y="170" width="216" height="380" rx="12" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <rect x="60" y="170" width="216" height="100" rx="12" fill="#1E6FE0"/>
+  <rect x="60" y="258" width="216" height="12" fill="#1E6FE0"/>
+  <circle cx="168" cy="200" r="22" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="168" y="206" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">PM</text>
+  <text x="168" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">项目管理</text>
+  <text x="80" y="305" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">主责</text>
+  <text x="80" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">进度管控</text>
+  <text x="80" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">风险管控</text>
+  <text x="80" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">甲方对接</text>
+  <rect x="80" y="385" width="176" height="1" fill="#D0D7E2"/>
+  <text x="80" y="410" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0" font-weight="bold">可承担</text>
+  <text x="80" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">需求文档撰写</text>
+  <text x="80" y="448" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">进度管理表</text>
+  <text x="80" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">方案设计</text>
+
+  <!-- Card 2: Architect -->
+  <rect x="292" y="170" width="216" height="380" rx="12" fill="#FFFFFF" stroke="#0E8C80" stroke-width="1.5"/>
+  <rect x="292" y="170" width="216" height="100" rx="12" fill="#0E8C80"/>
+  <rect x="292" y="258" width="216" height="12" fill="#0E8C80"/>
+  <circle cx="400" cy="200" r="22" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="400" y="206" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">架构</text>
+  <text x="400" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">产品与架构</text>
+  <text x="312" y="305" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">主责</text>
+  <text x="312" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">需求分析</text>
+  <text x="312" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">原型设计</text>
+  <text x="312" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">架构方案</text>
+  <rect x="312" y="385" width="176" height="1" fill="#D0D7E2"/>
+  <text x="312" y="410" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80" font-weight="bold">可承担</text>
+  <text x="312" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">技术方案设计</text>
+  <text x="312" y="448" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">工艺流程图</text>
+  <text x="312" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">接口设计</text>
+
+  <!-- Card 3: Backend -->
+  <rect x="524" y="170" width="216" height="380" rx="12" fill="#FFFFFF" stroke="#0E8C80" stroke-width="1.5"/>
+  <rect x="524" y="170" width="216" height="100" rx="12" fill="#0E8C80"/>
+  <rect x="524" y="258" width="216" height="12" fill="#0E8C80"/>
+  <circle cx="632" cy="200" r="22" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="632" y="206" font-family="Consolas, Courier New, monospace" font-size="16" fill="#FFFFFF" text-anchor="middle" font-weight="bold">&lt;/&gt;</text>
+  <text x="632" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">后端开发</text>
+  <text x="544" y="305" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">主责</text>
+  <text x="544" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">Go后端开发</text>
+  <text x="544" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">数据库设计</text>
+  <text x="544" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">AI中台对接</text>
+  <rect x="544" y="385" width="176" height="1" fill="#D0D7E2"/>
+  <text x="544" y="410" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#0E8C80" font-weight="bold">可承担</text>
+  <text x="544" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">API开发</text>
+  <text x="544" y="448" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">Python AI引擎</text>
+  <text x="544" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">性能调优</text>
+
+  <!-- Card 4: Frontend -->
+  <rect x="756" y="170" width="216" height="380" rx="12" fill="#FFFFFF" stroke="#7B1FA2" stroke-width="1.5"/>
+  <rect x="756" y="170" width="216" height="100" rx="12" fill="#7B1FA2"/>
+  <rect x="756" y="258" width="216" height="12" fill="#7B1FA2"/>
+  <circle cx="864" cy="200" r="22" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="864" y="206" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">UI</text>
+  <text x="864" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">前端开发</text>
+  <text x="776" y="305" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">主责</text>
+  <text x="776" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">Vue 3开发</text>
+  <text x="776" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">组件化架构</text>
+  <text x="776" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">SSE流式渲染</text>
+  <rect x="776" y="385" width="176" height="1" fill="#D0D7E2"/>
+  <text x="776" y="410" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#7B1FA2" font-weight="bold">可承担</text>
+  <text x="776" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">交互设计</text>
+  <text x="776" y="448" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">学情可视化</text>
+  <text x="776" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">响应式开发</text>
+
+  <!-- Card 5: QA -->
+  <rect x="988" y="170" width="232" height="380" rx="12" fill="#FFFFFF" stroke="#5A6478" stroke-width="1.5"/>
+  <rect x="988" y="170" width="232" height="100" rx="12" fill="#5A6478"/>
+  <rect x="988" y="258" width="232" height="12" fill="#5A6478"/>
+  <circle cx="1104" cy="200" r="22" fill="#FFFFFF" fill-opacity="0.2"/>
+  <text x="1104" y="206" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">QA</text>
+  <text x="1104" y="240" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">测试与交付</text>
+  <text x="1008" y="305" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">主责</text>
+  <text x="1008" y="325" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">测试用例</text>
+  <text x="1008" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">文档管理</text>
+  <text x="1008" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">部署运维</text>
+  <rect x="1008" y="385" width="192" height="1" fill="#D0D7E2"/>
+  <text x="1008" y="410" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478" font-weight="bold">可承担</text>
+  <text x="1008" y="430" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">自动化测试</text>
+  <text x="1008" y="448" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">容器化部署</text>
+  <text x="1008" y="466" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#5A6478">运维手册</text>
+
+  <!-- Bottom statement -->
+  <rect x="60" y="575" width="1160" height="75" rx="10" fill="#1E6FE0" fill-opacity="0.06"/>
+  <text x="640" y="600" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1D2433" text-anchor="middle" font-weight="bold">协作模式：主责锚点 + 全员攻坚</text>
+  <text x="640" y="625" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478" text-anchor="middle">全员开发保障技术深度——每条业务线都有后备力量 | 主责锚点保障责任清晰——每块工作都有最终负责人</text>
+  <text x="640" y="640" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="middle">代码自主开发率 &gt; 92% · 核心算法100%自主设计</text>
+
+  <rect x="60" y="695" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="710" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="710" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">16</text>
+</svg>

@@ -1,71 +1,114 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
   <defs>
-    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" />
-    </linearGradient>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#3A7BED" /></linearGradient>
+    <linearGradient id="baseGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#3A7BED" /></linearGradient>
   </defs>
-  <rect width="1280" height="720" fill="#FFFFFF" />
-  <rect width="1280" height="4" fill="url(#topBar)" />
-  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">方案概述</text>
-  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">一套底座，两端分工</text>
-  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <path fill="#E8EDF5" d="M59,45 H331 A4,4 0 0 1 335,49 V73 A4,4 0 0 1 331,77 H59 A4,4 0 0 1 55,73 V49 A4,4 0 0 1 59,45 Z" /><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <path fill="#1E6FE0" d="M349,45 H621 A4,4 0 0 1 625,49 V73 A4,4 0 0 1 621,77 H349 A4,4 0 0 1 345,73 V49 A4,4 0 0 1 349,45 Z" /><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">解决方案</text>
+  <path fill="#E8EDF5" d="M639,45 H911 A4,4 0 0 1 915,49 V73 A4,4 0 0 1 911,77 H639 A4,4 0 0 1 635,73 V49 A4,4 0 0 1 639,45 Z" /><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">系统实现</text>
+  <path fill="#E8EDF5" d="M929,45 H1201 A4,4 0 0 1 1205,49 V73 A4,4 0 0 1 1201,77 H929 A4,4 0 0 1 925,73 V49 A4,4 0 0 1 929,45 Z" /><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">一套底座，两端分工</text>
+  <path fill="#0E8C80" d="M56.50,118 H103.50 A1.50,1.50 0 0 1 105,119.50 V119.50 A1.50,1.50 0 0 1 103.50,121 H56.50 A1.50,1.50 0 0 1 55,119.50 V119.50 A1.50,1.50 0 0 1 56.50,118 Z" />
+  <text x="55" y="140" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478">共享的AI能力平台 + 教师端与学生端两个独立应用入口</text>
 
   
-  <path fill="#F4F7FC" d="M72,150 H448 A12,12 0 0 1 460,162 V638 A12,12 0 0 1 448,650 H72 A12,12 0 0 1 60,638 V162 A12,12 0 0 1 72,150 Z" />
-  <text x="80" y="190" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">设计思路</text>
-  <text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="225">“一套底座，两端分工”——底层是</text><text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="251">统一的AI能力中台，上层分别为教师和</text><text fill="#5A6478" font-size="14" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="80" y="277">学生提供专属功能入口</text><rect x="80" y="310" width="360" height="1" fill="#D0D7E2" />
-  <text x="80" y="340" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">两个关键设计</text>
-  <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M86,370 H434 A6,6 0 0 1 440,376 V400 A6,6 0 0 1 434,406 H86 A6,6 0 0 1 80,400 V376 A6,6 0 0 1 86,370 Z" />
-  <text x="100" y="393" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">❶ 编排层不做AI推理，保证响应延迟可控</text>
-  <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M86,415 H434 A6,6 0 0 1 440,421 V445 A6,6 0 0 1 434,451 H86 A6,6 0 0 1 80,445 V421 A6,6 0 0 1 86,415 Z" />
-  <text x="100" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">❷ 双引擎降级，Dify不可用时自动切备用推理引擎</text>
-
   
-  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M502,150 H1208 A12,12 0 0 1 1220,162 V638 A12,12 0 0 1 1208,650 H502 A12,12 0 0 1 490,638 V162 A12,12 0 0 1 502,150 Z" />
-  <text x="510" y="185" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">底座架构示意</text>
-
+  <path fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5" d="M67,170 H323 A12,12 0 0 1 335,182 V518 A12,12 0 0 1 323,530 H67 A12,12 0 0 1 55,518 V182 A12,12 0 0 1 67,170 Z" />
+  <path fill="#1E6FE0" d="M67,170 H323 A12,12 0 0 1 335,182 V214 A12,12 0 0 1 323,226 H67 A12,12 0 0 1 55,214 V182 A12,12 0 0 1 67,170 Z" />
+  <rect x="55" y="214" width="280" height="12" fill="#1E6FE0" />
   
-  <path fill="#1E6FE0" d="M538,210 H1192 A8,8 0 0 1 1200,218 V248 A8,8 0 0 1 1192,256 H538 A8,8 0 0 1 530,248 V218 A8,8 0 0 1 538,210 Z" />
-  <text x="865" y="238" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">业务编排层 · Go后端</text>
-  <text x="865" y="252" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">学习状态机 | SSE流式转发 | 课件上传管道 | 任务调度 | OpenAPI适配</text>
-  <text x="550" y="222" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#0E8C80">★</text>
-
-  <polygon points="865,260 855,270 875,270" fill="#9AA3B5" />
-
-  <path fill="#1E6FE0" d="M538,275 H1192 A8,8 0 0 1 1200,283 V313 A8,8 0 0 1 1192,321 H538 A8,8 0 0 1 530,313 V283 A8,8 0 0 1 538,275 Z" />
-  <text x="865" y="303" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">AI能力中台 · Dify工作流 + Python备用推理引擎</text>
-  <text x="865" y="317" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">课件解析 | 知识入库 | 智能问答 | 脚本生成 | 语音合成</text>
-
-  <polygon points="865,325 855,335 875,335" fill="#9AA3B5" />
-
-  <path fill="#5A6478" d="M538,340 H1192 A8,8 0 0 1 1200,348 V378 A8,8 0 0 1 1192,386 H538 A8,8 0 0 1 530,378 V348 A8,8 0 0 1 538,340 Z" />
-  <text x="865" y="368" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">数据支撑层</text>
-  <text x="865" y="382" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.8" text-anchor="middle">PostgreSQL（结构化） | Redis（缓存/队列） | MinIO（对象存储）</text>
-
-  
-  <path fill="#E8EDF5" stroke="#0E8C80" stroke-width="1" d="M536,410 H1194 A6,6 0 0 1 1200,416 V440 A6,6 0 0 1 1194,446 H536 A6,6 0 0 1 530,440 V416 A6,6 0 0 1 536,410 Z" />
-  <text x="550" y="433" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#0E8C80">↻ 双引擎降级：主引擎(工作流编排) → 故障自动切换 → 本地Python引擎（）</text>
-
-  
-  <path fill="#DDE6FF" d="M538,465 H847 A8,8 0 0 1 855,473 V527 A8,8 0 0 1 847,535 H538 A8,8 0 0 1 530,527 V473 A8,8 0 0 1 538,465 Z" />
-  
-  <g transform="translate(550.0, 485.0) scale(0.8333333333333334)" fill="#1E6FE0">
+  <g transform="translate(85.0, 188.0) scale(0.9166666666666666)" fill="#FFFFFF">
     <path d="M12 2a5 5 0 1 1 -5 5l.005 -.217a5 5 0 0 1 4.995 -4.783z" />
     <path d="M14 14a5 5 0 0 1 5 5v1a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-1a5 5 0 0 1 5 -5h4z" />
   </g>
-  <text x="580" y="500" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">教师端</text>
-  <text x="580" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">课件管理 · 脚本编辑 · 发布授课 · 学情分析</text>
+  <text x="120" y="206" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" fill="#FFFFFF" font-weight="bold">教师端</text>
 
-  <path fill="#D6DEF5" d="M883,465 H1192 A8,8 0 0 1 1200,473 V527 A8,8 0 0 1 1192,535 H883 A8,8 0 0 1 875,527 V473 A8,8 0 0 1 883,465 Z" />
+  <text x="75" y="255" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">专注：内容生产与发布</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478">
+    <path fill="#FFFFFF" d="M81,275 H309 A6,6 0 0 1 315,281 V301 A6,6 0 0 1 309,307 H81 A6,6 0 0 1 75,301 V281 A6,6 0 0 1 81,275 Z" />
+    <text x="90" y="295">课件管理与AI自动解析</text>
+    <path fill="#FFFFFF" d="M81,315 H309 A6,6 0 0 1 315,321 V341 A6,6 0 0 1 309,347 H81 A6,6 0 0 1 75,341 V321 A6,6 0 0 1 81,315 Z" />
+    <text x="90" y="335">结构化讲稿编辑与确认</text>
+    <path fill="#FFFFFF" d="M81,355 H309 A6,6 0 0 1 315,361 V381 A6,6 0 0 1 309,387 H81 A6,6 0 0 1 75,381 V361 A6,6 0 0 1 81,355 Z" />
+    <text x="90" y="375">语音合成与内容发布</text>
+    <path fill="#FFFFFF" d="M81,395 H309 A6,6 0 0 1 315,401 V421 A6,6 0 0 1 309,427 H81 A6,6 0 0 1 75,421 V401 A6,6 0 0 1 81,395 Z" />
+    <text x="90" y="415">学情看板与讲稿优化迭代</text>
+  </g>
+  <text x="75" y="455" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#1E6FE0">不关心学生端的问答细节</text>
+  <text x="75" y="472" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#1E6FE0">只需关注内容质量和教学效果</text>
+
   
-  <g transform="translate(895.0, 485.0) scale(0.8333333333333334)" fill="#0E8C80">
+  <line x1="335" y1="260" x2="375" y2="300" stroke="#1E6FE0" stroke-width="2" marker-end="url(#arrBlue)" />
+  <defs><marker id="arrBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#1E6FE0" /></marker></defs>
+
+  
+  <path fill="url(#baseGrad)" d="M406,200 H874 A16,16 0 0 1 890,216 V484 A16,16 0 0 1 874,500 H406 A16,16 0 0 1 390,484 V216 A16,16 0 0 1 406,200 Z" />
+  <path fill="#0E8C80" d="M406,200 H874 A16,16 0 0 1 890,216 V244 A16,16 0 0 1 874,260 H406 A16,16 0 0 1 390,244 V216 A16,16 0 0 1 406,200 Z" />
+  <rect x="390" y="244" width="500" height="16" fill="#0E8C80" />
+  <text x="640" y="236" font-family="Arial, Microsoft YaHei, sans-serif" font-size="20" fill="#FFFFFF" text-anchor="middle" font-weight="bold">共享 AI 能力底座</text>
+
+  <g font-family="Arial, Microsoft YaHei, sans-serif" fill="#FFFFFF">
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M416,275 H624 A6,6 0 0 1 630,281 V319 A6,6 0 0 1 624,325 H416 A6,6 0 0 1 410,319 V281 A6,6 0 0 1 416,275 Z" />
+    <text x="520" y="296" text-anchor="middle" font-size="12" font-weight="bold">课件解析引擎</text>
+    <text x="520" y="312" text-anchor="middle" font-size="10" fill-opacity="0.7">自动提取 → 结构化 → 节点化</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M656,275 H864 A6,6 0 0 1 870,281 V319 A6,6 0 0 1 864,325 H656 A6,6 0 0 1 650,319 V281 A6,6 0 0 1 656,275 Z" />
+    <text x="760" y="296" text-anchor="middle" font-size="12" font-weight="bold">智能问答引擎</text>
+    <text x="760" y="312" text-anchor="middle" font-size="10" fill-opacity="0.7">上下文构建 → 课程检索 → 生成</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M416,340 H624 A6,6 0 0 1 630,346 V384 A6,6 0 0 1 624,390 H416 A6,6 0 0 1 410,384 V346 A6,6 0 0 1 416,340 Z" />
+    <text x="520" y="361" text-anchor="middle" font-size="12" font-weight="bold">语音合成引擎</text>
+    <text x="520" y="377" text-anchor="middle" font-size="10" fill-opacity="0.7">文本转语音 → 音频内容对齐</text>
+    <path fill="#FFFFFF" fill-opacity="0.15" d="M656,340 H864 A6,6 0 0 1 870,346 V384 A6,6 0 0 1 864,390 H656 A6,6 0 0 1 650,384 V346 A6,6 0 0 1 656,340 Z" />
+    <text x="760" y="361" text-anchor="middle" font-size="12" font-weight="bold">学情数据分析</text>
+    <text x="760" y="377" text-anchor="middle" font-size="10" fill-opacity="0.7">掌握度追踪 → 卡点识别 → 统计</text>
+    <path fill="#FFFFFF" fill-opacity="0.1" d="M416,410 H864 A6,6 0 0 1 870,416 V444 A6,6 0 0 1 864,450 H416 A6,6 0 0 1 410,444 V416 A6,6 0 0 1 416,410 Z" />
+    <text x="640" y="435" text-anchor="middle" font-size="12">数据底座：PostgreSQL + Redis + MinIO | 内容组织：节点化统一语言</text>
+  </g>
+
+  
+  <line x1="890" y1="260" x2="930" y2="300" stroke="#0E8C80" stroke-width="2" marker-end="url(#arrTeal)" />
+  <defs><marker id="arrTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#0E8C80" /></marker></defs>
+
+  
+  <path fill="#D6DEF5" stroke="#0E8C80" stroke-width="1.5" d="M957,170 H1213 A12,12 0 0 1 1225,182 V518 A12,12 0 0 1 1213,530 H957 A12,12 0 0 1 945,518 V182 A12,12 0 0 1 957,170 Z" />
+  <path fill="#0E8C80" d="M957,170 H1213 A12,12 0 0 1 1225,182 V214 A12,12 0 0 1 1213,226 H957 A12,12 0 0 1 945,214 V182 A12,12 0 0 1 957,170 Z" />
+  <rect x="945" y="214" width="280" height="12" fill="#0E8C80" />
+  
+  <g transform="translate(975.0, 188.0) scale(0.9166666666666666)" fill="#FFFFFF">
     <path d="M12 2a5 5 0 1 1 -5 5l.005 -.217a5 5 0 0 1 4.995 -4.783z" />
     <path d="M14 14a5 5 0 0 1 5 5v1a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-1a5 5 0 0 1 5 -5h4z" />
   </g>
-  <text x="925" y="500" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">学生端</text>
-  <text x="925" y="520" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#5A6478">课程学习 · 上下文问答 · 断点续学 · 掌握度分析</text>
+  <text x="1010" y="206" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18" fill="#FFFFFF" font-weight="bold">学生端</text>
 
-  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
-  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
-  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">05</text>
+  <text x="965" y="255" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">专注：学习与互动</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478">
+    <path fill="#FFFFFF" d="M971,275 H1199 A6,6 0 0 1 1205,281 V301 A6,6 0 0 1 1199,307 H971 A6,6 0 0 1 965,301 V281 A6,6 0 0 1 971,275 Z" />
+    <text x="980" y="295">课件播放与学习进度跟踪</text>
+    <path fill="#FFFFFF" d="M971,315 H1199 A6,6 0 0 1 1205,321 V341 A6,6 0 0 1 1199,347 H971 A6,6 0 0 1 965,341 V321 A6,6 0 0 1 971,315 Z" />
+    <text x="980" y="335">上下文问答（苏格拉底式）</text>
+    <path fill="#FFFFFF" d="M971,355 H1199 A6,6 0 0 1 1205,361 V381 A6,6 0 0 1 1199,387 H971 A6,6 0 0 1 965,381 V361 A6,6 0 0 1 971,355 Z" />
+    <text x="980" y="375">断点续学（三态续接）</text>
+    <path fill="#FFFFFF" d="M971,395 H1199 A6,6 0 0 1 1205,401 V421 A6,6 0 0 1 1199,427 H971 A6,6 0 0 1 965,421 V401 A6,6 0 0 1 971,395 Z" />
+    <text x="980" y="415">薄弱点检测与针对性练习</text>
+  </g>
+  <text x="965" y="455" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#0E8C80">不关心课件的制作过程</text>
+  <text x="965" y="472" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#0E8C80">只需专注学习本身</text>
+
+  
+  <path fill="#F4F7FC" d="M65,560 H1215 A10,10 0 0 1 1225,570 V650 A10,10 0 0 1 1215,660 H65 A10,10 0 0 1 55,650 V570 A10,10 0 0 1 65,560 Z" />
+  <text x="640" y="585" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#1D2433" text-anchor="middle" font-weight="bold">为什么这样设计？</text>
+
+  <path fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1" d="M88,600 H612 A8,8 0 0 1 620,608 V634 A8,8 0 0 1 612,642 H88 A8,8 0 0 1 80,634 V608 A8,8 0 0 1 88,600 Z" />
+  <text x="100" y="620" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold">① 一次解析，两端消费</text>
+  <text x="100" y="636" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478">课件只需在底座中完成一次结构化解析，教师端用于编辑确认，学生端用于学习消费——同一份内容，两种使用场景</text>
+
+  <path fill="#FFFFFF" stroke="#0E8C80" stroke-width="1" d="M658,600 H1202 A8,8 0 0 1 1210,608 V634 A8,8 0 0 1 1202,642 H658 A8,8 0 0 1 650,634 V608 A8,8 0 0 1 658,600 Z" />
+  <text x="670" y="620" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#0E8C80" font-weight="bold">② 职责分离，互不干扰</text>
+  <text x="670" y="636" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478">教师端只为内容生产和学情分析负责；学生端只为学习体验和互动效果负责。两端共享底座能力，但不互相依赖对方的业务逻辑</text>
+
+  <rect x="55" y="692" width="1170" height="1" fill="#D0D7E2" />
+  <text x="55" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">05</text>
 </svg>

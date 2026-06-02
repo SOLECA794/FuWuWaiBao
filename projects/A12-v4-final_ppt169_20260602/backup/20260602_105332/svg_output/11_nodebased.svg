@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">算法底座</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">先节点化，再问答，最后续接</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Three-stage pipeline SVG -->
+  <text x="60" y="155" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">三阶段解耦解析管线</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif">
+    <rect x="60" y="175" width="350" height="130" rx="10" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+    <text x="235" y="200" fill="#1E6FE0" text-anchor="middle" font-size="15" font-weight="bold">Stage 1：拆页渲染</text>
+    <text x="235" y="220" fill="#1E6FE0" text-anchor="middle" font-size="11">输入：原始课件文本</text>
+    <text x="235" y="238" fill="#1E6FE0" text-anchor="middle" font-size="11">输出：规范化Markdown + 关键知识点</text>
+    <text x="235" y="256" fill="#1E6FE0" text-anchor="middle" font-size="11">约束：结构化约束模式</text>
+    <text x="235" y="274" fill="#1E6FE0" text-anchor="middle" font-size="11">降级：LLM异常&#8594;预置模板</text>
+
+    <polygon points="420,240 432,233 432,247" fill="#9AA3B5"/>
+
+    <rect x="440" y="175" width="350" height="130" rx="10" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+    <text x="615" y="200" fill="#1E6FE0" text-anchor="middle" font-size="15" font-weight="bold">Stage 2：语义聚合</text>
+    <text x="615" y="220" fill="#1E6FE0" text-anchor="middle" font-size="11">输入：Stage1输出</text>
+    <text x="615" y="238" fill="#1E6FE0" text-anchor="middle" font-size="11">输出：层级化节点树 nodes[]</text>
+    <text x="615" y="256" fill="#1E6FE0" text-anchor="middle" font-size="11">约束：节点标识唯一性校验</text>
+    <text x="615" y="274" fill="#1E6FE0" text-anchor="middle" font-size="11">降级：节点树为空&#8594;fallback</text>
+
+    <polygon points="800,240 812,233 812,247" fill="#9AA3B5"/>
+
+    <rect x="820" y="175" width="400" height="130" rx="10" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1.5"/>
+    <text x="1020" y="200" fill="#1E6FE0" text-anchor="middle" font-size="15" font-weight="bold">Stage 3：保脉络</text>
+    <text x="1020" y="220" fill="#1E6FE0" text-anchor="middle" font-size="11">输入：节点树</text>
+    <text x="1020" y="238" fill="#1E6FE0" text-anchor="middle" font-size="11">输出：结构化脚本数组</text>
+    <text x="1020" y="256" fill="#1E6FE0" text-anchor="middle" font-size="11">约束：6种segment类型</text>
+    <text x="1020" y="274" fill="#1E6FE0" text-anchor="middle" font-size="11">降级：scripts为空&#8594;fallback</text>
+  </g>
+  <text x="640" y="330" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0" text-anchor="middle">阶段独立可优化：Stage1遗忘前文不影响Stage2识别，Stage2输出有误不连累Stage3</text>
+
+  <!-- Dual structure -->
+  <rect x="60" y="360" width="1160" height="290" rx="12" fill="#F4F7FC"/>
+  <text x="640" y="395" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" text-anchor="middle" font-weight="bold">节点底座的双重结构</text>
+
+  <rect x="80" y="415" width="530" height="220" rx="10" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1.5"/>
+  <rect x="80" y="415" width="530" height="36" rx="10" fill="#1E6FE0"/>
+  <rect x="80" y="441" width="530" height="10" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/code-circle" x="100" y="425" width="16" height="16" fill="#FFFFFF"/>
+  <text x="345" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">知识图谱定义</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
+    <rect x="100" y="470" width="230" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="215" y="491" fill="#1E6FE0" text-anchor="middle">前置依赖 前置依赖</text>
+    <rect x="350" y="470" width="240" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="470" y="491" fill="#1E6FE0" text-anchor="middle">难度系数 difficulty</text>
+    <rect x="100" y="515" width="230" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="215" y="536" fill="#1E6FE0" text-anchor="middle">关联关系 RelationType</text>
+    <rect x="350" y="515" width="240" height="32" rx="6" fill="#DDE6FF"/>
+    <text x="470" y="536" fill="#1E6FE0" text-anchor="middle">掌握度追踪 MasteryScore</text>
+    <text x="100" y="585" fill="#9AA3B5">节点间的结构关系和难度评级</text>
+  </g>
+
+  <rect x="640" y="415" width="560" height="220" rx="10" fill="#FFFFFF" stroke="#0E8C80" stroke-width="1.5"/>
+  <rect x="640" y="415" width="560" height="36" rx="10" fill="#0E8C80"/>
+  <rect x="640" y="441" width="560" height="10" fill="#0E8C80"/>
+  <use data-icon="tabler-filled/file-description" x="660" y="425" width="16" height="16" fill="#FFFFFF"/>
+  <text x="920" y="438" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#FFFFFF" text-anchor="middle" font-weight="bold">脚本片段映射</text>
+  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
+    <rect x="660" y="470" width="250" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="785" y="491" fill="#0E8C80" text-anchor="middle">segment_id + text + 节点标识</text>
+    <rect x="930" y="470" width="250" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="1055" y="491" fill="#0E8C80" text-anchor="middle">段落类型 6种分类</text>
+    <rect x="660" y="515" width="250" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="785" y="536" fill="#0E8C80" text-anchor="middle">预估时长 时长</text>
+    <rect x="930" y="515" width="250" height="32" rx="6" fill="#D6DEF5"/>
+    <text x="1055" y="536" fill="#0E8C80" text-anchor="middle">interaction_hint 互动提示</text>
+    <text x="660" y="585" fill="#9AA3B5">一段文本可跨节点复用，双向引用修复</text>
+  </g>
+
+  <rect x="60" y="698" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="713" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">11</text>
+</svg>

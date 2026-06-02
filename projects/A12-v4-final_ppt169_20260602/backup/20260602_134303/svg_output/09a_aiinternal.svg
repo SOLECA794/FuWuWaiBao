@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#3A7BED"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <rect x="55" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <rect x="345" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <rect x="635" y="45" width="280" height="32" rx="4" fill="#1E6FE0"/><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <rect x="925" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">AI能力中台内部架构</text>
+  <rect x="55" y="118" width="50" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Three internal layers -->
+  <g font-family="Arial, Microsoft YaHei, sans-serif">
+    <!-- Layer 1: Workflow orchestration -->
+    <rect x="55" y="140" width="1170" height="160" rx="8" fill="#F4F7FC" stroke="#1E6FE0" stroke-width="1"/>
+    <rect x="55" y="140" width="1170" height="32" rx="8" fill="#1E6FE0"/>
+    <rect x="55" y="164" width="1170" height="8" fill="#1E6FE0"/>
+    <text x="640" y="160" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">上层：Dify工作流编排层 — 5大工作流</text>
+
+    <rect x="75" y="185" width="130" height="90" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="140" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">课件解析</text>
+    <text x="140" y="228" fill="#5A6478" text-anchor="middle" font-size="9">文件提取</text>
+    <text x="140" y="243" fill="#5A6478" text-anchor="middle" font-size="9">VLM识别</text>
+    <text x="140" y="258" fill="#5A6478" text-anchor="middle" font-size="9">结构化</text>
+    <line x1="205" y1="230" x2="228" y2="230" stroke="#D0D7E2" stroke-width="1.5"/>
+
+    <rect x="238" y="185" width="130" height="90" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="303" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">知识入库</text>
+    <text x="303" y="228" fill="#5A6478" text-anchor="middle" font-size="9">内容切片</text>
+    <text x="303" y="243" fill="#5A6478" text-anchor="middle" font-size="9">向量化</text>
+    <text x="303" y="258" fill="#5A6478" text-anchor="middle" font-size="9">索引构建</text>
+    <line x1="368" y1="230" x2="391" y2="230" stroke="#D0D7E2" stroke-width="1.5"/>
+
+    <rect x="401" y="185" width="130" height="90" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="466" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">智能问答</text>
+    <text x="466" y="228" fill="#5A6478" text-anchor="middle" font-size="9">意图识别</text>
+    <text x="466" y="243" fill="#5A6478" text-anchor="middle" font-size="9">知识检索</text>
+    <text x="466" y="258" fill="#5A6478" text-anchor="middle" font-size="9">回答生成</text>
+    <line x1="531" y1="230" x2="554" y2="230" stroke="#D0D7E2" stroke-width="1.5"/>
+
+    <rect x="564" y="185" width="130" height="90" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="629" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">脚本生成</text>
+    <text x="629" y="228" fill="#5A6478" text-anchor="middle" font-size="9">结构理解</text>
+    <text x="629" y="243" fill="#5A6478" text-anchor="middle" font-size="9">节点构建</text>
+    <text x="629" y="258" fill="#5A6478" text-anchor="middle" font-size="9">脚本输出</text>
+    <line x1="694" y1="230" x2="717" y2="230" stroke="#D0D7E2" stroke-width="1.5"/>
+
+    <rect x="727" y="185" width="130" height="90" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="792" y="210" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">语音合成</text>
+    <text x="792" y="228" fill="#5A6478" text-anchor="middle" font-size="9">文本处理</text>
+    <text x="792" y="243" fill="#5A6478" text-anchor="middle" font-size="9">TTS转换</text>
+    <text x="792" y="258" fill="#5A6478" text-anchor="middle" font-size="9">音频输出</text>
+
+    <!-- Layer 2: RAG -->
+    <rect x="55" y="315" width="800" height="130" rx="8" fill="#F4F7FC" stroke="#0E8C80" stroke-width="1"/>
+    <rect x="55" y="315" width="800" height="32" rx="8" fill="#0E8C80"/>
+    <rect x="55" y="339" width="800" height="8" fill="#0E8C80"/>
+    <text x="455" y="335" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">中层：RAG检索增强生成链路</text>
+
+    <rect x="75" y="360" width="110" height="30" rx="4" fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5"/>
+    <text x="130" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">用户提问</text>
+    <polygon points="190,375 198,371 198,379" fill="#5A6478"/>
+    <rect x="205" y="360" width="110" height="30" rx="4" fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5"/>
+    <text x="260" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">意图理解</text>
+    <polygon points="320,375 328,371 328,379" fill="#5A6478"/>
+    <rect x="335" y="360" width="120" height="30" rx="4" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="0.5"/>
+    <text x="395" y="379" fill="#1E6FE0" text-anchor="middle" font-size="10">课程知识检索</text>
+    <polygon points="460,375 468,371 468,379" fill="#5A6478"/>
+    <rect x="475" y="360" width="140" height="30" rx="4" fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5"/>
+    <text x="545" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">上下文增强</text>
+    <polygon points="620,375 628,371 628,379" fill="#5A6478"/>
+    <rect x="635" y="360" width="110" height="30" rx="4" fill="#FFFFFF" stroke="#0E8C80" stroke-width="0.5"/>
+    <text x="690" y="379" fill="#0E8C80" text-anchor="middle" font-size="10">答案生成</text>
+
+    <rect x="75" y="400" width="760" height="30" rx="4" fill="#E8EDF5"/>
+    <text x="455" y="420" fill="#5A6478" text-anchor="middle" font-size="10">三级级联检索范围：L1 目标节点 &#8594; L2 当前页 &#8594; L3 全页拼接</text>
+
+    <!-- Layer 3: Multi-model -->
+    <rect x="880" y="315" width="345" height="130" rx="8" fill="#F4F7FC" stroke="#7B5BE0" stroke-width="1"/>
+    <rect x="880" y="315" width="345" height="32" rx="8" fill="#7B5BE0"/>
+    <rect x="880" y="339" width="345" height="8" fill="#7B5BE0"/>
+    <text x="1052" y="335" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">下层：模型适配与管理</text>
+
+    <rect x="895" y="360" width="310" height="22" rx="4" fill="#FFFFFF" stroke="#7B5BE0" stroke-width="0.5"/>
+    <text x="1050" y="375" fill="#5A6478" text-anchor="middle" font-size="9">大模型适配层（统一接口，引擎无关）</text>
+    <rect x="895" y="390" width="150" height="22" rx="4" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="0.5"/>
+    <text x="970" y="405" fill="#1E6FE0" text-anchor="middle" font-size="9">通义千问（当前）</text>
+    <rect x="1055" y="390" width="150" height="22" rx="4" fill="#DDE6FF" stroke="#0E8C80" stroke-width="0.5"/>
+    <text x="1130" y="405" fill="#0E8C80" text-anchor="middle" font-size="9">备用推理引擎</text>
+    <rect x="895" y="418" width="310" height="18" rx="4" fill="#E8EDF5"/>
+    <text x="1050" y="431" fill="#9AA3B5" text-anchor="middle" font-size="9">模型切换零改动 — 适配层配置化</text>
+
+    <!-- Bottom: dual engine -->
+    <rect x="55" y="460" width="1170" height="100" rx="8" fill="#F4F7FC" stroke="#E8553C" stroke-width="1"/>
+    <rect x="55" y="460" width="1170" height="32" rx="8" fill="#E8553C"/>
+    <rect x="55" y="484" width="1170" height="8" fill="#E8553C"/>
+    <text x="640" y="480" fill="#FFFFFF" text-anchor="middle" font-size="13" font-weight="bold">降级容错机制</text>
+
+    <rect x="80" y="500" width="200" height="40" rx="6" fill="#FFFFFF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="180" y="525" fill="#1E6FE0" text-anchor="middle" font-size="11" font-weight="bold">Dify工作流正常</text>
+    <polygon points="290,520 300,514 300,526" fill="#5A6478"/>
+    <rect x="310" y="500" width="200" height="40" rx="6" fill="#DDE6FF" stroke="#1E6FE0" stroke-width="1"/>
+    <text x="410" y="525" fill="#1E6FE0" text-anchor="middle" font-size="11">直通处理</text>
+    <path d="M520,520 L555,520 L555,550 L580,550" fill="none" stroke="#E8553C" stroke-width="1.5" stroke-dasharray="4,2"/>
+    <rect x="590" y="500" width="200" height="40" rx="6" fill="#FFFFFF" stroke="#E8553C" stroke-width="1"/>
+    <text x="690" y="525" fill="#E8553C" text-anchor="middle" font-size="11" font-weight="bold">主引擎不可用</text>
+    <polygon points="800,520 810,514 810,526" fill="#E8553C"/>
+    <rect x="820" y="500" width="220" height="40" rx="6" fill="#FFFFFF" stroke="#0E8C80" stroke-width="1"/>
+    <text x="930" y="525" fill="#0E8C80" text-anchor="middle" font-size="11" font-weight="bold">备用推理引擎自动接管</text>
+    <text x="640" y="565" font-family="Arial, Microsoft YaHei, sans-serif" font-size="9" fill="#9AA3B5" text-anchor="middle">主引擎（Dify工作流编排）&#x2194; 备用推理引擎（Python实现完整功能子集）— 切换对前端完全透明</text>
+  </g>
+
+  <rect x="55" y="690" width="1170" height="1" fill="#D0D7E2"/>
+  <text x="55" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">09a</text>
+</svg>

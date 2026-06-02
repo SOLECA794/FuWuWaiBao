@@ -1,99 +1,99 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
   <defs>
     <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#1E6FE0" />
+      <stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/>
     </linearGradient>
   </defs>
-  <rect width="1280" height="720" fill="#FFFFFF" />
-  <rect width="1280" height="4" fill="url(#topBar)" />
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
   <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">教师端</text>
-  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">教师端：把备课从“逐字撰写”变成“编辑确认”</text>
-  <path fill="#0E8C80" d="M61.50,115 H118.50 A1.50,1.50 0 0 1 120,116.50 V116.50 A1.50,1.50 0 0 1 118.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">教师端：把备课从&#8220;逐字撰写&#8221;变成&#8220;编辑确认&#8221;</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
 
-  
+  <!-- 5-step horizontal flow -->
   <g>
-    
-    <path fill="#1E6FE0" d="M70,150 H250 A10,10 0 0 1 260,160 V230 A10,10 0 0 1 250,240 H70 A10,10 0 0 1 60,230 V160 A10,10 0 0 1 70,150 Z" />
+    <!-- Step 1 -->
+    <rect x="60" y="150" width="200" height="90" rx="10" fill="#1E6FE0"/>
     <text x="100" y="178" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="28" fill="#FFFFFF" font-weight="bold">01</text>
     <text x="100" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF">智课生成</text>
     <text x="100" y="218" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.7">三阶段解耦管线</text>
-    <polygon points="270,195 282,188 282,202" fill="#9AA3B5" />
+    <polygon points="270,195 282,188 282,202" fill="#9AA3B5"/>
 
-    
-    <path fill="#1E6FE0" d="M300,150 H480 A10,10 0 0 1 490,160 V230 A10,10 0 0 1 480,240 H300 A10,10 0 0 1 290,230 V160 A10,10 0 0 1 300,150 Z" />
+    <!-- Step 2 -->
+    <rect x="290" y="150" width="200" height="90" rx="10" fill="#1E6FE0"/>
     <text x="330" y="178" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="28" fill="#FFFFFF" font-weight="bold">02</text>
     <text x="330" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF">脚本编辑</text>
     <text x="330" y="218" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.7">节点粒度编辑确认</text>
-    <polygon points="500,195 512,188 512,202" fill="#9AA3B5" />
+    <polygon points="500,195 512,188 512,202" fill="#9AA3B5"/>
 
-    
-    <path fill="#1E6FE0" d="M530,150 H710 A10,10 0 0 1 720,160 V230 A10,10 0 0 1 710,240 H530 A10,10 0 0 1 520,230 V160 A10,10 0 0 1 530,150 Z" />
+    <!-- Step 3 -->
+    <rect x="520" y="150" width="200" height="90" rx="10" fill="#1E6FE0"/>
     <text x="560" y="178" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="28" fill="#FFFFFF" font-weight="bold">03</text>
     <text x="560" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF">发布授课</text>
     <text x="560" y="218" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.7">TTS语音合成+播放</text>
-    <polygon points="730,195 742,188 742,202" fill="#9AA3B5" />
+    <polygon points="730,195 742,188 742,202" fill="#9AA3B5"/>
 
-    
-    <path fill="#0E8C80" d="M760,150 H940 A10,10 0 0 1 950,160 V230 A10,10 0 0 1 940,240 H760 A10,10 0 0 1 750,230 V160 A10,10 0 0 1 760,150 Z" />
+    <!-- Step 4 -->
+    <rect x="750" y="150" width="200" height="90" rx="10" fill="#0E8C80"/>
     <text x="790" y="178" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="28" fill="#FFFFFF" font-weight="bold">04</text>
     <text x="790" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF">学情查看</text>
     <text x="790" y="218" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.7">四维加权难度指数</text>
-    <polygon points="960,195 972,188 972,202" fill="#9AA3B5" />
+    <polygon points="960,195 972,188 972,202" fill="#9AA3B5"/>
 
-    
-    <path fill="#1E6FE0" d="M990,150 H1170 A10,10 0 0 1 1180,160 V230 A10,10 0 0 1 1170,240 H990 A10,10 0 0 1 980,230 V160 A10,10 0 0 1 990,150 Z" />
+    <!-- Step 5 -->
+    <rect x="980" y="150" width="200" height="90" rx="10" fill="#1E6FE0"/>
     <text x="1020" y="178" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="28" fill="#FFFFFF" font-weight="bold">05</text>
     <text x="1020" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF">讲稿优化</text>
     <text x="1020" y="218" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="10" fill="#FFFFFF" fill-opacity="0.7">学情驱动迭代</text>
   </g>
 
-  
+  <!-- Tech detail cards -->
   <text x="60" y="290" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="16" fill="#1D2433" font-weight="bold">关键技术细节</text>
 
-  
-  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M70,310 H610 A10,10 0 0 1 620,320 V470 A10,10 0 0 1 610,480 H70 A10,10 0 0 1 60,470 V320 A10,10 0 0 1 70,310 Z" />
-  <path fill="#1E6FE0" d="M62.50,310 H617.50 A2.50,2.50 0 0 1 620,312.50 V312.50 A2.50,2.50 0 0 1 617.50,315 H62.50 A2.50,2.50 0 0 1 60,312.50 V312.50 A2.50,2.50 0 0 1 62.50,310 Z" />
+  <!-- Card 1: Three-stage pipeline -->
+  <rect x="60" y="310" width="560" height="170" rx="10" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="60" y="310" width="560" height="5" rx="2.5" fill="#1E6FE0"/>
   <text x="80" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" font-weight="bold">三阶段解耦生成管线</text>
-  <path fill="#DDE6FF" d="M86,365 H234 A6,6 0 0 1 240,371 V389 A6,6 0 0 1 234,395 H86 A6,6 0 0 1 80,389 V371 A6,6 0 0 1 86,365 Z" />
+  <rect x="80" y="365" width="160" height="30" rx="6" fill="#DDE6FF"/>
   <text x="160" y="385" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0" text-anchor="middle">Stage1 Markdown理解</text>
-  <path fill="#DDE6FF" d="M256,365 H404 A6,6 0 0 1 410,371 V389 A6,6 0 0 1 404,395 H256 A6,6 0 0 1 250,389 V371 A6,6 0 0 1 256,365 Z" />
+  <rect x="250" y="365" width="160" height="30" rx="6" fill="#DDE6FF"/>
   <text x="330" y="385" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0" text-anchor="middle">Stage2 节点树构建</text>
-  <path fill="#DDE6FF" d="M426,365 H594 A6,6 0 0 1 600,371 V389 A6,6 0 0 1 594,395 H426 A6,6 0 0 1 420,389 V371 A6,6 0 0 1 426,365 Z" />
+  <rect x="420" y="365" width="180" height="30" rx="6" fill="#DDE6FF"/>
   <text x="510" y="385" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#1E6FE0" text-anchor="middle">Stage3 逐节点脚本生成</text>
   <text x="80" y="420" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">每阶段独立可优化，单节点失败不影响整体。JSON Schema强制结构化输出。</text>
   <text x="80" y="440" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">教师可在节点粒度上编辑调整脚本内容。</text>
 
-  
-  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M660,310 H1210 A10,10 0 0 1 1220,320 V470 A10,10 0 0 1 1210,480 H660 A10,10 0 0 1 650,470 V320 A10,10 0 0 1 660,310 Z" />
-  <path fill="#0E8C80" d="M652.50,310 H1217.50 A2.50,2.50 0 0 1 1220,312.50 V312.50 A2.50,2.50 0 0 1 1217.50,315 H652.50 A2.50,2.50 0 0 1 650,312.50 V312.50 A2.50,2.50 0 0 1 652.50,310 Z" />
+  <!-- Card 2: Mastery index -->
+  <rect x="650" y="310" width="570" height="170" rx="10" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="650" y="310" width="570" height="5" rx="2.5" fill="#0E8C80"/>
   <text x="670" y="345" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" font-weight="bold">多维加权难度指数</text>
   <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">
-    <path fill="#D6DEF5" d="M676,365 H784 A6,6 0 0 1 790,371 V389 A6,6 0 0 1 784,395 H676 A6,6 0 0 1 670,389 V371 A6,6 0 0 1 676,365 Z" />
+    <rect x="670" y="365" width="120" height="30" rx="6" fill="#D6DEF5"/>
     <text x="730" y="384" fill="#0E8C80" text-anchor="middle" font-weight="bold">提问频次</text>
-    <path fill="#D6DEF5" d="M806,365 H914 A6,6 0 0 1 920,371 V389 A6,6 0 0 1 914,395 H806 A6,6 0 0 1 800,389 V371 A6,6 0 0 1 806,365 Z" />
+    <rect x="800" y="365" width="120" height="30" rx="6" fill="#D6DEF5"/>
     <text x="860" y="384" fill="#0E8C80" text-anchor="middle" font-weight="bold">需重讲次数</text>
-    <path fill="#D6DEF5" d="M936,365 H1044 A6,6 0 0 1 1050,371 V389 A6,6 0 0 1 1044,395 H936 A6,6 0 0 1 930,389 V371 A6,6 0 0 1 936,365 Z" />
+    <rect x="930" y="365" width="120" height="30" rx="6" fill="#D6DEF5"/>
     <text x="990" y="384" fill="#0E8C80" text-anchor="middle" font-weight="bold">会话数</text>
-    <path fill="#D6DEF5" d="M1066,365 H1184 A6,6 0 0 1 1190,371 V389 A6,6 0 0 1 1184,395 H1066 A6,6 0 0 1 1060,389 V371 A6,6 0 0 1 1066,365 Z" />
+    <rect x="1060" y="365" width="130" height="30" rx="6" fill="#D6DEF5"/>
     <text x="1125" y="384" fill="#0E8C80" text-anchor="middle" font-weight="bold">停留时长比</text>
   </g>
   <text x="670" y="425" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">综合四维加权 → 难度指数（0-10），精确定位班级共性卡点</text>
   <text x="670" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">掌握度模型：答对+0.08 / 答错-0.06 / 快速响应+0.02，区间[0,1]</text>
 
-  
-  <path fill="#F4F7FC" d="M70,500 H1210 A10,10 0 0 1 1220,510 V630 A10,10 0 0 1 1210,640 H70 A10,10 0 0 1 60,630 V510 A10,10 0 0 1 70,500 Z" />
+  <!-- Bottom: student interaction stats preview -->
+  <rect x="60" y="500" width="1160" height="140" rx="10" fill="#F4F7FC"/>
   <text x="80" y="530" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1D2433" font-weight="bold">学情看板</text>
   <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#5A6478">
-    <circle cx="140" cy="565" r="6" fill="#0E8C80" />
+    <circle cx="140" cy="565" r="6" fill="#0E8C80"/>
     <text x="155" y="570">掌握度 &gt; 0.7的知识点占比：72%</text>
-    <circle cx="500" cy="565" r="6" fill="#0E8C80" />
+    <circle cx="500" cy="565" r="6" fill="#0E8C80"/>
     <text x="515" y="570">需重讲的知识点数：3个</text>
-    <path fill="#D0D7E2" d="M83,590 H337 A3,3 0 0 1 340,593 V593 A3,3 0 0 1 337,596 H83 A3,3 0 0 1 80,593 V593 A3,3 0 0 1 83,590 Z" />
-    <path fill="#0E8C80" d="M83,590 H257 A3,3 0 0 1 260,593 V593 A3,3 0 0 1 257,596 H83 A3,3 0 0 1 80,593 V593 A3,3 0 0 1 83,590 Z" />
+    <rect x="80" y="590" width="260" height="6" rx="3" fill="#D0D7E2"/>
+    <rect x="80" y="590" width="180" height="6" rx="3" fill="#0E8C80"/>
     <text x="360" y="596" fill="#9AA3B5">班级平均掌握度 0.72</text>
   </g>
 
-  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2"/>
   <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
-  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">06</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">07</text>
 </svg>

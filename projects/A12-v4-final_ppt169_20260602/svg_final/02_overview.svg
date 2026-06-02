@@ -1,89 +1,52 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
   <defs>
-    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1E6FE0" />
-      <stop offset="100%" stop-color="#1E6FE0" />
-    </linearGradient>
-    <linearGradient id="cardBg1" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="100%" stop-color="#F8FAFC" />
-    </linearGradient>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0" /><stop offset="100%" stop-color="#3A7BED" /></linearGradient>
   </defs>
+  <rect width="1280" height="720" fill="#FFFFFF" /><rect width="1280" height="4" fill="url(#topBar)" />
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <path fill="#1E6FE0" d="M59,45 H331 A4,4 0 0 1 335,49 V73 A4,4 0 0 1 331,77 H59 A4,4 0 0 1 55,73 V49 A4,4 0 0 1 59,45 Z" /><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">项目背景</text>
+  <path fill="#E8EDF5" d="M349,45 H621 A4,4 0 0 1 625,49 V73 A4,4 0 0 1 621,77 H349 A4,4 0 0 1 345,73 V49 A4,4 0 0 1 349,45 Z" /><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <path fill="#E8EDF5" d="M639,45 H911 A4,4 0 0 1 915,49 V73 A4,4 0 0 1 911,77 H639 A4,4 0 0 1 635,73 V49 A4,4 0 0 1 639,45 Z" /><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">系统实现</text>
+  <path fill="#E8EDF5" d="M929,45 H1201 A4,4 0 0 1 1205,49 V73 A4,4 0 0 1 1201,77 H929 A4,4 0 0 1 925,73 V49 A4,4 0 0 1 929,45 Z" /><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">一份课件，能不能“秒变”智课？</text>
+  <path fill="#0E8C80" d="M56.50,118 H103.50 A1.50,1.50 0 0 1 105,119.50 V119.50 A1.50,1.50 0 0 1 103.50,121 H56.50 A1.50,1.50 0 0 1 55,119.50 V119.50 A1.50,1.50 0 0 1 56.50,118 Z" />
 
   
-  <rect width="1280" height="720" fill="#FFFFFF" />
-  <rect width="1280" height="5" fill="url(#topBar)" />
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M67,150 H413 A12,12 0 0 1 425,162 V378 A12,12 0 0 1 413,390 H67 A12,12 0 0 1 55,378 V162 A12,12 0 0 1 67,150 Z" />
+  <circle cx="240" cy="185" r="28" fill="#DDE6FF" />
+  <text x="240" y="191" font-family="Arial, Microsoft YaHei, sans-serif" font-size="22" fill="#1E6FE0" text-anchor="middle" font-weight="bold">?</text>
+  <text x="240" y="230" font-family="Arial, Microsoft YaHei, sans-serif" font-size="17" fill="#1D2433" text-anchor="middle" font-weight="bold">能不能让课件自己会讲？</text>
+  <text x="240" y="260" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">教师上传课件后，自动生成</text>
+  <text x="240" y="280" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">结构化讲稿，而非逐字撰写</text>
+  <text x="240" y="310" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#1E6FE0" text-anchor="middle">→ 传即生成讲稿</text>
+
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M472,150 H818 A12,12 0 0 1 830,162 V378 A12,12 0 0 1 818,390 H472 A12,12 0 0 1 460,378 V162 A12,12 0 0 1 472,150 Z" />
+  <circle cx="645" cy="185" r="28" fill="#D6DEF5" />
+  <text x="645" y="191" font-family="Arial, Microsoft YaHei, sans-serif" font-size="22" fill="#0E8C80" text-anchor="middle" font-weight="bold">?</text>
+  <text x="645" y="230" font-family="Arial, Microsoft YaHei, sans-serif" font-size="17" fill="#1D2433" text-anchor="middle" font-weight="bold">能不能边学边问边溯源？</text>
+  <text x="645" y="260" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">学生随时提问，系统基于当前</text>
+  <text x="645" y="280" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">课件内容给出引导式回答</text>
+  <text x="645" y="310" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#0E8C80" text-anchor="middle">→ 问答秒级响应</text>
+
+  <path fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5" d="M872,150 H1213 A12,12 0 0 1 1225,162 V378 A12,12 0 0 1 1213,390 H872 A12,12 0 0 1 860,378 V162 A12,12 0 0 1 872,150 Z" />
+  <circle cx="1042" cy="185" r="28" fill="#DDE6FF" />
+  <text x="1042" y="191" font-family="Arial, Microsoft YaHei, sans-serif" font-size="22" fill="#7B5BE0" text-anchor="middle" font-weight="bold">?</text>
+  <text x="1042" y="230" font-family="Arial, Microsoft YaHei, sans-serif" font-size="17" fill="#1D2433" text-anchor="middle" font-weight="bold">能不能打断后自动续接？</text>
+  <text x="1042" y="260" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">学习过程中断后，系统自动</text>
+  <text x="1042" y="280" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478" text-anchor="middle">判断理解程度并精确恢复</text>
+  <text x="1042" y="310" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#7B5BE0" text-anchor="middle">→ 打断后自动续接</text>
 
   
-  <rect x="0" y="0" width="1280" height="4" fill="#1E6FE0" />
+  <path fill="#F4F7FC" d="M65,430 H1215 A10,10 0 0 1 1225,440 V520 A10,10 0 0 1 1215,530 H65 A10,10 0 0 1 55,520 V440 A10,10 0 0 1 65,430 Z" />
+  <text x="640" y="465" font-family="Arial, Microsoft YaHei, sans-serif" font-size="16" fill="#1D2433" text-anchor="middle" font-weight="bold">现实情况是……（翻下一页）</text>
+  <text x="640" y="495" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">现有的静态课件模式和通用AI方案，还无法很好地实现这三个目标</text>
 
-  
-  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">方案总览</text>
-  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">一份课件，秒变会讲课、能答疑、可续接的智课</text>
-  <path fill="#0E8C80" d="M61.50,115 H138.50 A1.50,1.50 0 0 1 140,116.50 V116.50 A1.50,1.50 0 0 1 138.50,118 H61.50 A1.50,1.50 0 0 1 60,116.50 V116.50 A1.50,1.50 0 0 1 61.50,115 Z" />
+  <path fill="#1E6FE0" fill-opacity="0.08" d="M65,570 H1215 A10,10 0 0 1 1225,580 V630 A10,10 0 0 1 1215,640 H65 A10,10 0 0 1 55,630 V580 A10,10 0 0 1 65,570 Z" />
+  <text x="640" y="600" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle" font-weight="bold">那么痛点在哪里？问题出在什么地方？</text>
+  <text x="640" y="620" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478" text-anchor="middle">翻到下一页看分析 →</text>
 
-  
-  
-  <path fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5" d="M72,150 H408 A12,12 0 0 1 420,162 V418 A12,12 0 0 1 408,430 H72 A12,12 0 0 1 60,418 V162 A12,12 0 0 1 72,150 Z" />
-  <path fill="#1E6FE0" d="M63,150 H417 A3,3 0 0 1 420,153 V153 A3,3 0 0 1 417,156 H63 A3,3 0 0 1 60,153 V153 A3,3 0 0 1 63,150 Z" />
-  
-  <g transform="translate(90.0, 180.0) scale(1.1666666666666667)" fill="#1E6FE0">
-    <path d="M12 2l.117 .007a1 1 0 0 1 .876 .876l.007 .117v4l.005 .15a2 2 0 0 0 1.838 1.844l.157 .006h4l.117 .007a1 1 0 0 1 .876 .876l.007 .117v9a3 3 0 0 1 -2.824 2.995l-.176 .005h-10a3 3 0 0 1 -2.995 -2.824l-.005 -.176v-14a3 3 0 0 1 2.824 -2.995l.176 -.005zm3 14h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m0 -4h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2" />
-    <path d="M19 7h-4l-.001 -4.001z" />
-  </g>
-  <text x="130" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">传即生成讲稿</text>
-  <text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="90" y="240">三阶段解耦解析，从文本提取到跨页</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="90" y="264">语义聚合，自动生成可编辑的结构化</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="90" y="288">讲授脚本</text><rect x="90" y="340" width="300" height="1" fill="#D0D7E2" />
-  <text x="90" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三阶段解耦管线</text>
-  <text x="90" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">Markdown理解 → 节点树构建 → 逐节点脚本生成</text>
-
-  
-  <path fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5" d="M472,150 H808 A12,12 0 0 1 820,162 V418 A12,12 0 0 1 808,430 H472 A12,12 0 0 1 460,418 V162 A12,12 0 0 1 472,150 Z" />
-  <path fill="#1E6FE0" d="M463,150 H817 A3,3 0 0 1 820,153 V153 A3,3 0 0 1 817,156 H463 A3,3 0 0 1 460,153 V153 A3,3 0 0 1 463,150 Z" />
-  
-  <g transform="translate(490.0, 180.0) scale(1.1666666666666667)" fill="#1E6FE0">
-    <path d="M18 3a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-4.724l-4.762 2.857a1 1 0 0 1 -1.508 -.743l-.006 -.114v-2h-1a4 4 0 0 1 -3.995 -3.8l-.005 -.2v-8a4 4 0 0 1 4 -4zm-4 9h-6a1 1 0 0 0 0 2h6a1 1 0 0 0 0 -2m2 -4h-8a1 1 0 1 0 0 2h8a1 1 0 0 0 0 -2" />
-  </g>
-  <text x="530" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">问答秒级响应</text>
-  <text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="490" y="240">本页优先检索 + 溯源生成，回答绑定</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="490" y="264">课件页码，避免退化成开放聊天</text><rect x="490" y="340" width="300" height="1" fill="#D0D7E2" />
-  <text x="490" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三级级联上下文</text>
-  <text x="490" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">节点脚本 → 页面内容 → 全页拼接</text>
-
-  
-  <path fill="url(#cardBg1)" stroke="#D0D7E2" stroke-width="1.5" d="M872,150 H1208 A12,12 0 0 1 1220,162 V418 A12,12 0 0 1 1208,430 H872 A12,12 0 0 1 860,418 V162 A12,12 0 0 1 872,150 Z" />
-  <path fill="#1E6FE0" d="M863,150 H1217 A3,3 0 0 1 1220,153 V153 A3,3 0 0 1 1217,156 H863 A3,3 0 0 1 860,153 V153 A3,3 0 0 1 863,150 Z" />
-  
-  <g transform="translate(890.0, 180.0) scale(1.1666666666666667)" fill="#1E6FE0">
-    <path d="M6 4v16a1 1 0 0 0 1.524 .852l13 -8a1 1 0 0 0 0 -1.704l-13 -8a1 1 0 0 0 -1.524 .852z" />
-  </g>
-  <text x="930" y="200" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#1D2433" font-weight="bold">打断后自动续接</text>
-  <text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="890" y="240">理解程度三态判定 + 节点级续接定位，</text><text fill="#5A6478" font-size="15" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" x="890" y="264">确保学习主线不中断</text><rect x="890" y="340" width="300" height="1" fill="#D0D7E2" />
-  <text x="890" y="365" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0">核心机制：三态续接模式</text>
-  <text x="890" y="390" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#9AA3B5">none→重讲 / partial→补充 / full→跳过</text>
-
-  
-  <path fill="#F4F7FC" d="M70,470 H1210 A10,10 0 0 1 1220,480 V570 A10,10 0 0 1 1210,580 H70 A10,10 0 0 1 60,570 V480 A10,10 0 0 1 70,470 Z" />
-  <text x="640" y="495" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle" letter-spacing="2">五环教学闭环</text>
-
-  
-  <g font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#FFFFFF" text-anchor="middle" font-weight="bold">
-    <circle cx="200" cy="540" r="36" fill="#1E6FE0" /><text x="200" y="545">可讲</text>
-    <polygon points="248,540 260,533 260,547" fill="#9AA3B5" />
-    <circle cx="340" cy="540" r="36" fill="#1E6FE0" /><text x="340" y="545">可学</text>
-    <polygon points="388,540 400,533 400,547" fill="#9AA3B5" />
-    <circle cx="480" cy="540" r="36" fill="#1E6FE0" /><text x="480" y="545">可问</text>
-    <polygon points="528,540 540,533 540,547" fill="#9AA3B5" />
-    <circle cx="620" cy="540" r="36" fill="#1E6FE0" /><text x="620" y="545">可续</text>
-    <polygon points="668,540 680,533 680,547" fill="#9AA3B5" />
-    <circle cx="760" cy="540" r="36" fill="#0E8C80" /><text x="760" y="545">可评</text>
-    <polygon points="808,540 820,533 820,547" fill="#9AA3B5" />
-    <circle cx="900" cy="540" r="36" fill="#0E8C80" /><text x="900" y="545">可优</text>
-  </g>
-
-  
-  <text x="640" y="565" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="middle">五环不是孤立环节——解析是问答的前提，问答产出是续接的输入</text>
-
-  
-  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2" />
-  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
-  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">02</text>
+  <rect x="55" y="690" width="1170" height="1" fill="#D0D7E2" />
+  <text x="55" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="708" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">02</text>
 </svg>

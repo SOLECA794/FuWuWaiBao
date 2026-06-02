@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs><linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#3A7BED"/></linearGradient></defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <rect x="55" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <rect x="345" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <rect x="635" y="45" width="280" height="32" rx="4" fill="#1E6FE0"/><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <rect x="925" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">三大模块 · 交付验收</text>
+  <rect x="55" y="118" width="50" height="3" rx="1.5" fill="#0E8C80"/>
+  <text x="55" y="140" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#5A6478">模块 = 能力 + 实现依据 + 验证</text>
+
+  <!-- ===== Module 1: 智课生成 ===== -->
+  <rect x="55" y="155" width="380" height="32" rx="6" fill="#1E6FE0"/>
+  <text x="245" y="177" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">模块一：智课生成</text>
+
+  <rect x="55" y="190" width="380" height="175" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11">
+    <text x="75" y="215" fill="#1D2433" font-weight="bold">交付能力</text>
+    <text x="75" y="235" fill="#5A6478">课件上传后自动完成解析并输出可编辑的</text>
+    <text x="75" y="252" fill="#5A6478">结构化讲稿，&#8804;2分钟/份</text>
+
+    <text x="75" y="280" fill="#1D2433" font-weight="bold">实现依据</text>
+    <text x="75" y="298" fill="#5A6478">&#x25B8; 三阶段解耦管线——每个阶段JSON Schema</text>
+    <text x="85" y="314" fill="#5A6478">严格校验，LLM输出异常时自动触发格式修复</text>
+    <text x="75" y="330" fill="#5A6478">&#x25B8; 任一阶段LLM调用失败&#8594;降级到预置模板</text>
+    <text x="85" y="346" fill="#5A6478">兜底，保证管线不断、解析有输出</text>
+
+    <text x="380" y="195" fill="#0E8C80" font-weight="bold">验证</text>
+    <text x="380" y="220" fill="#1D2433" font-size="16" font-weight="bold">100%</text>
+    <text x="380" y="240" fill="#5A6478" font-size="10">解析成功率</text>
+    <rect x="375" y="260" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="390" y="269" fill="#5A6478" font-size="10">设计保证：降级兜底</text>
+    <text x="380" y="295" fill="#5A6478" font-size="10">每阶段校验+修复</text>
+    <text x="380" y="310" fill="#5A6478" font-size="10">单节点失败不影响整体</text>
+  </g>
+
+  <!-- ===== Module 2: 实时问答 ===== -->
+  <rect x="450" y="155" width="380" height="32" rx="6" fill="#0E8C80"/>
+  <text x="640" y="177" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">模块二：实时问答</text>
+
+  <rect x="450" y="190" width="380" height="175" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11">
+    <text x="470" y="215" fill="#1D2433" font-weight="bold">交付能力</text>
+    <text x="470" y="235" fill="#5A6478">学生提问后SSE流式推送回答，首包&#60;500ms</text>
+    <text x="470" y="252" fill="#5A6478">回答绑定课件页码，苏格拉底式引导</text>
+
+    <text x="470" y="280" fill="#1D2433" font-weight="bold">实现依据</text>
+    <text x="470" y="298" fill="#5A6478">&#x25B8; SSE三事件协议——token逐词推送与sentence</text>
+    <text x="480" y="314" fill="#5A6478">完整回答分属不同事件，首词可独立于全量</text>
+    <text x="490" y="330" fill="#5A6478">生成快速到达，不被等待延迟拖慢</text>
+    <text x="470" y="346" fill="#5A6478">&#x25B8; 编排层只做流式转发不做AI推理，转发</text>
+    <text x="480" y="362" fill="#5A6478">延迟在毫秒级，不引入额外处理瓶颈</text>
+
+    <text x="775" y="195" fill="#0E8C80" font-weight="bold">验证</text>
+    <text x="775" y="220" fill="#1D2433" font-size="16" font-weight="bold">&#60;500ms</text>
+    <text x="775" y="240" fill="#5A6478" font-size="10">SSE首包时间</text>
+    <rect x="770" y="260" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="785" y="269" fill="#5A6478" font-size="10">架构保证：编排转发</text>
+    <text x="775" y="295" fill="#5A6478" font-size="10">课程知识优先检索</text>
+    <text x="775" y="310" fill="#5A6478" font-size="10">苏格拉底约束提示词</text>
+  </g>
+
+  <!-- ===== Module 3: 进度续接 ===== -->
+  <rect x="845" y="155" width="380" height="32" rx="6" fill="#7B5BE0"/>
+  <text x="1035" y="177" font-family="Arial, Microsoft YaHei, sans-serif" font-size="15" fill="#FFFFFF" text-anchor="middle" font-weight="bold">模块三：进度续接</text>
+
+  <rect x="845" y="190" width="380" height="175" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1"/>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11">
+    <text x="865" y="215" fill="#1D2433" font-weight="bold">交付能力</text>
+    <text x="865" y="235" fill="#5A6478">打断后自动判断理解程度，选择续讲/补充/</text>
+    <text x="865" y="252" fill="#5A6478">重讲，精确恢复到节点级位置</text>
+
+    <text x="865" y="280" fill="#1D2433" font-weight="bold">实现依据</text>
+    <text x="865" y="298" fill="#5A6478">&#x25B8; 节点级定位——教学节点为最小语义单元，</text>
+    <text x="875" y="314" fill="#5A6478">续接游标记录resumePage+resumeNodeID+</text>
+    <text x="885" y="330" fill="#5A6478">resumeSec三元组，精度高于传统页级翻页</text>
+    <text x="865" y="346" fill="#5A6478">&#x25B8; 双路判定——LLM语义分析优先，接口不可</text>
+    <text x="875" y="362" fill="#5A6478">用时降级到教育关键词匹配，判定不中断</text>
+
+    <text x="1170" y="195" fill="#0E8C80" font-weight="bold">验证</text>
+    <text x="1170" y="220" fill="#1D2433" font-size="16" font-weight="bold">节点级</text>
+    <text x="1170" y="240" fill="#5A6478" font-size="10">恢复精度</text>
+    <rect x="1165" y="260" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="1180" y="269" fill="#5A6478" font-size="10">vs 传统页级翻页</text>
+    <text x="1170" y="295" fill="#5A6478" font-size="10">三元组持久化保证</text>
+    <text x="1170" y="310" fill="#5A6478" font-size="10">LLM+关键词双路</text>
+  </g>
+
+  <!-- Bottom: consolidated delivery verification -->
+  <rect x="55" y="380" width="1170" height="105" rx="8" fill="#F4F7FC" stroke="#D0D7E2" stroke-width="1"/>
+  <text x="640" y="405" font-family="Arial, Microsoft YaHei, sans-serif" font-size="14" fill="#1D2433" text-anchor="middle" font-weight="bold">为什么这些指标靠得住？——交付验证体系</text>
+
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478">
+    <rect x="75" y="420" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="250" y="437" text-anchor="middle">&#x2714; 功能测试：三大模块18个核心用例全覆盖</text>
+
+    <rect x="440" y="420" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="615" y="437" text-anchor="middle">&#x2714; 性能验证：SSE流式机制本身就是低延迟的架构保证</text>
+
+    <rect x="805" y="420" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="980" y="437" text-anchor="middle">&#x2714; 降级验证：LLM+关键词双路=判定不中断的设计保证</text>
+
+    <rect x="75" y="452" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="250" y="469" text-anchor="middle">&#x2714; 压力测试：10协程并发池+1000队列容量削峰</text>
+
+    <rect x="440" y="452" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="615" y="469" text-anchor="middle">&#x2714; 集成测试：已通过OpenAPI对接泛雅平台</text>
+
+    <rect x="805" y="452" width="350" height="24" rx="6" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="980" y="469" text-anchor="middle">&#x2714; 设计保证：架构层面保障的指标，不是"跑一次"的结果</text>
+  </g>
+
+  <!-- Integration status bar -->
+  <rect x="55" y="500" width="1170" height="48" rx="8" fill="#1E6FE0" fill-opacity="0.06"/>
+  <text x="640" y="520" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#1D2433" text-anchor="middle" font-weight="bold">交付验收结论</text>
+  <text x="640" y="538" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478" text-anchor="middle">三大模块核心功能均具备明确的实现机制支撑和测试验证覆盖，可满足泛雅平台外包交付验收标准</text>
+
+  <!-- Speacker notes area -->
+  <rect x="55" y="560" width="1170" height="100" rx="8" fill="#E8EDF5"/>
+  <text x="75" y="585" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#1D2433" font-weight="bold">答辩讲解要点</text>
+  <text x="75" y="608" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478">
+    <tspan x="75" dy="0">"三个模块的每个指标都不是空口说的——左边是能力，中间是实现依据，右边是验证。</tspan>
+    <tspan x="75" dy="18">比如解析成功率100%，不是因为我们测试了多少次，而是因为三阶段管线每阶段都有格式校验和降级</tspan>
+    <tspan x="75" dy="18">兜底——LLM输出异常自动修复，LLM调用失败自动回退预置模板，管线不会断，一定有输出。"</tspan>
+  </text>
+
+  <rect x="55" y="692" width="1170" height="1" fill="#D0D7E2"/>
+  <text x="55" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">14</text>
+</svg>

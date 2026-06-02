@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#3A7BED"/></linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/><rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="55" y="30" font-family="Arial, Microsoft YaHei, sans-serif" font-size="13" fill="#1E6FE0" font-weight="bold" letter-spacing="1">泛雅 AI 智课</text>
+  <rect x="55" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="195" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目背景</text>
+  <rect x="345" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="485" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">解决方案</text>
+  <rect x="635" y="45" width="280" height="32" rx="4" fill="#1E6FE0"/><text x="775" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#FFFFFF" text-anchor="middle" font-weight="bold">系统实现</text>
+  <rect x="925" y="45" width="280" height="32" rx="4" fill="#E8EDF5"/><text x="1065" y="66" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#5A6478" text-anchor="middle">项目总结</text>
+
+  <text x="55" y="105" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" fill="#1D2433" font-weight="bold">三大模块全覆盖 · 可交付可验证</text>
+  <rect x="55" y="118" width="50" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Table with service-out sourcing framing -->
+  <g font-family="Arial, Microsoft YaHei, sans-serif" font-size="11">
+    <!-- Header -->
+    <rect x="55" y="140" width="200" height="36" rx="6" fill="#1E6FE0"/>
+    <text x="155" y="163" fill="#FFFFFF" text-anchor="middle" font-weight="bold">赛题模块</text>
+    <rect x="255" y="140" width="350" height="36" rx="6" fill="#1E6FE0"/>
+    <text x="430" y="163" fill="#FFFFFF" text-anchor="middle" font-weight="bold">核心交付能力</text>
+    <rect x="605" y="140" width="230" height="36" rx="6" fill="#0E8C80"/>
+    <text x="720" y="163" fill="#FFFFFF" text-anchor="middle" font-weight="bold">测试与验证</text>
+    <rect x="835" y="140" width="390" height="36" rx="6" fill="#7B5BE0"/>
+    <text x="1030" y="163" fill="#FFFFFF" text-anchor="middle" font-weight="bold">平台集成方式</text>
+
+    <!-- Row 1: 智课生成 -->
+    <rect x="55" y="180" width="200" height="140" rx="0" fill="#DDE6FF"/>
+    <text x="155" y="220" fill="#1E6FE0" text-anchor="middle" font-size="15" font-weight="bold">智课生成</text>
+    <text x="155" y="242" fill="#5A6478" text-anchor="middle" font-size="10">课件上传到结构化</text>
+    <text x="155" y="258" fill="#5A6478" text-anchor="middle" font-size="10">讲稿输出全流程</text>
+
+    <rect x="255" y="180" width="350" height="140" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="275" y="205" fill="#1D2433">
+      <tspan x="275" dy="0">&#x2714; 三阶段解耦解析：Markdown理解→</tspan>
+      <tspan x="275" dy="20">节点树构建→逐节点脚本生成</tspan>
+      <tspan x="275" dy="20">&#x2714; 每张课件 &#8804;2分钟完成全流程解析</tspan>
+      <tspan x="275" dy="20">&#x2714; 节点级编辑确认，教师可逐段调整</tspan>
+      <tspan x="275" dy="20">&#x2714; TTS语音合成 + 内容哈希缓存</tspan>
+    </text>
+
+    <rect x="605" y="180" width="230" height="140" rx="0" fill="#F4F7FC"/>
+    <text x="720" y="205" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="12">解析成功率</text>
+    <text x="720" y="225" fill="#1D2433" text-anchor="middle" font-size="20" font-weight="bold">100%</text>
+    <text x="720" y="245" fill="#5A6478" text-anchor="middle" font-size="10">（含降级模板兜底）</text>
+    <rect x="720" y="265" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="735" y="274" fill="#5A6478" text-anchor="middle" font-size="9">功能测试通过</text>
+    <text x="720" y="295" fill="#5A6478" text-anchor="middle" font-size="10">单节点失败不影响整体</text>
+
+    <rect x="835" y="180" width="390" height="140" rx="0" fill="#F4F7FC"/>
+    <text x="1030" y="205" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="12">OpenAPI文档解析</text>
+    <text x="855" y="228" fill="#5A6478">
+      <tspan x="855" dy="0">&#x2714; 泛雅平台通过API提交课件文件</tspan>
+      <tspan x="855" dy="20">&#x2714; 系统自动完成解析并返回结构化结果</tspan>
+      <tspan x="855" dy="20">&#x2714; 解析状态可查询，支持异步回调通知</tspan>
+      <tspan x="855" dy="20">&#x2714; 批量上传支持任务队列排队处理</tspan>
+    </text>
+
+    <!-- Row 2: 实时问答 -->
+    <rect x="55" y="325" width="200" height="140" rx="0" fill="#D6DEF5"/>
+    <text x="155" y="365" fill="#0E8C80" text-anchor="middle" font-size="15" font-weight="bold">实时问答</text>
+    <text x="155" y="387" fill="#5A6478" text-anchor="middle" font-size="10">基于课程知识约束</text>
+    <text x="155" y="403" fill="#5A6478" text-anchor="middle" font-size="10">的上下文问答</text>
+
+    <rect x="255" y="325" width="350" height="140" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="275" y="350" fill="#1D2433">
+      <tspan x="275" dy="0">&#x2714; 三级级联上下文：节点→页面→全页</tspan>
+      <tspan x="275" dy="20">&#x2714; 苏格拉底式教学引导，拒绝直接给答案</tspan>
+      <tspan x="275" dy="20">&#x2714; SSE三事件流式推送，首包&lt;500ms</tspan>
+      <tspan x="275" dy="20">&#x2714; 问答历史滑动窗口，上下文连贯</tspan>
+    </text>
+
+    <rect x="605" y="325" width="230" height="140" rx="0" fill="#F4F7FC"/>
+    <text x="720" y="350" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="12">响应性能</text>
+    <text x="720" y="370" fill="#1D2433" text-anchor="middle" font-size="20" font-weight="bold">&lt;500ms</text>
+    <text x="720" y="390" fill="#5A6478" text-anchor="middle" font-size="10">SSE首包到达时间</text>
+    <rect x="720" y="410" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="735" y="419" fill="#5A6478" text-anchor="middle" font-size="9">并发问答测试通过</text>
+    <text x="720" y="440" fill="#5A6478" text-anchor="middle" font-size="10">回答绑定溯源页码</text>
+
+    <rect x="835" y="325" width="390" height="140" rx="0" fill="#F4F7FC"/>
+    <text x="1030" y="350" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="12">OpenAPI实时对话</text>
+    <text x="855" y="373" fill="#5A6478">
+      <tspan x="855" dy="0">&#x2714; 泛雅平台通过SSE接口接入实时问答</tspan>
+      <tspan x="855" dy="20">&#x2714; 问答记录自动持久化，支持历史回溯</tspan>
+      <tspan x="855" dy="20">&#x2714; 会话上下文随学生进度自动迁移</tspan>
+      <tspan x="855" dy="20">&#x2714; 理解程度数据同步回传教师端</tspan>
+    </text>
+
+    <!-- Row 3: 进度续接 -->
+    <rect x="55" y="470" width="200" height="130" rx="0" fill="#DDE6FF"/>
+    <text x="155" y="510" fill="#1E6FE0" text-anchor="middle" font-size="15" font-weight="bold">进度续接</text>
+    <text x="155" y="532" fill="#5A6478" text-anchor="middle" font-size="10">打断后自动精确</text>
+    <text x="155" y="548" fill="#5A6478" text-anchor="middle" font-size="10">恢复学习进度</text>
+
+    <rect x="255" y="470" width="350" height="130" rx="0" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="0.5"/>
+    <text x="275" y="495" fill="#1D2433">
+      <tspan x="275" dy="0">&#x2714; 理解程度三态判定：none/partial/full</tspan>
+      <tspan x="275" dy="20">&#x2714; 节点级精确续接定位</tspan>
+      <tspan x="275" dy="20">&#x2714; 学习状态机：讲授→问答→续接→回讲</tspan>
+      <tspan x="275" dy="20">&#x2714; 掌握度追踪：答对+0.08/答错-0.06</tspan>
+    </text>
+
+    <rect x="605" y="470" width="230" height="130" rx="0" fill="#F4F7FC"/>
+    <text x="720" y="495" fill="#0E8C80" text-anchor="middle" font-weight="bold" font-size="12">恢复精度</text>
+    <text x="720" y="515" fill="#1D2433" text-anchor="middle" font-size="20" font-weight="bold">节点级</text>
+    <text x="720" y="535" fill="#5A6478" text-anchor="middle" font-size="10">vs 传统页级翻页</text>
+    <rect x="720" y="555" width="8" height="8" rx="2" fill="#0E8C80"/>
+    <text x="735" y="564" fill="#5A6478" text-anchor="middle" font-size="9">打断恢复场景验证</text>
+
+    <rect x="835" y="470" width="390" height="130" rx="0" fill="#F4F7FC"/>
+    <text x="1030" y="495" fill="#7B5BE0" text-anchor="middle" font-weight="bold" font-size="12">OpenAPI进度同步</text>
+    <text x="855" y="518" fill="#5A6478">
+      <tspan x="855" dy="0">&#x2714; 学习进度通过OpenAPI实时同步至泛雅平台</tspan>
+      <tspan x="855" dy="20">&#x2714; 掌握度数据可对接到教务管理系统</tspan>
+      <tspan x="855" dy="20">&#x2714; 续接位置随学生会话持久化存储</tspan>
+    </text>
+  </g>
+
+  <!-- Bottom summary: testing + deployment -->
+  <rect x="55" y="625" width="1170" height="48" rx="8" fill="#1E6FE0" fill-opacity="0.08"/>
+  <text x="640" y="645" font-family="Arial, Microsoft YaHei, sans-serif" font-size="12" fill="#1D2433" text-anchor="middle" font-weight="bold">交付状态</text>
+  <text x="640" y="662" font-family="Arial, Microsoft YaHei, sans-serif" font-size="11" fill="#5A6478" text-anchor="middle">三大模块全链路功能测试通过 · 性能指标达标（SSE首包 &lt;500ms，并发10+）· 通过泛雅OpenAPI完成集成对接 · 容器化部署方案完备</text>
+
+  <rect x="55" y="692" width="1170" height="1" fill="#D0D7E2"/>
+  <text x="55" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1225" y="710" font-family="Arial, Microsoft YaHei, sans-serif" font-size="10" fill="#9AA3B5" text-anchor="end">14</text>
+</svg>

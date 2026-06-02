@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="topBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1E6FE0"/><stop offset="100%" stop-color="#1E6FE0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  <rect width="1280" height="4" fill="url(#topBar)"/>
+  <text x="60" y="60" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#1E6FE0" font-weight="bold" letter-spacing="1">痛点分析</text>
+  <text x="60" y="100" font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="36" fill="#1D2433" font-weight="bold">三类角色，三道断点</text>
+  <rect x="60" y="115" width="60" height="3" rx="1.5" fill="#0E8C80"/>
+
+  <!-- Three persona cards -->
+  <!-- Card 1: Teacher -->
+  <rect x="60" y="150" width="360" height="380" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="60" y="150" width="360" height="100" rx="12" fill="#1E6FE0"/>
+  <rect x="60" y="238" width="360" height="12" fill="#1E6FE0"/>
+  <use data-icon="tabler-filled/user" x="210" y="175" width="24" height="24" fill="#FFFFFF"/>
+  <text x="240" y="195" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#FFFFFF" font-weight="bold">教师端</text>
+  <text x="80" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">断点一：学情看不见</text>
+  <text x="80" y="335" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
+    <tspan x="80" dy="0">备课耗时：每课需逐字撰写讲稿</tspan>
+    <tspan x="80" dy="26">学情缺失：不知道学生哪里卡住</tspan>
+    <tspan x="80" dy="26">补讲不精准：无法定位薄弱环节</tspan>
+  </text>
+  <rect x="80" y="420" width="320" height="1" fill="#D0D7E2"/>
+  <text x="80" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#1E6FE0">根源：静态课件只有展示层，无学情反馈</text>
+
+  <!-- Card 2: Student -->
+  <rect x="460" y="150" width="360" height="380" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="460" y="150" width="360" height="100" rx="12" fill="#0E8C80"/>
+  <rect x="460" y="238" width="360" height="12" fill="#0E8C80"/>
+  <use data-icon="tabler-filled/user" x="610" y="175" width="24" height="24" fill="#FFFFFF"/>
+  <text x="640" y="195" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#FFFFFF" font-weight="bold">学生端</text>
+  <text x="480" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">断点二：进度易脱节</text>
+  <text x="480" y="335" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
+    <tspan x="480" dy="0">传统方案只有页级翻页，打断后只能</tspan>
+    <tspan x="480" dy="26">从头重看</tspan>
+    <tspan x="480" dy="26">通用大模型回答缺乏课程知识约束，</tspan>
+    <tspan x="480" dy="26">容易产生偏离教材的幻觉答案</tspan>
+    <tspan x="480" dy="26">无个性化辅导，学习效率低</tspan>
+  </text>
+  <rect x="480" y="420" width="320" height="1" fill="#D0D7E2"/>
+  <text x="480" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#0E8C80">根源：缺少节点级定位和知识约束</text>
+
+  <!-- Card 3: Platform -->
+  <rect x="860" y="150" width="360" height="380" rx="12" fill="#FFFFFF" stroke="#D0D7E2" stroke-width="1.5"/>
+  <rect x="860" y="150" width="360" height="100" rx="12" fill="#5A6478"/>
+  <rect x="860" y="238" width="360" height="12" fill="#5A6478"/>
+  <use data-icon="tabler-filled/building-bridge-2" x="1010" y="175" width="24" height="24" fill="#FFFFFF"/>
+  <text x="1040" y="195" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="20" fill="#FFFFFF" font-weight="bold">平台端</text>
+  <text x="880" y="300" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="18" fill="#1D2433" font-weight="bold">断点三：智化难</text>
+  <text x="880" y="335" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="14" fill="#5A6478">
+    <tspan x="880" dy="0">海量静态课件无法直接转化为可交互</tspan>
+    <tspan x="880" dy="26">教学内容</tspan>
+    <tspan x="880" dy="26">文本提取不等于内容理解——需要多</tspan>
+    <tspan x="880" dy="26">阶段解耦才能生成结构化教案</tspan>
+  </text>
+  <rect x="880" y="420" width="320" height="1" fill="#D0D7E2"/>
+  <text x="880" y="445" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="12" fill="#5A6478">根源：缺少结构化内容底座</text>
+
+  <!-- Bottom summary -->
+  <rect x="60" y="560" width="1160" height="80" rx="10" fill="#1E6FE0" fill-opacity="0.06"/>
+  <text x="640" y="590" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="15" fill="#1D2433" text-anchor="middle" font-weight="bold">三个痛点的根因是同一个——静态课件只有展示层，没有被系统理解成可定位的教学节点</text>
+  <text x="640" y="618" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="13" fill="#1E6FE0" text-anchor="middle">节点化内容底座 = 教师脚本编辑 + 学生问答溯源 + 断点续接定位 + 学情统计的共享语义层</text>
+
+  <rect x="60" y="680" width="1160" height="1" fill="#D0D7E2"/>
+  <text x="60" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5">泛雅 AI 互动智课系统</text>
+  <text x="1220" y="700" font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif" font-size="11" fill="#9AA3B5" text-anchor="end">04</text>
+</svg>
